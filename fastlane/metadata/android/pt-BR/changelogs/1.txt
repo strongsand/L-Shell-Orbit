@@ -1,0 +1,6 @@
+Primeira candidata a beta pública.
+
+- Monitoramento e diagnóstico local do terminal e roteador
+- Histórico, gráficos, relatórios, notificações e controles locais compatíveis
+- Ferramentas opcionais de instalação e satélites em realidade aumentada
+- Provisionamento e sincronização de histórico com o L-Shell Beacon opcional

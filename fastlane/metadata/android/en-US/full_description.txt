@@ -1,0 +1,9 @@
+L-Shell Orbit is an independent, unofficial Android app for locally monitoring and diagnosing compatible Starlink terminals and routers.
+
+It displays connection state, latency, traffic, obstruction, alerts, power history and equipment information exposed by the local interface. It also provides local reports, notifications, diagnostics, supported equipment actions, installation tools and an optional augmented-reality satellite view based on public orbital data.
+
+L-Shell Beacon is an optional ESP32 companion. It can retain local Dishy history while the phone is away and synchronize that history back to the app on the same network.
+
+The core monitoring flow does not require a Starlink account, Google Play Services, advertising, analytics or a project cloud service. Feature availability depends on hardware, firmware and network topology. The app communicates with compatible equipment on the local network; the optional satellite catalog is downloaded from CelesTrak over HTTPS.
+
+L-Shell Orbit is not affiliated with or endorsed by Starlink or SpaceX.

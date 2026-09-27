@@ -1,0 +1,6 @@
+First public beta candidate.
+
+- Local terminal and router monitoring and diagnostics
+- History, charts, reports, notifications and supported local controls
+- Optional AR installation and satellite tools
+- Optional L-Shell Beacon provisioning and history synchronization

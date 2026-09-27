@@ -1,0 +1,282 @@
+// L-Shell Orbit — Local Starlink gRPC interoperability definitions.
+//
+// This file contains only the subset of Protocol Buffers definitions required
+// by L-Shell Orbit to interoperate with the observable local Starlink gRPC service.
+// The definitions were synthesized during development from that local service
+// interface and community open-source references, including
+// https://github.com/sparky8512/starlink-grpc-tools (The Unlicense).
+// No source code from that project is known to be incorporated directly here.
+// This file is not presented as an official SpaceX or Starlink protobuf schema.
+//
+// The current file header and maintainer-provided project history date the first
+// version to 2026-09-20 and describe a later java_package adjustment. A complete
+// independent verification against the original VCS history was not possible
+// from the present project copy. See docs/DEVICE_PROTO_PROVENANCE.md.
+
+syntax = "proto3";
+
+package SpaceX.API.Device;
+
+option java_package = "com.hurricane.lshell.proto";
+option java_outer_classname = "DeviceProto";
+option java_multiple_files = true;
+
+service Device {
+    rpc Handle (Request) returns (Response);
+}
+
+message Request {
+    uint64 id = 1;
+    string target_id = 13;
+    RebootRequest reboot = 1001;
+    DishGetStatusRequest get_status = 1004;
+    DishStowRequest dish_stow = 2002;
+    DishInhibitGpsRequest dish_inhibit_gps = 2014;
+    DishGetHistoryRequest get_history = 1007;
+    DishGetObstructionMapRequest dish_get_obstruction_map = 2008;
+    WifiGetClientsRequest wifi_get_clients = 3002;
+    GetDiagnosticsRequest get_diagnostics = 6000;
+    SpeedTestRequest speed_test = 1003;
+    StartSpeedtestRequest start_speedtest = 1027;
+    GetSpeedtestStatusRequest get_speedtest_status = 1028;
+}
+
+message Response {
+    uint64 id = 1;
+    RebootResponse reboot = 1001;
+    DishStowResponse dish_stow = 2002;
+    DishInhibitGpsResponse dish_inhibit_gps = 2013;
+    DishGetStatusResponse dish_get_status = 2004;
+    DishGetHistoryResponse dish_get_history = 2006;
+    DishGetObstructionMapResponse dish_get_obstruction_map = 2008;
+    WifiGetStatusResponse wifi_get_status = 3004;
+    WifiGetClientsResponse wifi_get_clients = 3002;
+    WifiGetDiagnosticsResponse wifi_get_diagnostics = 6000;
+    DishGetDiagnosticsResponse dish_get_diagnostics = 6001;
+    SpeedTestResponse speed_test = 1003;
+    StartSpeedtestResponse start_speedtest = 1027;
+    GetSpeedtestStatusResponse get_speedtest_status = 1028;
+}
+
+message DishGetStatusRequest {}
+
+message DishGetStatusResponse {
+    DeviceInfo device_info = 1;
+    DeviceState device_state = 2;
+    DishAlerts alerts = 1005;
+    // Verified against the local dish via gRPC reflection, 2026-09-20.
+    reserved 1001, 1006;
+    DishOutage outage = 1014;
+    float seconds_to_first_nonempty_slot = 1002;
+    float pop_ping_drop_rate = 1003;
+    float downlink_throughput_bps = 1007;
+    float uplink_throughput_bps = 1008;
+    float pop_ping_latency_ms = 1009;
+    DishObstructionStats obstruction_stats = 1004;
+    float boresight_azimuth_deg = 1011;
+    float boresight_elevation_deg = 1012;
+    int32 eth_speed_mbps = 1016;
+    bool is_snr_above_noise_floor = 1018;
+    bool is_snr_persistently_low = 1022;
+}
+
+message DishOutage {
+    enum Cause {
+        UNKNOWN = 0;
+        BOOTING = 1;
+        STOWED = 2;
+        THERMAL_SHUTDOWN = 3;
+        NO_SCHEDULE = 4;
+        NO_SATS = 5;
+        OBSTRUCTED = 6;
+        NO_DOWNLINK = 7;
+        NO_PINGS = 8;
+        ACTUATOR_ACTIVITY = 9;
+        CABLE_TEST = 10;
+        SLEEPING = 11;
+        SKY_SEARCH = 13;
+        INHIBIT_RF = 14;
+    }
+    Cause cause = 1;
+}
+
+message DishAlerts {
+    bool motors_stuck = 1;
+    bool thermal_throttle = 3;
+    bool thermal_shutdown = 2;
+    bool mast_not_near_vertical = 5;
+    bool unexpected_location = 4;
+    bool slow_ethernet_speeds = 6;
+    bool install_pending = 8;
+    bool is_heating = 9;
+    bool power_supply_thermal_throttle = 10;
+    bool is_power_save_idle = 11;
+    bool slow_ethernet_speeds_100 = 18;
+    bool no_ethernet_link = 23;
+}
+
+message DishObstructionStats {
+    bool currently_obstructed = 5;
+    float fraction_obstructed = 1;
+    float time_obstructed = 9;
+    float valid_s = 4;
+    float avg_prolonged_obstruction_interval_s = 7;
+    reserved 2, 3;
+}
+
+message DeviceInfo {
+    string id = 1;
+    string hardware_version = 2;
+    string software_version = 3;
+    string country_code = 4;
+    int32 utc_offset_s = 5;
+    bool software_partitions_equal = 6;
+    int32 bootcount = 8;
+    string manufactured_version = 11;
+    BootInfo boot = 1001;
+}
+
+message RebootRequest {}
+message RebootResponse {}
+message DishStowRequest { bool unstow = 1; }
+message DishStowResponse {}
+message DishInhibitGpsRequest { bool inhibit_gps = 1; }
+message DishInhibitGpsResponse {}
+
+message BootInfo {
+    message CountByReasonEntry {
+        int32 key = 1;
+        int32 value = 2;
+    }
+    repeated CountByReasonEntry count_by_reason = 1;
+    int32 last_reason = 2;
+}
+
+message DeviceState {
+    uint64 uptime_s = 1;
+}
+
+message DishGetHistoryRequest {}
+
+message DishGetObstructionMapRequest {}
+
+enum ObstructionMapReferenceFrame {
+    FRAME_UNKNOWN = 0;
+    FRAME_EARTH = 1;
+    FRAME_UT = 2;
+}
+
+message DishGetObstructionMapResponse {
+    uint32 num_rows = 1;
+    uint32 num_cols = 2;
+    repeated float snr = 3;
+    float min_elevation_deg = 4 [deprecated = true];
+    float max_theta_deg = 5;
+    ObstructionMapReferenceFrame map_reference_frame = 6;
+}
+
+message DishGetHistoryResponse {
+    uint64 current = 1;
+    repeated float pop_ping_drop_rate = 1001;
+    repeated float pop_ping_latency_ms = 1002;
+    repeated float downlink_throughput_bps = 1003;
+    repeated float uplink_throughput_bps = 1004;
+    repeated float snr = 1005;
+    repeated float power_in = 1010;
+}
+
+// Read-only subset of the Starlink router's local gRPC response.
+message WifiGetClientsRequest {}
+message GetDiagnosticsRequest {}
+message DishGetDiagnosticsResponse {
+    AlignmentStats alignment_stats = 9;
+}
+message AlignmentStats {
+    float boresight_azimuth_deg = 1;
+    float boresight_elevation_deg = 2;
+    float desired_boresight_azimuth_deg = 3;
+    float desired_boresight_elevation_deg = 4;
+}
+message WifiGetDiagnosticsResponse {
+    message Network {
+        string domain = 1;
+        string ipv4 = 2;
+        repeated string ipv6 = 3;
+        uint32 clients_ethernet = 10;
+        uint32 clients_2ghz = 11;
+        uint32 clients_5ghz = 12;
+    }
+    repeated Network networks = 4;
+}
+message WifiGetClientsResponse {
+    repeated WifiClient clients = 1;
+}
+
+message WifiGetStatusResponse {
+    DeviceInfo device_info = 3;
+    DeviceState device_state = 4;
+    string ipv4_wan_address = 1003;
+    repeated string ipv6_wan_addresses = 1017;
+    float ping_latency_ms = 1005;
+    float dish_ping_latency_ms = 1013;
+    float pop_ping_latency_ms = 1015;
+    WifiAlerts alerts = 1010;
+    repeated WifiClient clients = 3000;
+}
+
+message WifiAlerts {
+    bool thermal_throttle = 1;
+    bool install_pending = 2;
+    bool lan_eth_slow_link_10 = 4;
+    bool lan_eth_slow_link_100 = 5;
+    bool wan_eth_poor_connection = 10;
+}
+
+message WifiClient {
+    message RxStats { uint64 bytes = 1; }
+    message TxStats { uint64 bytes = 1; }
+    string name = 1;
+    string given_name = 31;
+    string mac_address = 2;
+    string ip_address = 3;
+    repeated string ipv6_addresses = 41;
+    float signal_strength = 4;
+    RxStats rx_stats = 5;
+    TxStats tx_stats = 6;
+    uint32 associated_time_s = 7;
+    int32 iface = 9;
+    float snr = 10;
+    int32 role = 14;
+    bool active = 58;
+}
+
+message SpeedTestRequest {}
+message SpeedTestResponse {
+    float download_bps = 1;
+    float upload_bps = 2;
+    float latency_s = 3;
+    float download_mbps = 4;
+    float upload_mbps = 5;
+    float latency_ms = 6;
+}
+
+message StartSpeedtestRequest {
+    int32 duration_s = 1;
+    bool send_telemetry = 2;
+}
+message StartSpeedtestResponse {}
+message GetSpeedtestStatusRequest {}
+message GetSpeedtestStatusResponse {
+    SpeedtestStatus status = 1;
+}
+message SpeedtestStatus {
+    message Direction {
+        repeated float throughputs_mbps = 1;
+        int32 err = 2;
+    }
+    bool running = 1;
+    uint32 id = 2;
+    Direction up = 1000;
+    Direction down = 1001;
+}
+

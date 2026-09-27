@@ -1,0 +1,63 @@
+# Android Studio, Gradle and Kotlin local state
+.gradle/
+.kotlin/
+.idea/
+.fleet/
+.android/
+.android-validation/
+**/build/
+out/
+local.properties
+*.iml
+
+# PlatformIO and editor-generated firmware state
+**/.pio/
+**/.pioenvs/
+**/.piolibdeps/
+.vscode/
+
+# Build and signing outputs
+*.apk
+*.aab
+*.ap_
+app/release/
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key
+*.mobileprovision
+
+# Local secrets and machine-specific files
+.env
+.env.*
+secrets.properties
+keystore.properties
+google-services.json
+analytics.settings
+
+# Local assistant/session state
+.codex/
+.agents/
+codex-*
+
+# Tool output and downloaded reference pages
+*.log
+captures/
+.externalNativeBuild/
+.cxx/
+*.hprof
+hs_err_pid*
+glance-layout.html
+rowscope.html
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Internal working notes: review or rewrite before publishing
+/CORRECOES-TELEMETRIA.txt
+/LEIA-ME.txt
+/PROXIMAS-IDEIAS.md
