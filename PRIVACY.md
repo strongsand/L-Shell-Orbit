@@ -2,7 +2,7 @@
 
 L-Shell Orbit is designed around local processing. It contains no advertising, analytics, behavioral tracking, cloud crash reporting, account login, or Starlink cloud API integration.
 
-The Android application ID is `com.hurricane.lshell`. It identifies the installed application locally and is not used as a remote analytics or account identifier.
+The Android application ID is `io.github.strongsand.lshell`. It identifies the installed application locally and is not used as a remote analytics or account identifier.
 
 ## Data flow
 

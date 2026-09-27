@@ -17,7 +17,7 @@ syntax = "proto3";
 
 package SpaceX.API.Device;
 
-option java_package = "com.hurricane.lshell.proto";
+option java_package = "io.github.strongsand.lshell.proto";
 option java_outer_classname = "DeviceProto";
 option java_multiple_files = true;
 

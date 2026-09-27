@@ -44,7 +44,7 @@
         android:theme="@android:style/Theme.Material.NoActionBar">
 
         <activity
-            android:name="com.hurricane.lshell.MainActivity"
+            android:name="io.github.strongsand.lshell.MainActivity"
             android:exported="true"
             android:theme="@android:style/Theme.Material.NoActionBar">
             <intent-filter>
@@ -54,13 +54,13 @@
         </activity>
 
         <service
-            android:name="com.hurricane.lshell.DishyMonitorService"
+            android:name="io.github.strongsand.lshell.DishyMonitorService"
             android:exported="false"
             android:foregroundServiceType="connectedDevice" />
 
-        <receiver android:name="com.hurricane.lshell.DailyReportReceiver" android:exported="false" />
+        <receiver android:name="io.github.strongsand.lshell.DailyReportReceiver" android:exported="false" />
 
-        <receiver android:name="com.hurricane.lshell.ReportRescheduleReceiver" android:exported="false">
+        <receiver android:name="io.github.strongsand.lshell.ReportRescheduleReceiver" android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.TIME_SET" />
@@ -70,7 +70,7 @@
         </receiver>
 
         <receiver
-            android:name="com.hurricane.lshell.ObstructionWidgetReceiver"
+            android:name="io.github.strongsand.lshell.ObstructionWidgetReceiver"
             android:exported="false"
             android:label="@string/widget_obstruction_name">
             <intent-filter>
@@ -82,7 +82,7 @@
         </receiver>
 
         <receiver
-            android:name="com.hurricane.lshell.ReportWidgetReceiver"
+            android:name="io.github.strongsand.lshell.ReportWidgetReceiver"
             android:exported="false"
             android:label="@string/widget_report_name">
             <intent-filter>
@@ -94,7 +94,7 @@
         </receiver>
 
         <receiver
-            android:name="com.hurricane.lshell.BeaconWidgetReceiver"
+            android:name="io.github.strongsand.lshell.BeaconWidgetReceiver"
             android:exported="false"
             android:label="@string/widget_beacon_name">
             <intent-filter>

@@ -12,9 +12,9 @@ Escopo: fontes, configuração Gradle, manifesto, dependências, recursos, rede,
 
 - Nome público: **L-Shell Orbit**.
 - Nome público anterior: **L-Shell**. A alteração para L-Shell Orbit foi somente de branding.
-- `applicationId`: `com.hurricane.lshell`.
-- `namespace`: `com.hurricane.lshell`.
-- Packages Kotlin e package dos bindings gerados: `com.hurricane.lshell` e `com.hurricane.lshell.proto`.
+- `applicationId`: `io.github.strongsand.lshell`.
+- `namespace`: `io.github.strongsand.lshell`.
+- Packages Kotlin e package dos bindings gerados: `io.github.strongsand.lshell` e `io.github.strongsand.lshell.proto`.
 - Versão da primeira beta sob a nova identidade: `versionName = 0.1.0-beta`, `versionCode = 1`.
 - O package de protocolo `SpaceX.API.Device` permanece inalterado porque faz parte da interoperabilidade gRPC, não do branding do aplicativo.
 - A troca de `applicationId` faz o Android tratar L-Shell Orbit como uma instalação diferente de builds antigos. Banco e preferências da instalação anterior não migram automaticamente.
@@ -28,7 +28,7 @@ Escopo: fontes, configuração Gradle, manifesto, dependências, recursos, rede,
 
 - `usesCleartextTraffic="true"` está habilitado globalmente porque os endpoints gRPC locais usam texto claro. Para endurecimento futuro, avalie limitar cleartext somente aos hosts locais, mas apenas depois de validar todas as variantes de rede suportadas.
 - O User-Agent usado para baixar o catálogo orbital imita um Chrome Android. Não é rastreamento, porém um identificador honesto do projeto seria mais transparente numa revisão futura.
-- `namespace` e `applicationId` foram consolidados em `com.hurricane.lshell`. O identificador é tecnicamente válido; confirme que será o identificador estável e controlado pelo mantenedor antes da primeira publicação.
+- `namespace` e `applicationId` foram consolidados em `io.github.strongsand.lshell`. O identificador é tecnicamente válido; confirme que será o identificador estável e controlado pelo mantenedor antes da primeira publicação.
 - `versionCode = 1` e `versionName = 0.1.0-beta` representam a primeira beta pública da nova identidade. Cada release posterior precisa incrementar o código e ter uma tag correspondente, como `v0.1.0-beta`.
 - A procedência de `device.proto` foi documentada em `docs/DEVICE_PROTO_PROVENANCE.md`. O histórico anterior foi informado pelo mantenedor e é coerente com o cabeçalho antigo, mas não pôde ser inteiramente confirmado por VCS nesta cópia. A origem observável do protocolo continua sendo um item revisável, não uma alegação de schema oficial.
 - Não há dependency locking ou verification metadata. As versões declaradas são fixas e foi adicionada a soma SHA-256 da distribuição Gradle, mas locks/verificação podem aumentar a auditabilidade.
@@ -170,7 +170,7 @@ Próximas etapas concretas:
 3. Ao criar o repositório público, confirmar que `gradlew` foi versionado com permissão executável (`100755`), já que essa informação não pode ser validada no índice Git desta cópia local no Windows.
 4. Fazer uma build limpa manual e validar o APK resultante.
 5. Publicar o fonte da beta com uma tag coerente, como `v0.1.0-beta`.
-6. Criar URL pública de issues e changelog e completar `docs/fdroid/com.hurricane.lshell.yml.example`.
+6. Criar URL pública de issues e changelog e completar `docs/fdroid/io.github.strongsand.lshell.yml.example`.
 7. Revisar os textos já preparados em `fastlane/metadata/android/` e adicionar screenshots reais. Os idiomas atuais são `en-US` e `pt-BR`.
 8. Submeter a inclusão pelo processo oficial e responder a eventuais pedidos de Anti-Features/proveniência.
 
@@ -183,7 +183,7 @@ Próximas etapas concretas:
 - **UpstreamNonFree:** não identificado, desde que o L-Shell Orbit seja publicado como projeto original sob licença livre.
 - **NonFreeAssets:** nenhum conhecido. A CA pública anteriormente embarcada foi removida, e a documentação do schema foi adicionada.
 
-Foi criado um rascunho de metadata em `docs/fdroid/com.hurricane.lshell.yml.example`. A estrutura da receita, versão e tag futura estão preenchidas; URLs permanecem como pendências comentadas até existirem repositório, tracker e changelog públicos. `fastlane/metadata/android/` contém textos `en-US` e `pt-BR`; screenshots reais, ícone PNG/feature graphic e revisão final de loja continuam pendentes.
+Foi criado um rascunho de metadata em `docs/fdroid/io.github.strongsand.lshell.yml.example`. A estrutura da receita, versão e tag futura estão preenchidas; URLs permanecem como pendências comentadas até existirem repositório, tracker e changelog públicos. `fastlane/metadata/android/` contém textos `en-US` e `pt-BR`; screenshots reais, ícone PNG/feature graphic e revisão final de loja continuam pendentes.
 
 ## Arquivos alterados
 
@@ -194,8 +194,8 @@ Foi criado um rascunho de metadata em `docs/fdroid/com.hurricane.lshell.yml.exam
 - `PRIVACY.md`: criado com fluxos de dados, armazenamento e justificativa de permissões.
 - `THIRD_PARTY_NOTICES.md`: criado com inventário inicial de terceiros, dados externos e pendências de proveniência.
 - `docs/F-DROID-AUDIT.md`: criado com esta auditoria e roteiro de submissão.
-- `app/build.gradle.kts`: identidade técnica consolidada em `com.hurricane.lshell` e versão ajustada para `0.1.0-beta`, mantendo `versionCode = 1`.
-- `app/src/main/AndroidManifest.xml`, fontes Kotlin e testes: packages, imports, componentes e actions migrados para `com.hurricane.lshell`.
+- `app/build.gradle.kts`: identidade técnica consolidada em `io.github.strongsand.lshell` e versão ajustada para `0.1.0-beta`, mantendo `versionCode = 1`.
+- `app/src/main/AndroidManifest.xml`, fontes Kotlin e testes: packages, imports, componentes e actions migrados para `io.github.strongsand.lshell`.
 - `app/src/main/proto/device.proto`: `java_package` migrado e cabeçalho de procedência conservador adicionado.
 - `app/src/main/res/values/widget_strings.xml`, notificações e textos visíveis: branding atualizado para L-Shell Orbit.
 - `docs/DEVICE_PROTO_PROVENANCE.md`: criado para separar fatos observáveis, histórico informado, referência comunitária e pontos não verificados.
@@ -203,12 +203,12 @@ Foi criado um rascunho de metadata em `docs/fdroid/com.hurricane.lshell.yml.exam
 - `app/src/main/AndroidManifest.xml`: removida a referência à configuração de CA customizada.
 - `app/src/main/res/xml/network_security_config.xml`: removido porque só acrescentava a CA Sectigo ao trust store do CelesTrak.
 - `app/src/main/res/raw/sectigo_root_r46.crt`: removido após confirmar que não tinha outro consumidor.
-- `docs/fdroid/com.hurricane.lshell.yml.example`: rascunho de metadata com licença e versão conhecidas, sem inventar URLs.
+- `docs/fdroid/io.github.strongsand.lshell.yml.example`: rascunho de metadata com licença e versão conhecidas, sem inventar URLs.
 - `gradle/wrapper/gradle-wrapper.jar`: substituído pelo JAR oficial do Gradle 8.13 após validação do checksum publicado.
 - `gradlew` e `gradlew.bat`: alinhados aos scripts oficiais do tag `v8.13.0`, sem execução.
-- Branding visível, README, privacidade, avisos de terceiros, procedência e metadata: nome público atualizado de L-Shell para L-Shell Orbit, preservando `com.hurricane.lshell`.
-- `app/src/main/java/com/hurricane/lshell/beacon/`: implementação Android do L-Shell Beacon com provisionamento BLE protegido, descoberta mDNS, status LAN e sincronização incremental idempotente do histórico local.
-- `app/src/main/java/com/hurricane/lshell/BeaconScreen.kt` e navegação/Home: onboarding, estados de descoberta e pareamento BLE, painel, configurações e card condicional Material 3.
+- Branding visível, README, privacidade, avisos de terceiros, procedência e metadata: nome público atualizado de L-Shell para L-Shell Orbit, preservando `io.github.strongsand.lshell`.
+- `app/src/main/java/io/github/strongsand/lshell/beacon/`: implementação Android do L-Shell Beacon com provisionamento BLE protegido, descoberta mDNS, status LAN e sincronização incremental idempotente do histórico local.
+- `app/src/main/java/io/github/strongsand/lshell/BeaconScreen.kt` e navegação/Home: onboarding, estados de descoberta e pareamento BLE, painel, configurações e card condicional Material 3.
 - `HistoryStore.kt` e consumidores de histórico: schema local registra origem, ID e sequência do Beacon, com deduplicação e integração aos gráficos, relatórios e diagnósticos existentes.
 - `app/src/main/res/values*/beacon_strings.xml`: textos do Beacon em português, inglês e espanhol.
 - `app/src/main/AndroidManifest.xml`: permissões de estado Wi-Fi e multicast adicionadas para a descoberta mDNS local, sem SDK proprietário.

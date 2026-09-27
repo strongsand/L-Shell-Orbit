@@ -11,7 +11,7 @@ The file is not presented as an official schema published or endorsed by SpaceX 
 - The file defines a limited set of requests, responses, fields, and services used by L-Shell Orbit.
 - Its earlier header records an initial version dated 2026-09-20 and a later `java_package` adjustment.
 - The Android build generates Java and Kotlin bindings from this file with the standard open-source Protocol Buffers and gRPC toolchains.
-- The current Java output package is `com.hurricane.lshell.proto`.
+- The current Java output package is `io.github.strongsand.lshell.proto`.
 - Protocol identifiers required for interoperability remain in their observed technical form.
 
 ## Maintainer-provided history

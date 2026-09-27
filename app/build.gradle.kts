@@ -6,7 +6,7 @@
 // CHANGELOG:
 // - [v1.4 | 2026-09-20]: Adicionado explicitamente os diretórios de código gerado
 //   pelo protoc aos sourceSets do Kotlin/Java. Isso força o compilador Kotlin a
-//   encontrar o pacote 'com.hurricane.lshell.proto' imediatamente sem falhas
+//   encontrar o pacote 'io.github.strongsand.lshell.proto' imediatamente sem falhas
 //   de indexação no Android Studio / Gradle 8+.
 // - [v1.3 | 2026-09-20]: Ajuste no plugin grpckt.
 // =========================================================================
@@ -21,11 +21,11 @@ plugins {
 }
 
 android {
-    namespace = "com.hurricane.lshell"
+    namespace = "io.github.strongsand.lshell"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.hurricane.lshell"
+        applicationId = "io.github.strongsand.lshell"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
