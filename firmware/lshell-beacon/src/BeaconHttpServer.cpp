@@ -87,16 +87,19 @@ static void appendMetric(String& json, const char* name, float value, bool valid
 
 void BeaconHttpServer::sendHistory() {
   Serial.println(F("SYNC_REQUEST"));
+  Serial.println(F("SYNC_HISTORY_READ_START"));
   const String afterArgument=server_.arg("after");
   uint64_t after=server_.hasArg("after")&&!afterArgument.startsWith("-")?strtoull(afterArgument.c_str(),nullptr,10):0;
   int requestedLimit=server_.hasArg("limit")?server_.arg("limit").toInt():500;
   size_t limit=static_cast<size_t>(constrain(requestedLimit,1,500));
   std::unique_ptr<BeaconStoredSample[]> records(new (std::nothrow) BeaconStoredSample[limit]);
-  if (!records) { server_.send(503, "application/json", "{\"ok\":false,\"code\":\"NO_MEMORY\"}"); return; }
+  if (!records) { Serial.println(F("SYNC_HISTORY_READ_ERROR=NO_MEMORY"));server_.send(503, "application/json", "{\"ok\":false,\"code\":\"NO_MEMORY\"}"); return; }
   size_t count = 0; bool hasMore = false;
   if (!storage_.readAfter(after, limit, records.get(), limit, count, hasMore)) {
+    Serial.print(F("SYNC_HISTORY_READ_ERROR="));Serial.println(storage_.lastError());
     server_.send(500, "application/json", "{\"ok\":false,\"code\":\"STORAGE_ERROR\"}"); return;
   }
+  Serial.print(F("SYNC_HISTORY_PAGE_COUNT="));Serial.println(count);
   setSyncVisual(true);
   server_.setContentLength(CONTENT_LENGTH_UNKNOWN);
   server_.send(200, "application/json; charset=utf-8", "");
@@ -123,7 +126,7 @@ void BeaconHttpServer::sendHistory() {
 
 void BeaconHttpServer::setSyncVisual(bool active) {
   if (active) state_ = BeaconState::SYNCING;
-  else if (!storage_.healthy()) state_ = BeaconState::STORAGE_WARNING;
+  else if (!storage_.healthy() || storage_.pressure()) state_ = BeaconState::STORAGE_WARNING;
   else if (dishy_.reachableKnown() && !dishy_.reachable()) state_ = BeaconState::DISHY_UNAVAILABLE;
   else state_ = dishy_.recording() ? BeaconState::RECORDING : BeaconState::READY;
   led_.setState(state_);
@@ -136,7 +139,7 @@ void BeaconHttpServer::acceptHistoryAck() {
   if(valueStart>=body.length()||!std::isdigit(static_cast<unsigned char>(body[valueStart]))){server_.send(400,"application/json","{\"ok\":false,\"code\":\"INVALID_ACK\"}");return;}
   char* end=nullptr;const uint64_t sequence=strtoull(body.c_str()+valueStart,&end,10);
   if(end==body.c_str()+valueStart){server_.send(400,"application/json","{\"ok\":false,\"code\":\"INVALID_ACK\"}");return;}
-  if(!storage_.acknowledgeThrough(sequence)){server_.send(500,"application/json","{\"ok\":false,\"code\":\"STORAGE_ERROR\"}");return;}
+  Serial.println(F("SYNC_ACK_RECEIVED"));if(!storage_.acknowledgeThrough(sequence)){Serial.print(F("SYNC_ACK_PERSIST_ERROR="));Serial.println(storage_.lastError());server_.send(500,"application/json","{\"ok\":false,\"code\":\"STORAGE_ERROR\"}");return;}
   Serial.println(F("SYNC_ACK"));server_.send(200,"application/json","{\"ok\":true}");
 }
 

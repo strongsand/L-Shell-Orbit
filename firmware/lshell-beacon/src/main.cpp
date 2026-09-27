@@ -122,7 +122,8 @@ void setup() {
   button.begin();
   const bool storageReady = storage.begin();
   Serial.println(F("DISHY_COLLECTOR_INIT"));
-  if (!storageReady || !dishy.begin()) {
+  const bool dishyReady = dishy.begin();
+  if (!storageReady || storage.pressure() || !dishyReady) {
     setState(BeaconState::STORAGE_WARNING);
   }
   if (!identity.begin()) {
@@ -193,7 +194,7 @@ void loop() {
       }
     }
     if (!ble.active() && beaconState != BeaconState::WIFI_CONNECTING) {
-      if (!storage.healthy()) setState(BeaconState::STORAGE_WARNING);
+      if (!storage.healthy() || storage.pressure()) setState(BeaconState::STORAGE_WARNING);
       else if (dishy.reachableKnown() && !dishy.reachable()) setState(BeaconState::DISHY_UNAVAILABLE);
       else if (dishy.recording()) setState(BeaconState::RECORDING);
       else setState(BeaconState::READY);

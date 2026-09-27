@@ -39,6 +39,8 @@ class BeaconStorage {
                  size_t outputCapacity, size_t& count, bool& hasMore) const;
   bool acknowledgeThrough(uint64_t sequence);
   bool healthy() const { return healthy_; }
+  bool pressure() const { return pressure_; }
+  const char* lastError() const { return lastError_; }
   bool historyAvailable() const { return healthy_ && count_ > 0; }
   uint64_t oldestSequence() const;
   uint64_t newestSequence() const { return count_ ? nextSequence_ - 1 : 0; }
@@ -61,14 +63,24 @@ class BeaconStorage {
     uint64_t acknowledgedSequence; uint64_t lastDishyCounter; uint64_t lastAckEpochMs;
     uint64_t lastAckUptimeMs; uint32_t crc;
   };
+  struct __attribute__((packed)) AckState {
+    uint32_t magic; uint16_t version; uint16_t size; uint64_t acknowledgedSequence;
+    uint64_t nextSequence; uint64_t lastDishyCounter; uint64_t lastAckEpochMs; uint32_t crc;
+  };
   bool loadMetadata();
   bool persistMetadata();
+  bool loadAckState();
+  bool persistAckState(uint64_t acknowledgedSequence, uint64_t lastAckEpochMs);
+  bool ensureWriteHeadroom();
+  bool reclaimAcknowledged();
   bool rebuildFromRecords();
   bool readSlot(uint32_t slot, BeaconStoredSample& sample) const;
   uint32_t slotForOldestOffset(uint32_t offset) const;
   static uint32_t crc32(const uint8_t* data, size_t length);
   static bool validRecord(const BeaconStoredSample& sample);
   bool healthy_ = false;
+  bool pressure_ = false;
+  const char* lastError_ = "NONE";
   uint8_t uncommitted_ = 0;
   uint16_t currentBootId_ = 0;
   uint32_t generation_ = 0, capacity_ = 0, head_ = 0, count_ = 0;

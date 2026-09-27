@@ -151,7 +151,7 @@ bool grpcHistory(ParsedHistory& response,StreamError& parseError){
   bool ok=stream>0;if(!ok)Serial.println(F("GRPC_SUBMIT_FAIL"));
   Serial.print(F("GRPC_STACK_BEFORE_IO="));Serial.println(uxTaskGetStackHighWaterMark(nullptr));
   while(ok&&!c.closed&&static_cast<int32_t>(millis()-c.deadline)<0){const int sent=nghttp2_session_send(session);if(sent<0){c.sendError=sent;Serial.println(F("GRPC_SEND_FAIL"));ok=false;break;}const int received=nghttp2_session_recv(session);if(received<0&&received!=NGHTTP2_ERR_WOULDBLOCK){c.recvError=received;Serial.println(F("GRPC_RECV_FAIL"));ok=false;break;}delay(2);}
-  if(ok&&!c.closed&&static_cast<int32_t>(millis()-c.deadline)>=0){Serial.println(F("GRPC_TIMEOUT"));ok=false;}if(ok&&c.closed&&!c.stream.finish())ok=false;parseError=c.stream.error();
+  if(ok&&!c.closed&&static_cast<int32_t>(millis()-c.deadline)>=0){Serial.println(F("GRPC_TIMEOUT"));ok=false;}if(ok&&c.closed&&!c.stream.finish())ok=false;parseError=c.stream.error();if(ok)Serial.println(F("HISTORY_PARSE_COMPLETE"));
   Serial.print(F("GRPC_HTTP_STATUS="));Serial.println(c.httpStatus);Serial.print(F("GRPC_STATUS="));Serial.println(c.grpcStatus);Serial.print(F("GRPC_BODY_SIZE="));Serial.println(c.stream.bodySize());Serial.print(F("GRPC_STREAM_CLOSED="));Serial.println(c.closed?1:0);
   if(c.streamError!=NGHTTP2_NO_ERROR){Serial.print(F("GRPC_STREAM_ERROR="));Serial.println(c.streamError);}if(c.sendError){Serial.print(F("GRPC_SEND_CODE="));Serial.println(c.sendError);}if(c.recvError){Serial.print(F("GRPC_RECV_CODE="));Serial.println(c.recvError);}
   ok=ok&&c.closed&&c.streamError==NGHTTP2_NO_ERROR&&c.httpStatus==200&&c.grpcStatus==0;
@@ -167,6 +167,8 @@ void DishyCollector::update(uint32_t now){
   consumeFetchResult(now);
   if(static_cast<int32_t>(now-nextProbeAt_)>=0){nextProbeAt_=now+kProbeIntervalMs;const bool known=reachableKnown_;const bool was=reachable_;reachable_=probe();reachableKnown_=true;
     if(reachable_&&(!known||!was)){Serial.println(F("DISH_AVAILABLE"));nextHistoryAt_=now;}else if(!reachable_&&(!known||was))Serial.println(F("DISH_UNAVAILABLE"));}
+  if(storage_.pressure()){if(!storagePauseLogged_){storagePauseLogged_=true;lastFetchOk_=false;Serial.println(F("HISTORY_FETCH_SKIPPED_STORAGE_LOW_SPACE"));Serial.println(F("HISTORY_COLLECTION_PAUSED"));}return;}
+  if(storagePauseLogged_){storagePauseLogged_=false;nextHistoryAt_=now;Serial.println(F("HISTORY_COLLECTION_RESUMED"));}
   if(reachable_&&!fetchRunning_&&static_cast<int32_t>(now-nextHistoryAt_)>=0){nextHistoryAt_=now+kHistoryIntervalMs;Serial.println(F("HISTORY_FETCH_START"));if(!startFetchTask()){Serial.println(F("HISTORY_FETCH_ERROR_GRPC"));lastFetchOk_=false;nextHistoryAt_=now+30000;}}
 }
 
@@ -182,6 +184,7 @@ void DishyCollector::fetchTaskEntry(void* context){
   DishyCollector* owner=static_cast<DishyCollector*>(context);Serial.print(F("GRPC_STACK_BEFORE="));Serial.println(uxTaskGetStackHighWaterMark(nullptr));
   FetchResult* result=new(std::nothrow) FetchResult();if(result)result->ok=grpcHistory(result->history,result->parseError);else Serial.println(F("GRPC_RESULT_ALLOC_FAIL"));
   const UBaseType_t minimum=uxTaskGetStackHighWaterMark(nullptr);Serial.print(F("GRPC_STACK_MIN="));Serial.println(minimum);Serial.print(F("GRPC_STACK_AFTER="));Serial.println(uxTaskGetStackHighWaterMark(nullptr));
+  Serial.println(F("HISTORY_QUEUE_START"));
   xQueueSend(static_cast<QueueHandle_t>(owner->fetchResultQueue_),&result,portMAX_DELAY);
   vTaskDelete(nullptr);
 }
@@ -195,7 +198,13 @@ void DishyCollector::consumeFetchResult(uint32_t now){
 
 bool DishyCollector::storeHistory(void* parsedHistory){
   ParsedHistory& history=*static_cast<ParsedHistory*>(parsedHistory);
-  const size_t count=history.maxCount();if(!count){Serial.println(F("HISTORY_FETCH_ERROR_EMPTY"));return false;}const uint64_t current=history.current;
+  const size_t count=history.maxCount();const uint64_t current=history.current;
+  Serial.print(F("HISTORY_CURRENT="));Serial.println(static_cast<unsigned long long>(current));Serial.print(F("HISTORY_POSITIONS="));Serial.println(count);
+  Serial.print(F("LOSS_COUNT="));Serial.println(history.fields[0].count);Serial.print(F("LATENCY_COUNT="));Serial.println(history.fields[1].count);
+  Serial.print(F("DOWNLOAD_COUNT="));Serial.println(history.fields[2].count);Serial.print(F("UPLOAD_COUNT="));Serial.println(history.fields[3].count);
+  Serial.print(F("SIGNAL_COUNT="));Serial.println(history.fields[4].count);Serial.print(F("POWER_COUNT="));Serial.println(history.fields[5].count);
+  Serial.print(F("SAMPLE_STRIDE="));Serial.println(static_cast<unsigned long long>(kSampleStride));
+  if(!count||!current){Serial.println(F("HISTORY_FETCH_ERROR_EMPTY"));return false;}Serial.println(F("HISTORY_BUILD_RECORDS_START"));
   const uint64_t availableFirst=current>count?current-count:0;const uint64_t saved=storage_.lastDishyCounter();uint64_t first=(saved&&current>saved)?std::max<uint64_t>(availableFirst,saved+1):availableFirst;size_t added=0;
   const uint64_t collectionUptime=static_cast<uint64_t>(esp_timer_get_time())/1000ULL;const time_t epoch=time(nullptr);const bool validTime=epoch>1577836800;
   for(uint64_t counter=first;counter<current;++counter){if(counter%kSampleStride!=0&&counter+1!=current)continue;BeaconStoredSample s{};s.dishyCounter=counter;
@@ -204,6 +213,6 @@ bool DishyCollector::storeHistory(void* parsedHistory){
     s.signal=history.fields[4].value(counter);if(isfinite(s.signal))s.flags|=METRIC_SIGNAL;s.powerWatts=history.fields[5].value(counter);if(isfinite(s.powerWatts)&&s.powerWatts>0)s.flags|=METRIC_POWER;s.connectivity=isfinite(s.dropRate)?(s.dropRate<100.f?1:0):2;
     const uint64_t ageMs=(current-1-counter)*1000ULL;if(validTime){s.timestampMs=static_cast<int64_t>((uint64_t(epoch)-(current-1-counter))*1000ULL);s.flags|=METRIC_TIMESTAMP;}else s.timestampMs=static_cast<int64_t>(collectionUptime)-static_cast<int64_t>(ageMs);
     if(storage_.append(s)){++added;if(counter+1==current)lastSampleUptimeMs_=collectionUptime;if(validTime)lastSampleEpochMs_=static_cast<uint64_t>(s.timestampMs);}else{Serial.println(F("HISTORY_FETCH_ERROR_STORAGE"));return false;}}
-  if(!storage_.flush()){Serial.println(F("HISTORY_FETCH_ERROR_FLUSH"));return false;}lastCollectionUptimeMs_=collectionUptime;lastCollectionEpochMs_=validTime?uint64_t(epoch)*1000ULL:0;Serial.println(F("HISTORY_FETCH_OK"));Serial.print(F("NEW_RECORDS="));Serial.println(added);
+  Serial.println(F("HISTORY_BUILD_RECORDS_DONE"));if(!storage_.flush()){Serial.println(F("HISTORY_FETCH_ERROR_FLUSH"));return false;}lastCollectionUptimeMs_=collectionUptime;lastCollectionEpochMs_=validTime?uint64_t(epoch)*1000ULL:0;Serial.println(F("HISTORY_FETCH_OK"));Serial.print(F("NEW_RECORDS="));Serial.println(added);
   Serial.print(F("STORAGE_RANGE="));Serial.print(storage_.oldestSequence());Serial.print(F(".."));Serial.println(storage_.newestSequence());return true;
 }
