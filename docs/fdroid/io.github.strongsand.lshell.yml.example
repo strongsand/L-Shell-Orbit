@@ -1,34 +1,25 @@
-# Draft only. Copy/adapt this file in the F-Droid metadata repository after
-# the v0.1.0-beta release tag exists.
-
 Categories:
   - Connectivity
 License: GPL-3.0-or-later
 AuthorName: hurricane
-AutoName: L-Shell Orbit
-Summary: Monitor compatible Starlink terminals locally
-Description: |-
-  L-Shell Orbit monitors and diagnoses compatible Starlink terminals and routers
-  through their local gRPC interfaces. It does not require a Starlink account,
-  Google Play Services, analytics or advertising. Metrics and reports are kept
-  locally. Public CelesTrak orbital data is used only by the optional AR view.
-
-  L-Shell Orbit is an independent, unofficial project and is not affiliated
-  with or endorsed by Starlink or SpaceX.
-
-RepoType: git
-Repo: https://github.com/strongsand/L-Shell-Orbit.git
+AuthorWebSite: https://github.com/strongsand
 SourceCode: https://github.com/strongsand/L-Shell-Orbit
 IssueTracker: https://github.com/strongsand/L-Shell-Orbit/issues
 
-# The commit value is the future release tag. Keep this draft out of fdroiddata
-# until that tag exists in the public repository.
+AutoName: L-Shell Orbit
+
+RepoType: git
+Repo: https://github.com/strongsand/L-Shell-Orbit.git
+
 Builds:
   - versionName: 0.1.0-beta
     versionCode: 1
-    commit: v0.1.0-beta
+    commit: 802ecabb9cdf136c4af1d0b0e6bef96865837876
+    subdir: app
     gradle:
       - yes
 
-CurrentVersion: 0.1.0-beta
-CurrentVersionCode: 1
+AutoUpdateMode: Version
+UpdateCheckMode: Tags ^v[0-9].*$
+CurrentVersion: 0.1.1-beta
+CurrentVersionCode: 2

@@ -1,0 +1,3 @@
+Enabled R8 optimization for release builds.
+Added the required Protobuf keep rules to preserve local Starlink communication.
+Includes stability improvements for the L-Shell Beacon.
