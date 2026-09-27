@@ -75,7 +75,7 @@
     <string name="beacon_benefit_local">Local operation</string>
     <string name="beacon_benefit_cloud">No cloud</string>
     <string name="beacon_setup_intro">With firmware 0.1.0 installed on the ESP32:</string>
-    <string name="beacon_setup_steps">1. Power Beacon near the phone.\n2. Tap Set up Beacon.\n3. Choose the discovered device.\n4. Press the physical button when asked.\n5. Enter the local Wi-Fi network.\n6. Wait for Beacon to appear on the network.</string>
+    <string name="beacon_setup_steps">1. Power Beacon near the phone.\n2. Tap Set up Beacon.\n3. Choose the discovered device and accept Android pairing.\n4. Enter the local Wi-Fi network.\n5. Wait for Beacon to appear on the network.</string>
     <string name="beacon_led_title">Beacon LED</string>
     <string name="beacon_led_states">Slow pulse: starting\nBlinking: waiting for pairing\nOff: normal operation\nFast blinking: synchronization\nError pattern: problem</string>
     <string name="beacon_button_title">Physical button</string>

@@ -4,6 +4,8 @@ L-Shell Orbit is an open-source Android application for locally monitoring and d
 
 > L-Shell Orbit is an independent, unofficial project and is not affiliated with or endorsed by Starlink or SpaceX.
 
+[Source code](https://github.com/strongsand/L-Shell-Orbit) · [Issue tracker](https://github.com/strongsand/L-Shell-Orbit/issues)
+
 ## Features
 
 - Local terminal and router status through the equipment's gRPC interface
@@ -76,6 +78,8 @@ Protocol Buffer and gRPC bindings are generated during the normal Gradle build f
 ## Screenshots
 
 Public screenshots are still being prepared. The capture list and privacy checks are documented in [fastlane/metadata/android/SCREENSHOTS.md](fastlane/metadata/android/SCREENSHOTS.md); no simulated store screenshots are included.
+
+The current interface is primarily in Brazilian Portuguese. The L-Shell Beacon flow has partial English and Spanish localization; see the [localization audit](docs/LOCALIZATION-AUDIT.md).
 
 ## Known limitations
 

@@ -6,4 +6,6 @@ O L-Shell Beacon é um complemento opcional com ESP32. Ele pode guardar o histó
 
 O monitoramento principal não exige conta Starlink, Google Play Services, publicidade, analytics nem um serviço de nuvem do projeto. A disponibilidade de cada recurso depende do hardware, firmware e topologia da rede. O aplicativo se comunica com equipamentos compatíveis pela rede local; o catálogo opcional de satélites é baixado do CelesTrak por HTTPS.
 
+A interface atual é principalmente em português do Brasil. O fluxo do L-Shell Beacon possui localização parcial em inglês e espanhol.
+
 L-Shell Orbit não é afiliado nem endossado pela Starlink ou SpaceX.

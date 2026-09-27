@@ -29,7 +29,7 @@ The command-line validation attempted on 2026-09-26 was blocked by an environmen
 - [x] Fastlane metadata text prepared in English and Brazilian Portuguese.
 - [ ] Real screenshots captured, reviewed and added.
 - [ ] Separate store icon/feature graphic added if required.
-- [ ] F-Droid metadata URLs completed after publication.
+- [x] F-Droid draft metadata contains the public source and issue-tracker URLs.
 - [ ] F-Droid build recipe validated from the public tag.
 - [ ] Submission to `fdroiddata` prepared.
 

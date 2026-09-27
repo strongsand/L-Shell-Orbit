@@ -1,5 +1,5 @@
 # Draft only. Copy/adapt this file in the F-Droid metadata repository after
-# the public source repository, issue tracker, changelog and release tag exist.
+# the v0.1.0-beta release tag exists.
 
 Categories:
   - Connectivity
@@ -16,13 +16,10 @@ Description: |-
   L-Shell Orbit is an independent, unofficial project and is not affiliated
   with or endorsed by Starlink or SpaceX.
 
-# Add real public URLs before submission. Do not submit the TODO placeholders:
 RepoType: git
-# Repo: TODO_PUBLIC_GIT_URL
-# WebSite: TODO_PUBLIC_PROJECT_URL
-# SourceCode: TODO_PUBLIC_SOURCE_URL
-# IssueTracker: TODO_PUBLIC_ISSUE_TRACKER_URL
-# Changelog: TODO_PUBLIC_CHANGELOG_URL
+Repo: https://github.com/strongsand/L-Shell-Orbit.git
+SourceCode: https://github.com/strongsand/L-Shell-Orbit
+IssueTracker: https://github.com/strongsand/L-Shell-Orbit/issues
 
 # The commit value is the future release tag. Keep this draft out of fdroiddata
 # until that tag exists in the public repository.
@@ -30,7 +27,6 @@ Builds:
   - versionName: 0.1.0-beta
     versionCode: 1
     commit: v0.1.0-beta
-    subdir: app
     gradle:
       - yes
 

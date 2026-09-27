@@ -17,7 +17,7 @@ This directory is not yet a Git repository. The first public commit should conta
 - Build and signing artifacts: `app/release/`, APK/AAB files, keystores, signing properties and private keys.
 - Downloaded reference pages: `glance-layout.html` and `rowscope.html`.
 - Internal working notes: `CORRECOES-TELEMETRIA.txt`, `LEIA-ME.txt` and `PROXIMAS-IDEIAS.md`.
-- Assistant/session state: `.codex/`, `.agents/`, logs, captures and temporary files.
+- Local tool/session state: `.codex/`, `.agents/`, logs, captures and temporary files.
 
 Before committing, inspect the dry-run list produced by Git and confirm that no excluded item appears. On Unix-compatible checkouts, `gradlew` must be executable. From a Git worktree this can be recorded with:
 

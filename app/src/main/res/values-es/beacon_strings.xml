@@ -75,7 +75,7 @@
     <string name="beacon_benefit_local">Funcionamiento local</string>
     <string name="beacon_benefit_cloud">Sin nube</string>
     <string name="beacon_setup_intro">Con el firmware 0.1.0 instalado en el ESP32:</string>
-    <string name="beacon_setup_steps">1. Enciende Beacon cerca del teléfono.\n2. Pulsa Configurar Beacon.\n3. Elige el dispositivo encontrado.\n4. Pulsa el botón físico cuando se solicite.\n5. Introduce la red Wi-Fi local.\n6. Espera a que Beacon aparezca en la red.</string>
+    <string name="beacon_setup_steps">1. Enciende Beacon cerca del teléfono.\n2. Pulsa Configurar Beacon.\n3. Elige el dispositivo encontrado y acepta el emparejamiento de Android.\n4. Introduce la red Wi-Fi local.\n5. Espera a que Beacon aparezca en la red.</string>
     <string name="beacon_led_title">LED del Beacon</string>
     <string name="beacon_led_states">Pulso lento: iniciando\nParpadeando: esperando emparejamiento\nApagado: funcionamiento normal\nParpadeo rápido: sincronización\nPatrón de error: problema</string>
     <string name="beacon_button_title">Botón físico</string>

@@ -6,4 +6,6 @@ L-Shell Beacon is an optional ESP32 companion. It can retain local Dishy history
 
 The core monitoring flow does not require a Starlink account, Google Play Services, advertising, analytics or a project cloud service. Feature availability depends on hardware, firmware and network topology. The app communicates with compatible equipment on the local network; the optional satellite catalog is downloaded from CelesTrak over HTTPS.
 
+The current app interface is primarily in Brazilian Portuguese. The L-Shell Beacon flow includes partial English and Spanish localization.
+
 L-Shell Orbit is not affiliated with or endorsed by Starlink or SpaceX.
