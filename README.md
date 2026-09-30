@@ -77,7 +77,7 @@ Protocol Buffer and gRPC bindings are generated during the normal Gradle build f
 
 ## Screenshots
 
-Public screenshots are still being prepared. The capture list and privacy checks are documented in [fastlane/metadata/android/SCREENSHOTS.md](fastlane/metadata/android/SCREENSHOTS.md); no simulated store screenshots are included.
+Seven public phone screenshots are included under `fastlane/metadata/android/pt-BR/images/phoneScreenshots/`. The capture list and privacy checks are documented in [fastlane/metadata/android/SCREENSHOTS.md](fastlane/metadata/android/SCREENSHOTS.md).
 
 The current interface is primarily in Brazilian Portuguese. The L-Shell Beacon flow has partial English and Spanish localization; see the [localization audit](docs/LOCALIZATION-AUDIT.md).
 

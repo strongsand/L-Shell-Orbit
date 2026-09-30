@@ -1,6 +1,6 @@
 # First public commit inventory
 
-This directory is not yet a Git repository. The first public commit should contain only reviewed source, build configuration, licenses, public documentation and store metadata.
+This is a historical first-commit planning inventory. The project is now a Git repository with public beta tags. The include/exclude rules below remain useful when reviewing source changes, but they do not imply that the initial commit is still pending.
 
 ## Include
 
@@ -17,7 +17,7 @@ This directory is not yet a Git repository. The first public commit should conta
 - Build and signing artifacts: `app/release/`, APK/AAB files, keystores, signing properties and private keys.
 - Downloaded reference pages: `glance-layout.html` and `rowscope.html`.
 - Internal working notes: `CORRECOES-TELEMETRIA.txt`, `LEIA-ME.txt` and `PROXIMAS-IDEIAS.md`.
-- Local tool/session state: `.codex/`, `.agents/`, logs, captures and temporary files.
+- Local tool/session state, logs, captures and temporary files.
 
 Before committing, inspect the dry-run list produced by Git and confirm that no excluded item appears. On Unix-compatible checkouts, `gradlew` must be executable. From a Git worktree this can be recorded with:
 

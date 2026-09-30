@@ -37,11 +37,6 @@ keystore.properties
 google-services.json
 analytics.settings
 
-# Local assistant/session state
-.codex/
-.agents/
-codex-*
-
 # Tool output and downloaded reference pages
 *.log
 captures/

@@ -1,5 +1,9 @@
 # Auditoria de preparação para o F-Droid — L-Shell Orbit
 
+> Nota de atualização — 2026-09-30: este relatório preserva o diagnóstico histórico de 2026-09-26. O repositório público e sete screenshots pt-BR já existem; a configuração atual é `0.1.1-beta` / código `2`, com R8 habilitado, `isShrinkResources=false` e a regra Protobuf Lite necessária. O mantenedor informou testes/builds locais e validação física posteriores bem-sucedidos. Também confirmou manualmente que o pipeline mais recente do MR oficial !50362 passou completamente, que reproducible builds estão configuradas e que o APK upstream assinado publicado em `v0.1.1-beta` passou pelo `check apk` reproduzível da CI. O mantenedor do F-Droid considera o MR "mostly ready", aguardando teste/revisão manual e merge condicionado ao sucesso; o app ainda não está oficialmente aceito ou publicado no F-Droid. As pendências e configurações antigas abaixo não são instruções atuais. O [checkpoint público de release](RELEASE-CHECKLIST.md#current-release-checkpoint--011-beta) registra o APK, assinatura, ferramentas e campos F-Droid confirmados.
+
+Jobs aprovados no pipeline mais recente, conforme confirmação manual do mantenedor em 2026-09-30: `fdroid build`, `check apk`, `check source code`, `checkupdates`, `fdroid lint`, `fdroid rewritemeta`, `git redirect`, `schema validation` e `tools check scripts`. O MR oficial é [!50362](https://gitlab.com/fdroid/fdroiddata/-/merge_requests/50362); aprovação da CI não equivale a merge ou publicação.
+
 Data da última revisão: 26 de setembro de 2026.
 
 Escopo: fontes, configuração Gradle, manifesto, dependências, recursos, rede, privacidade e artefatos presentes na árvore local. Não foram executados Gradle Sync, instalação ou o aplicativo. A validação autorizada pela linha de comando foi iniciada, mas o ambiente desta sessão bloqueou o `javac` antes da execução dos testes.

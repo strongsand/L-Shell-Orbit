@@ -45,7 +45,7 @@ Stable characteristics:
 
 | Characteristic | UUID | Properties | Value |
 |---|---|---|---|
-| Device info | `7d2ea1d0-6f2b-4b5f-9e20-4c53484c0002` | read | UTF-8 JSON |
+| Device info | `7d2ea1d0-6f2b-4b5f-9e20-4c53484c0002` | encrypted read | UTF-8 JSON |
 | Setup state | `7d2ea1d0-6f2b-4b5f-9e20-4c53484c0003` | read, notify | state token |
 | Wi-Fi SSID | `7d2ea1d0-6f2b-4b5f-9e20-4c53484c0004` | encrypted write | UTF-8, 1–32 bytes |
 | Wi-Fi password | `7d2ea1d0-6f2b-4b5f-9e20-4c53484c0005` | encrypted write | UTF-8, 0–63 bytes |
@@ -88,7 +88,7 @@ The password characteristic is write-only. Reading it must be impossible. Writes
 
 ### BLE security and setup authorization
 
-The v1 firmware requires LE Secure Connections and bonding through the ESP32 BLE stack. This encrypts credential transport. Android discovers the public service before bonding so platform BLE stacks do not deadlock service discovery while encryption is settling:
+The v1 firmware requires LE Secure Connections and bonding through the ESP32 BLE stack. This encrypts credential transport. The current `ESP_IO_CAP_NONE` configuration uses Just Works; it does not provide numeric-comparison/passkey MITM protection. Android discovers the public service before bonding so platform BLE stacks do not deadlock service discovery while encryption is settling:
 
 1. Android opens GATT and discovers the public provisioning service.
 2. It starts bonding only from `BOND_NONE`, waits during `BOND_BONDING`, and reuses `BOND_BONDED` without calling `createBond()` again.
@@ -224,6 +224,8 @@ The collector connects only to the local Dishy service at `192.168.100.1:9200`. 
 - To limit flash wear and fit useful retention in the 4 MB ESP32, records are sampled from the 1 Hz Dishy buffer at a five-second stride, while always retaining the newest returned sample.
 - `snr` is stored as signal when present. `power_in`, latency, loss and throughput remain optional per record.
 
+The response is parsed incrementally during nghttp2 callbacks, without retaining a complete body. The logical message limit is 512 KiB; at most 2,048 floats per metric are retained. Six fully populated arrays require at most 48 KiB of float payload, in addition to parser/library overhead and a dedicated 20 KiB `dishGrpc` task stack. The task does not write storage: it hands its result to the main loop through a queue, keeping storage access serialized with HTTP handling. Arrays have independent lengths and absent optional metrics remain missing. Stack high-water and heap diagnostics are available for hardware validation.
+
 The firmware does not contact an external time service. In the normal case it stores a 64-bit Beacon uptime from the local ESP timer. During status and history sync the Android client converts same-boot uptime to wall time. Records that predate the current Beacon boot receive the sync time as a conservative fallback because the reference clock was lost; sequence, rather than timestamp, remains the synchronization identity. If a trusted local integration sets a valid system clock in a future compatible build, epoch milliseconds can be stored with the timestamp-valid flag without changing record v1.
 
 ## Binary circular history
@@ -238,7 +240,9 @@ LittleFS uses the existing `spiffs` data partition from the framework's `huge_ap
 - connectivity, validity flags and a 16-bit boot generation;
 - CRC-32.
 
-Two alternating metadata files contain generation, head, count, next sequence, ACK, ACK time and the last Dishy counter. A record is flushed before its metadata is advanced. Metadata is committed in batches of 16 records and after ACK; boot scans record CRCs and retains the newest contiguous suffix to recover valid writes after power loss. NVS contains a one-time `history/initialized` marker and a boot-generation counter written once per boot. The marker permits formatting an erased data partition on first use, but prevents an automatic reformat and silent sequence reset after a later mount failure. The boot generation prevents Android from interpreting uptime captured before a reboot as belonging to the current boot. When full, the next record overwrites the oldest record. ACK never deletes data and only records how far Android has durably synchronized.
+Two alternating metadata files contain generation, head, count, next sequence, ACK, ACK time and the last Dishy counter. A record is flushed before its metadata is advanced; metadata is committed in batches of 16 records. ACK also has a CRC-protected durable NVS `history/ack_state` checkpoint containing the sequence and recovery counters, so it can succeed while filesystem writes are under pressure. Boot scans record CRCs and retains the newest contiguous suffix to recover valid writes after power loss. NVS contains a one-time `history/initialized` marker and a boot-generation counter written once per boot. The marker permits formatting an erased data partition on first use, but prevents an automatic reformat and silent sequence reset after a later mount failure. The boot generation prevents Android from interpreting uptime captured before a reboot as belonging to the current boot.
+
+Logical circular capacity permits overwriting the oldest slot, but filesystem headroom can stop collection earlier. Below 64 KiB of free space, new writes pause while history reads and ACK remain available. Under pressure, once all retained records are acknowledged, reclaim removes the drained data file and clears its head/count while preserving monotonic next sequence, ACK and last Dishy counter. Reclaim targets 128 KiB of free space before collection resumes. It never deletes unacknowledged records to make room. ACK is therefore not a general delete operation, but it can trigger this pressure-recovery path.
 
 With the stock `huge_app.csv` data partition (approximately 896 KiB), reserving 48 KiB for filesystem metadata leaves roughly 13,000–13,500 records. At the five-second stride this is approximately 18–19 hours; the exact `capacity` reported by the device is authoritative because LittleFS overhead can vary.
 
@@ -248,7 +252,7 @@ With the stock `huge_app.csv` data partition (approximately 896 KiB), reserving 
 
 `GET /v1/history?after=<sequence>&limit=<n>` returns records with a sequence greater than `after`, in ascending order. `limit` is clamped to 1–500. The response contains `record_version`, `beacon_uptime_ms`, `beacon_boot_id`, `from_sequence`, `to_sequence`, `next_sequence`, `has_more` and `records`; each record carries its own `boot_id`. A cursor older than the circular buffer begins at the oldest retained record, creating an observable sequence gap without inventing missing samples.
 
-`POST /v1/history/ack` accepts `{"sequence":N}`. The sequence is capped at the newest stored record and persisted redundantly. ACK does not erase or compact history.
+`POST /v1/history/ack` accepts `{"sequence":N}`. The sequence is capped at the newest stored record and persisted durably in NVS. Normally ACK only advances the checkpoint. Under storage pressure, acknowledging the complete retained range permits reclaim of the drained data file as described above; sequences are not reset.
 
 Android validates `/v1/info`, reads history metadata, starts from the greater of its persisted preference cursor and the maximum `beacon_sequence` already in `dish_history.db`, downloads pages, validates monotonic sequence and finite metrics, and imports each page in one SQLite transaction. Only after that transaction succeeds does it send ACK and advance its cursor. The unique partial index on `(beacon_id, beacon_sequence)` makes retries idempotent. Imported rows use source `BEACON` and the same history table consumed by charts, timeline, reports, investigator and energy views.
 
@@ -257,6 +261,8 @@ The LAN API is plaintext HTTP on the trusted local network in protocol v1. It ex
 ## Button and LED
 
 GPIO0 is active-low with pull-up; GPIO2 drives the onboard LED. Short press has no provisioning role. Holding for about five seconds enters or restarts BLE setup. Holding for ten seconds starts a visible reset pattern; releasing after that pattern erases Wi-Fi and ESP32 Bluetooth bonds, then reboots. Android bonds must be forgotten from Android settings separately when performing a completely clean pairing test. Button processing and LED patterns are non-blocking and based on `millis()`.
+
+The current button reset clears configuration/bonds, not the persistent Beacon identity or stored history. A full flash erase has different effects and must not be confused with this recovery action.
 
 LED state contract:
 

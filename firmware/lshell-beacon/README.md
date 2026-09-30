@@ -46,9 +46,9 @@ The full UUID, state, timeout and endpoint contract is defined in [Beacon Protoc
 
 Protocol v1 history is plaintext HTTP and is intended only for the trusted local LAN. It exposes telemetry, never Wi-Fi credentials or Starlink account data.
 
-## Building later
+## Building and validation
 
-The source is arranged as a PlatformIO Arduino project. The PlatformIO Espressif32 platform is pinned to `7.1.3`; that release resolves the Arduino ESP32 core used by this source. `huge_app.csv` is retained: its existing data partition is mounted with LittleFS and no partition-table change was made. No build, upload or hardware execution was performed while implementing this phase. Hardware validation must cover BLE API compatibility, nghttp2 linking, peak RAM during a Dishy history response, flash recovery and serial behavior before normal use.
+The source is arranged as a PlatformIO Arduino project. The PlatformIO Espressif32 platform is pinned to `7.1.3`; that release resolves the Arduino ESP32 core used by this source. `huge_app.csv` is retained: its existing data partition is mounted with LittleFS and no partition-table change was made. By 2026-09-30, the maintainer reported successful physical collection, Android sync, storage-pressure reclaim and resumed recording on the reference ESP32. This documentation review did not rerun builds or hardware tests. Changes still require targeted validation of BLE compatibility, nghttp2, memory use and flash recovery; see the collector, storage, recovery and provisioning contracts in [Beacon Protocol v1](../../docs/BEACON_PROTOCOL.md).
 
 ## Dependencies
 

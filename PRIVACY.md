@@ -33,7 +33,7 @@ HTTPS certificate and hostname validation uses Android's standard system trust s
 
 - Diagnostic samples, power samples, alerts, and related history are stored in the app's private local storage.
 - Monitoring preferences and cursors are stored in app-private preferences.
-- Beacon pairing metadata stores only the device identity, public connection metadata and an Android Keystore alias. Secret key material must remain in Android Keystore and must not be written to preferences.
+- Beacon connection metadata and sync cursors are stored in app-private preferences. A Keystore alias field/helper is reserved for future authenticated LAN pairing; protocol v1 does not create a LAN pairing key or authenticate HTTP sync. Future secret key material must remain in Android Keystore, not preferences. BLE bonding/encryption is separate from LAN security.
 - Downloaded orbital elements are stored in the app cache.
 - Android backup is disabled for the application.
 

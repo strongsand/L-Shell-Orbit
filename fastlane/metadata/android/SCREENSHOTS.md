@@ -1,5 +1,7 @@
 # Screenshot capture list
 
+Status reviewed 2026-09-30: seven pt-BR screenshots (`1.png`–`7.png`) are present in `pt-BR/images/phoneScreenshots/`; en-US currently contains only `.gitkeep`. The guidance below is for future captures, not a claim that existing screenshots are missing. This documentation task did not visually revalidate the images.
+
 No store screenshots are generated or copied automatically. Capture real app screens after the release build is validated:
 
 1. Home with the terminal connected and identifying values redacted where necessary.
