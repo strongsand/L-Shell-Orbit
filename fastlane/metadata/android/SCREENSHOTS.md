@@ -1,8 +1,8 @@
 # Screenshot capture list
 
-Status reviewed 2026-09-30: seven pt-BR screenshots (`1.png`–`7.png`) are present in `pt-BR/images/phoneScreenshots/`; en-US currently contains only `.gitkeep`. The guidance below is for future captures, not a claim that existing screenshots are missing. This documentation task did not visually revalidate the images.
+Status reviewed 2026-10-06: seven stable pt-BR screenshots (`1.png`–`7.png`), identical to the assets in `v0.1.1-beta`, are also present in `en-US/images/phoneScreenshots/` as an untranslated listing fallback. The images were visually reviewed; no experimental UI or simulated translation was added.
 
-No store screenshots are generated or copied automatically. Capture real app screens after the release build is validated:
+For future replacements, capture real app screens after the release build is validated:
 
 1. Home with the terminal connected and identifying values redacted where necessary.
 2. Antenna metrics and charts.
@@ -27,6 +27,6 @@ Place reviewed phone screenshots in the appropriate locale directory:
 - `pt-BR/images/phoneScreenshots/`
 - `en-US/images/phoneScreenshots/`
 
-The same reviewed screenshots may be used for both store-listing languages for the first beta while most of the app UI remains in Portuguese. Do not duplicate files until the final captures are selected.
+The same reviewed screenshots may be used for both store-listing languages for the first beta while most of the app UI remains in Portuguese. Replace the fallback copies when reviewed English captures become available.
 
-The repository currently contains adaptive/vector launcher resources and the editable project-owned SVG at `app/src/main/res/raw/group_3_source.svg`. Android and F-Droid can obtain the installed icon from the APK resources. A separate store-ready PNG icon and feature graphic are not currently included; prepare and review those manually for destinations that require promotional artwork.
+The repository currently contains adaptive/vector launcher resources and the editable project-owned SVG at `app/src/main/res/raw/group_3_source.svg`. Android and F-Droid can obtain the installed icon from the APK resources. The 512×512 RGB PNG at `en-US/images/icon.png` is rendered from the official adaptive launcher foreground (`ic_dish_antenna_launcher.xml`) and background (`launcher_colors.xml`), preserving the existing paths, transforms and colors. No feature graphic is included.

@@ -153,59 +153,19 @@ fun LShellApp(snapshot: DishySnapshot, samples: List<TelemetrySample>, events: L
     } ?: listOf(beaconState::class.simpleName)
     LaunchedEffect(beaconWidgetRevision) { refreshBeaconWidget(appContext) }
     val lifecycleOwner = LocalLifecycleOwner.current
-    val beaconPermissions = remember {
-        if (Build.VERSION.SDK_INT >= 31) arrayOf(
-            Manifest.permission.BLUETOOTH_SCAN,
-            Manifest.permission.BLUETOOTH_CONNECT
-        ) else arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
-    }
-    fun hasBeaconPermissions(): Boolean = beaconPermissions.all {
-        ContextCompat.checkSelfPermission(appContext, it) == PackageManager.PERMISSION_GRANTED
-    }
-    var permissionSheetVisible by rememberSaveable { mutableStateOf(false) }
-    var permissionDenied by rememberSaveable { mutableStateOf(false) }
     var nearbyDismissedForSession by rememberSaveable { mutableStateOf(false) }
     var startupComplete by remember { mutableStateOf(false) }
-    val latestBeaconState by rememberUpdatedState(beaconState)
     val latestStartupComplete by rememberUpdatedState(startupComplete)
-    val latestNearbyDismissed by rememberUpdatedState(nearbyDismissedForSession)
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { result ->
-        if (beaconPermissions.all { result[it] == true ||
-                ContextCompat.checkSelfPermission(appContext, it) == PackageManager.PERMISSION_GRANTED }) {
-            Log.i(BEACON_APP_TAG, "BEACON_PERMISSIONS_OK")
-            permissionDenied = false
-            permissionSheetVisible = false
-            beaconRepository.startDiscovery()
-        } else {
-            Log.i(BEACON_APP_TAG, "BEACON_PERMISSIONS_DENIED")
-            permissionDenied = true
-            permissionSheetVisible = true
-            beaconRepository.reportBluetoothPermissionDenied()
-        }
-    }
     LaunchedEffect(beaconRepository) {
-        if (beaconRepository.requiresBluetoothSetup()) {
-            if (hasBeaconPermissions()) beaconRepository.startDiscovery()
-            else permissionSheetVisible = true
-        } else {
-            beaconRepository.triggerAutoSync("app_open")
-        }
+        // The optional accessory only requests Bluetooth permissions from its explicit setup flow.
+        if (!beaconRepository.requiresBluetoothSetup()) beaconRepository.triggerAutoSync("app_open")
         startupComplete = true
     }
     DisposableEffect(lifecycleOwner, beaconRepository) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_START && latestStartupComplete) {
-                if (beaconRepository.requiresBluetoothSetup()) {
-                    if (latestBeaconState is BeaconState.NotConfigured && !latestNearbyDismissed) {
-                        if (hasBeaconPermissions()) beaconRepository.startDiscovery()
-                        else permissionSheetVisible = true
-                    }
-                } else {
-                    permissionSheetVisible = false
-                    beaconRepository.triggerAutoSync("foreground")
-                }
+            if (event == Lifecycle.Event.ON_START && latestStartupComplete &&
+                !beaconRepository.requiresBluetoothSetup()) {
+                beaconRepository.triggerAutoSync("foreground")
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -230,7 +190,7 @@ fun LShellApp(snapshot: DishySnapshot, samples: List<TelemetrySample>, events: L
     val nearbyDevice = (beaconState as? BeaconState.BleFound)?.device
     val nearbySheetVisible = nearbyDevice != null && !nearbyDismissedForSession
     val backgroundScale by animateFloatAsState(
-        if (permissionSheetVisible || nearbySheetVisible) 0.985f else 1f,
+        if (nearbySheetVisible) 0.985f else 1f,
         spring(dampingRatio = 0.88f, stiffness = 320f),
         label = "Beacon modal background"
     )
@@ -254,14 +214,12 @@ fun LShellApp(snapshot: DishySnapshot, samples: List<TelemetrySample>, events: L
                 var hudVisible by rememberSaveable { mutableStateOf(true) }
                 LaunchedEffect(tab) {
                     when (tab) {
-                        MainTab.HOME -> if (beaconRepository.requiresBluetoothSetup()) {
-                            if (beaconState is BeaconState.NotConfigured && !nearbyDismissedForSession &&
-                                hasBeaconPermissions()) beaconRepository.startDiscovery()
-                        } else beaconRepository.triggerAutoSync("home")
-                        MainTab.BEACON -> if (beaconRepository.requiresBluetoothSetup()) {
-                            if (beaconState is BeaconState.NotConfigured && !nearbyDismissedForSession &&
-                                hasBeaconPermissions()) beaconRepository.startDiscovery()
-                        } else beaconRepository.triggerAutoSync("beacon_screen")
+                        MainTab.HOME -> if (!beaconRepository.requiresBluetoothSetup()) {
+                            beaconRepository.triggerAutoSync("home")
+                        }
+                        MainTab.BEACON -> if (!beaconRepository.requiresBluetoothSetup()) {
+                            beaconRepository.triggerAutoSync("beacon_screen")
+                        }
                         else -> Unit
                     }
                 }
@@ -358,21 +316,6 @@ fun LShellApp(snapshot: DishySnapshot, samples: List<TelemetrySample>, events: L
                 }
             }
         }
-    }
-    if (permissionSheetVisible && beaconRepository.requiresBluetoothSetup() &&
-        !nearbyDismissedForSession) {
-        BeaconPermissionSheet(
-            denied = permissionDenied,
-            onContinue = {
-                Log.i(BEACON_APP_TAG, "BEACON_PERMISSION_FLOW_START")
-                permissionLauncher.launch(beaconPermissions)
-            },
-            onDismiss = {
-                permissionSheetVisible = false
-                nearbyDismissedForSession = true
-                if (beaconState is BeaconState.Error) beaconRepository.clearError()
-            }
-        )
     }
     nearbyDevice?.takeIf { nearbySheetVisible }?.let { device ->
         LaunchedEffect(device.id) { Log.i(BEACON_APP_TAG, "BEACON_PROMPT_SHOW") }

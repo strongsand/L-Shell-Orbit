@@ -1,0 +1,3 @@
+As permissões do L-Shell Beacon agora são solicitadas somente ao configurar o acessório opcional.
+Adicionados ícone e screenshots Fastlane para en-US.
+Pequenos ajustes de publicação para o F-Droid.
