@@ -93,4 +93,12 @@
     <string name="beacon_never">Never</string>
     <string name="beacon_yes">Available</string>
     <string name="beacon_no">Unavailable</string>
+    <string name="ui_permission_needed_to_find_the_beacon">Permission needed to find the Beacon</string>
+    <string name="ui_find_your_l_shell_beacon">Find your L-Shell Beacon</string>
+    <string name="ui_beacon_permission_body">The app uses Bluetooth only to find and set up a nearby Beacon. The Wi-Fi password is sent directly over the protected Bluetooth link.</string>
+    <string name="editorial_continue">Continue</string>
+    <string name="ui_new_beacon_found_nearby">New Beacon found nearby</string>
+    <string name="ui_l_shell_beacon_is_ready_to_set_up">L-Shell Beacon is ready to set up.</string>
+    <string name="ui_nearby_bluetooth_secure_connection">Nearby Bluetooth · secure connection</string>
+    <string name="ui_start_pairing">Start pairing</string>
 </resources>

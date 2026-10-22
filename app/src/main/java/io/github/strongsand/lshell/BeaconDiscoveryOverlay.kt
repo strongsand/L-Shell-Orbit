@@ -39,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.strongsand.lshell.beacon.BeaconDevice
 import kotlinx.coroutines.delay
@@ -61,20 +62,19 @@ fun BeaconPermissionSheet(denied: Boolean, onContinue: () -> Unit, onDismiss: ()
                 Icon(Icons.Rounded.Security, null, Modifier.padding(18.dp).size(38.dp))
             }
             Text(
-                if (denied) "Permissão necessária para encontrar o Beacon"
-                else "Encontre seu L-Shell Beacon",
+                if (denied) stringResource(R.string.ui_permission_needed_to_find_the_beacon)
+                else stringResource(R.string.ui_find_your_l_shell_beacon),
                 style = MaterialTheme.typography.headlineSmall
             )
             Text(
-                "O app usa o Bluetooth somente para localizar e configurar um Beacon próximo. " +
-                    "A senha do Wi-Fi é enviada diretamente pelo vínculo Bluetooth protegido.",
+                stringResource(R.string.ui_beacon_permission_body),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Button(onClick = hapticClick(DashFeedback.CONFIRM, onContinue), modifier = Modifier.fillMaxWidth()) {
-                Text(if (denied) "Tentar novamente" else "Continuar")
+                Text(if (denied) stringResource(R.string.beacon_try_again) else stringResource(R.string.editorial_continue))
             }
-            TextButton(onClick = hapticClick(action = onDismiss)) { Text("Agora não") }
+            TextButton(onClick = hapticClick(action = onDismiss)) { Text(stringResource(R.string.beacon_not_now)) }
             Spacer(Modifier.height(8.dp))
         }
     }
@@ -113,15 +113,15 @@ fun BeaconNearbySheet(device: BeaconDevice, onPair: () -> Unit, onDismiss: () ->
                 Surface(shape = DashDesign.section, color = MaterialTheme.colorScheme.surfaceContainerLow) {
                 Column(Modifier.fillMaxWidth().padding(18.dp), horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Novo Beacon encontrado nas proximidades", style = MaterialTheme.typography.headlineSmall)
-                    Text("L-Shell Beacon está pronto para ser configurado.",
+                    Text(stringResource(R.string.ui_new_beacon_found_nearby), style = MaterialTheme.typography.headlineSmall)
+                    Text(stringResource(R.string.ui_l_shell_beacon_is_ready_to_set_up),
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Surface(shape = DashDesign.pill, color = MaterialTheme.colorScheme.secondaryContainer) {
                     Row(Modifier.padding(horizontal = 10.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         Icon(Icons.Rounded.Bluetooth, null, Modifier.size(17.dp))
-                        Text("Bluetooth próximo · conexão protegida", style = MaterialTheme.typography.labelLarge)
+                        Text(stringResource(R.string.ui_nearby_bluetooth_secure_connection), style = MaterialTheme.typography.labelLarge)
                     }
                     }
                 }
@@ -131,10 +131,10 @@ fun BeaconNearbySheet(device: BeaconDevice, onPair: () -> Unit, onDismiss: () ->
                 enter = fadeIn(tween(180)) + slideInVertically(spring(dampingRatio = .82f, stiffness = 320f)) { it / 4 }) {
                 Column(Modifier.fillMaxWidth()) {
                     Button(onClick = hapticClick(DashFeedback.CONFIRM, onPair), modifier = Modifier.fillMaxWidth()) {
-                        Text("Iniciar pareamento")
+                        Text(stringResource(R.string.ui_start_pairing))
                     }
                     TextButton(onClick = hapticClick(action = onDismiss), modifier = Modifier.fillMaxWidth()) {
-                        Text("Agora não")
+                        Text(stringResource(R.string.beacon_not_now))
                     }
                 }
             }
