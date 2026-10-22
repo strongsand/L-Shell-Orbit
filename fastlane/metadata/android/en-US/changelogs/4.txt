@@ -1,0 +1,3 @@
+Fixed English and Spanish translations in the Beacon setup and permission sheets.
+Fixed widget color compatibility on Android 12–14 and preserved light/dark colors on Android 15+.
+Added English and Spanish widget labels. Discovery and pairing behavior are unchanged.

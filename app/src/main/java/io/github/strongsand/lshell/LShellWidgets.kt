@@ -4,10 +4,14 @@ import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
+import androidx.annotation.ColorRes
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.ColorFilter
@@ -16,6 +20,7 @@ import androidx.glance.GlanceModifier
 import androidx.glance.Image
 import androidx.glance.ImageProvider
 import androidx.glance.LocalSize
+import androidx.glance.LocalContext
 import androidx.glance.action.Action
 import androidx.glance.action.ActionParameters
 import androidx.glance.action.clickable
@@ -30,6 +35,7 @@ import androidx.glance.appwidget.appWidgetBackground
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
+import androidx.glance.color.ColorProvider as dayNightColorProvider
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Column
 import androidx.glance.layout.ContentScale
@@ -381,7 +387,7 @@ private fun WidgetHeader(title: String, refresh: Action, icon: Int = R.drawable.
         Image(
             ImageProvider(icon),
             contentDescription = null,
-            colorFilter = ColorFilter.tint(ColorProvider(R.color.widget_accent)),
+            colorFilter = ColorFilter.tint(widgetColor(R.color.widget_accent)),
             modifier = GlanceModifier.size(25.dp)
         )
         Spacer(GlanceModifier.width(8.dp))
@@ -441,8 +447,25 @@ private fun ReportMetric(label: String, value: String, tone: WidgetTone, modifie
     }
 }
 
+@Composable
+private fun widgetColor(@ColorRes resource: Int): ColorProvider {
+    val context = LocalContext.current
+    val (dayContext, nightContext) = remember(context) {
+        context.createConfigurationContext(Configuration().apply {
+            uiMode = Configuration.UI_MODE_NIGHT_NO
+        }) to context.createConfigurationContext(Configuration().apply {
+            uiMode = Configuration.UI_MODE_NIGHT_YES
+        })
+    }
+    return dayNightColorProvider(
+        day = Color(dayContext.getColor(resource)),
+        night = Color(nightContext.getColor(resource))
+    )
+}
+
+@Composable
 private fun widgetStyle(size: Int, tone: WidgetTone, bold: Boolean = false) = TextStyle(
-    color = ColorProvider(tone.resource),
+    color = widgetColor(tone.resource),
     fontSize = size.sp,
     fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal
 )

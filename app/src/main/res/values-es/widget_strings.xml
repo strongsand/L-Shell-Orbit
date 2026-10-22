@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_summary_name">L-Shell Orbit · Resumen</string>
+    <string name="widget_speed_name">L-Shell Orbit · Velocidad</string>
+    <string name="widget_connection_name">L-Shell Orbit · Conexión</string>
+    <string name="widget_test_name">L-Shell Orbit · Prueba</string>
+    <string name="widget_alerts_name">L-Shell Orbit · Alertas</string>
+    <string name="widget_trends_name">L-Shell Orbit · Tendencias</string>
+    <string name="widget_obstruction_name">L-Shell Orbit · Obstrucción</string>
+    <string name="widget_report_name">L-Shell Orbit · Informe</string>
+    <string name="widget_beacon_name">L-Shell Orbit · Beacon</string>
+</resources>

@@ -1,6 +1,52 @@
 # L-Shell Orbit release checklist
 
-> Historical first-beta checklist (2026-09-26), not the current release state. The public repository and pt-BR screenshots now exist, and subsequent local project validations have been completed. Current Android version is `0.1.1-beta` / code `2`; release R8 is enabled with the required Protobuf keep rule, while resource shrinking remains disabled. The current release checkpoint and signing procedure are recorded below. Unchecked historical boxes do not establish current blockers.
+## Stable 0.1.3-beta local finalization — 2026-10-22
+
+- Worktree/branch: `Material_Link_v2` / `main`, preserving parent localization commit `88610ea702836268fdc7b1a1a24acf5d16709391`.
+- Candidate: `0.1.3-beta`, code `4`, applicationId `io.github.strongsand.lshell`. Future tag `v0.1.3-beta`; asset `L-Shell-Orbit-0.1.3-beta.apk`.
+- Authorized scope since `v0.1.2-beta`: Beacon setup/permission sheet localization; widget API-35 error colors with existing API-31–34 fallbacks; public Glance day/night color providers; EN/ES widget labels; version, changelogs and release preparation. No telemetry, permission flow, pairing, protocol, persistence, firmware or next changes.
+- A local preparation commit and final-commit R8 build/signing are authorized. Push, tag, release, distribution and GitLab changes remain unauthorized in this round.
+
+### Automated validation before the release commit
+
+- [x] Localized XML/key uniqueness and PT-BR/EN/ES parity; version/changelog/example checks and `git diff --check`.
+- [x] Debug/release resource processing and Kotlin compilation.
+- [x] JVM tests: 26 passed, zero failures/errors/skips.
+- [x] Full `lintRelease`: zero errors/fatals, 75 warnings and 7 hints. All 15 previously audited errors were corrected without suppressions, baseline or dependency changes.
+- [x] Release/R8 and vital lint completed after the bounded lint fixes. Protobuf Lite keep rule and resource-shrinking policy preserved.
+- [ ] Rebuild from the exact local release commit, verify embedded VCS revision, archive matching R8 mapping and source manifest. Pre-commit APKs are not final release artifacts.
+- [ ] Verify official certificate before signing; then verify final APK alignment, v2/v3 signatures, manifest, version/code, hash and unchanged source tree. Record actual results in the ignored local release package.
+
+### Signing and reproducibility gates
+
+- Official alias: `lshell-orbit`; certificate SHA-256: `83441e95d2580ecfae237096a403e952a1e38aae6c4ebea0a7311a294e965868`.
+- Use the existing external key and interactive local password entry. Do not copy the key or store credentials/private paths in public files. Reject a mismatching certificate before signing.
+- Preserve Build Tools 34.0.0 alignment/signing, release R8 and generated Protobuf Lite keep rules. A successful local build/signature check does not establish F-Droid reproducibility.
+- The final local package must identify its full source commit, unsigned/signed hashes, official signer and matching mapping. Never publish a pre-commit or subsequently changed candidate.
+
+### Physical QA — pending, not claimed as passed
+
+- [ ] Update over the officially signed `0.1.2-beta`; retain history, settings and Beacon configuration. Do not use a next installation as a stable downgrade test.
+- [ ] Beacon discovery and permission sheets in PT-BR/EN/ES, including grant, deny, cancel and pairing paths.
+- [ ] Widgets on API 31–34 (existing fallback warning colors) and API 35+ (system error colors), in light/dark launcher themes; verify text, icons and refresh.
+- [ ] Small screens and enlarged fonts: wrapping, clipping, actions and readability.
+- [ ] Signed R8 APK: startup, live Dishy telemetry, optional permissions and background monitoring smoke tests.
+- [ ] Maintainer/reviewer device or emulator evidence is required before marking any physical item complete.
+
+### Future publication — separate authorization required
+
+1. Recheck GitHub remote alignment, local source cleanliness and absence of the future tag. Push the reviewed release commit and create/push immutable `v0.1.3-beta` at that exact commit; preserve older tags/assets.
+2. Publish the verified signed APK as `L-Shell-Orbit-0.1.3-beta.apk` and its checksum. Verify the downloaded artifact matches the local hash and official signer.
+3. Update the existing MR !50362 recipe to code `4`, version `0.1.3-beta` and the final full source commit, preserving `Binaries`, `AllowedAPKSigningKeys` and build configuration. This repository's example is not the live recipe.
+4. Require a new passing F-Droid pipeline, including `fdroid build` and reproducible `check apk`, plus metadata/source/checkupdates checks. The earlier code-3 pipeline does not validate code 4.
+5. Arrange reviewer retesting only when messaging is authorized. Merge remains the F-Droid maintainer's decision.
+6. Preserve next; its code `4` needs a separately authorized increment to at least `5` before distribution. Review the broad F-Droid tag filter before publishing experimental tags.
+
+Last external check during planning (2026-10-22): public stable `v0.1.2-beta`; MR !50362 open with code `3` at `b756c1b`, with a successful 2026-10-06 pipeline. This is historical evidence to refresh before publication.
+
+## Historical first-beta checklist
+
+> The sections below retain historical checkpoints and are not current preparation status. Release R8 remains enabled with the generated Protobuf keep rule, while resource shrinking remains disabled. The Build Tools 34.0.0 signing flow and public signing identity remain applicable. Unchecked historical boxes do not establish current blockers.
 
 Target release: `0.1.0-beta` (`versionCode` 1)  
 Future tag: `v0.1.0-beta`
@@ -42,7 +88,7 @@ The command-line validation attempted on 2026-09-26 was blocked by an environmen
 - [x] No real equipment capture is present.
 - [x] Independent/unofficial project disclaimer remains visible.
 
-## Current release checkpoint — 0.1.1-beta
+## Historical release checkpoint — 0.1.1-beta
 
 Manually confirmed by the project maintainer on 2026-09-30:
 

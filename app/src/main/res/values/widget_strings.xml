@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">L-Shell Orbit</string>
+    <string name="app_name" translatable="false">L-Shell Orbit</string>
     <string name="widget_summary_name">L-Shell Orbit · Resumo</string>
     <string name="widget_speed_name">L-Shell Orbit · Velocidade</string>
     <string name="widget_connection_name">L-Shell Orbit · Conexão</string>
