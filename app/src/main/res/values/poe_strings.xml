@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="poe_input_label">PoE</string>
+    <string name="poe_energy_label">Tensão de entrada PoE</string>
+    <string name="poe_energy_source">Tensão do sensor de entrada do roteador. A leitura de potência vem da antena.</string>
+    <string name="poe_input_value">%1$s V</string>
+    <string name="poe_input_accessibility">Tensão de entrada PoE do roteador, %1$s volts</string>
+</resources>

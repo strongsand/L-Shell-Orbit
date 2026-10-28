@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="auto_custom">Custom</string>
+    <string name="auto_edit_time">Edit time</string>
+    <string name="auto_remove_time">Remove time</string>
+    <string name="auto_add_time">Add time</string>
+    <string name="auto_duplicate_time">Choose a time that is different from the others.</string>
+    <string name="auto_android_delayed_time">Planned for %1$s · Waiting for the system</string>
+    <string name="auto_slot_completed">Completed</string>
+    <string name="auto_slot_not_executed">Not run</string>
+    <string name="auto_slot_next">Next</string>
+    <string name="auto_slot_planned">Planned</string>
+    <string name="auto_save_failed">Could not save the times. Please try again.</string>
+</resources>

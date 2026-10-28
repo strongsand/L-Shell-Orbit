@@ -6,6 +6,10 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.util.Log
+import android.content.Intent
+import android.os.SystemClock
+import androidx.core.content.ContextCompat
+import io.github.strongsand.lshell.BeaconSyncService
 import io.github.strongsand.lshell.HistoryStore
 import io.github.strongsand.lshell.DailyReportStore
 import kotlinx.coroutines.CoroutineScope
@@ -21,11 +25,18 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
+import kotlinx.coroutines.supervisorScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.json.JSONObject
 
 class BeaconRepository private constructor(
+    private val appContext: Context,
     private val preferences: BeaconPreferences,
     private val discovery: BeaconDiscovery,
     private val bleProvisioning: BeaconBleProvisioning,
@@ -40,7 +51,20 @@ class BeaconRepository private constructor(
         initialDevice?.let { BeaconState.DiscoveringLan(it) } ?: BeaconState.NotConfigured
     )
     val state: StateFlow<BeaconState> = _state.asStateFlow()
+    private val managementCredentials = BeaconManagementCredentials(appContext)
+    private val _management = MutableStateFlow(BeaconManagementState())
+    val management: StateFlow<BeaconManagementState> = _management.asStateFlow()
+    private val _discardPreview = MutableStateFlow<BeaconDiscardPreview?>(null)
+    val discardPreview: StateFlow<BeaconDiscardPreview?> = _discardPreview.asStateFlow()
+    private var managementJob: Job? = null
+    private var androidPairingJob: Job? = null
 
+    private val _recentEvents = MutableStateFlow<List<BeaconUiEvent>>(emptyList())
+    val recentEvents: StateFlow<List<BeaconUiEvent>> = _recentEvents.asStateFlow()
+    private var lastImportedRecords: Int? = null
+    private fun event(kind: BeaconUiEventKind, count: Long? = null) {
+        _recentEvents.update { appendBeaconEvent(it, BeaconUiEvent(System.currentTimeMillis(), kind, count)) }
+    }
     private var discoveryJob: Job? = null
     private var savedHostJob: Job? = null
     private var discoveryTimeoutJob: Job? = null
@@ -49,9 +73,14 @@ class BeaconRepository private constructor(
     private var provisioningTimeoutJob: Job? = null
     private var setupDevice: BeaconDevice? = null
     private val syncMutex = Mutex()
+    private data class ManualSync(val id: Long, val device: BeaconDevice, val status: BeaconRuntimeStatus)
+    @Volatile private var manualSync: ManualSync? = null
     private var discoveryGeneration = 0L
     private var resolvedGeneration = -1L
     @Volatile private var wifiAvailable = false
+    private val syncListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == "background_completed") scope.launch { refreshStatus("background_completed") }
+    }
 
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
@@ -73,9 +102,29 @@ class BeaconRepository private constructor(
     }
 
     init {
+        preferences.observeSync(syncListener)
+        BeaconSyncSchedule.configure(appContext)
+        scope.launch {
+            var previous: BeaconRuntimeStatus? = null
+            state.collect { current ->
+                val next = current.runtimeStatusOrNull()
+                val old = previous
+                if (next != null && old != null) {
+                    if (next.lastCollectionAtMillis != null && next.lastCollectionAtMillis != old.lastCollectionAtMillis)
+                        event(BeaconUiEventKind.NEW_COLLECTION)
+                    if (!old.storageHealthy && next.storageHealthy) event(BeaconUiEventKind.STORAGE_RECOVERED)
+                }
+                if (next != null) previous = next
+            }
+        }
         scope.launch {
             state.map(::uiStateName).distinctUntilChanged().collect {
                 Log.i(TAG, "BEACON_UI_STATE=$it")
+                when (it) {
+                    "ONLINE", "RECORDING" -> event(BeaconUiEventKind.ONLINE)
+                    "OFFLINE", "ERROR" -> event(BeaconUiEventKind.ERROR)
+                    else -> Unit
+                }
             }
         }
         runCatching {
@@ -87,6 +136,8 @@ class BeaconRepository private constructor(
     }
 
     fun startDiscovery() {
+        if (managementJob?.isActive == true || androidPairingJob?.isActive == true) return
+        _management.value = BeaconManagementState()
         cancelLanDiscovery()
         knownDevice()?.let { startLanDiscovery(it); return }
         Log.i(TAG, "BEACON_NEARBY_SCAN_START")
@@ -119,6 +170,57 @@ class BeaconRepository private constructor(
                 Log.i(TAG, "BEACON_NEARBY_SCAN_STOP")
                 discoveryJob?.cancel()
                 _state.value = BeaconState.NotConfigured
+            }
+        }
+    }
+
+    /** Explicit Android-only discovery does not request Bluetooth permissions. */
+    fun startAndroidDiscovery() {
+        if (manualSync != null || managementJob?.isActive == true || androidPairingJob?.isActive == true) return
+        cancelLanDiscovery()
+        _state.value = BeaconState.Discovering
+        discoveryJob = scope.launch {
+            discovery.discover().collect { result ->
+                result.onSuccess { candidate ->
+                    if (candidate.implementation == "android" && _state.value == BeaconState.Discovering) {
+                        _state.value = BeaconState.Found(candidate)
+                    }
+                }
+            }
+        }
+        discoveryTimeoutJob = scope.launch {
+            delay(LAN_DISCOVERY_TIMEOUT_MS)
+            if (_state.value == BeaconState.Discovering) {
+                discoveryJob?.cancel()
+                _state.value = knownDevice()?.let { BeaconState.BeaconOffline(it) } ?: BeaconState.NotConfigured
+            }
+        }
+    }
+
+    fun pairAndroid(device: BeaconDevice, qr: String) {
+        if (manualSync != null || managementJob?.isActive == true || androidPairingJob?.isActive == true) return
+        cancelLanDiscovery()
+        _state.value = BeaconState.Pairing(device)
+        androidPairingJob = scope.launch {
+            try {
+                val pairing = io.github.strongsand.lshell.beaconprotocol.BeaconPairing.parse(qr)
+                pairing.matches(device.id)
+                val verified = lanClient.info(device).getOrThrow()
+                pairing.matches(verified.id)
+                require(verified.protocolVersion == 1 && verified.implementation == "android" &&
+                    "authenticated_ack_v1" in verified.capabilities && "absolute_timestamp_v1" in verified.capabilities)
+                // Prove token possession before changing existing credentials or configuration.
+                AndroidBeaconLanClient(context = appContext).verifyAndroidPairing(verified, pairing.token).getOrThrow()
+                managementCredentials.save(verified.id, pairing.token)
+                val previous = knownDevice()
+                if (previous != null && previous.id != verified.id) preferences.clearPairing()
+                preferences.saveConfiguredBeacon(verified)
+                BeaconSyncSchedule.configure(appContext)
+                activateConfigured(verified, preferences.settings().automaticSync, reason = "android_qr")
+            } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+            catch (_: Exception) {
+                if (knownDevice()?.id != device.id) managementCredentials.delete(device.id)
+                _state.value = BeaconState.Error(BeaconErrorCode.PAIRING_FAILED, device = device)
             }
         }
     }
@@ -220,6 +322,7 @@ class BeaconRepository private constructor(
         if (generation != discoveryGeneration || resolvedGeneration == generation) return
         resolvedGeneration = generation
         preferences.saveConfiguredBeacon(device)
+        BeaconSyncSchedule.configure(appContext)
         activateConfigured(device, preferences.settings().automaticSync, status, "discovery")
         discoveryJob?.cancel()
         savedHostJob?.cancel()
@@ -282,6 +385,13 @@ class BeaconRepository private constructor(
                     firmwareVersion = info?.optString("firmware_version")?.takeIf { it.isNotBlank() },
                     protocolVersion = protocolVersion
                 )
+                val token = info?.optString("management_token").orEmpty()
+                if (token.isNotBlank()) {
+                    if (runCatching { managementCredentials.save(device.id, token) }.isFailure) {
+                        _state.value = BeaconState.Error(BeaconErrorCode.CREDENTIAL_FAILED, device = device)
+                        return
+                    }
+                }
                 setupDevice = device
                 _state.value = BeaconState.WifiCredentialsRequired(device)
             }
@@ -289,6 +399,7 @@ class BeaconRepository private constructor(
             BeaconProvisioningEvent.COMPLETE -> {
                 Log.i(TAG, "BEACON_PROVISIONING_COMPLETE")
                 preferences.saveConfiguredBeacon(device)
+                BeaconSyncSchedule.configure(appContext)
                 startLanDiscovery(device)
                 provisioningJob?.cancel()
                 provisioningTimeoutJob?.cancel()
@@ -343,6 +454,7 @@ class BeaconRepository private constructor(
     }
 
     fun cancelInteractiveSession() {
+        androidPairingJob?.cancel()
         cancelLanDiscovery()
         provisioningJob?.cancel()
         provisioningTimeoutJob?.cancel()
@@ -358,6 +470,7 @@ class BeaconRepository private constructor(
 
     /** Connects a Beacon already discovered over LAN using the implemented local protocol. */
     fun pair(device: BeaconDevice) {
+        if (device.implementation == "android") return // Android requires explicit QR proof.
         cancelLanDiscovery()
         scope.launch {
             val validated = lanClient.info(device).getOrElse {
@@ -373,24 +486,50 @@ class BeaconRepository private constructor(
                 return@launch
             }
             preferences.saveConfiguredBeacon(validated)
+            BeaconSyncSchedule.configure(appContext)
             activateConfigured(validated, preferences.settings().automaticSync, reason = "manual_connect")
         }
     }
 
     fun triggerAutoSync(reason: String) {
+        BeaconSyncSchedule.requestNow(appContext)
         Log.i(TAG, "BEACON_AUTO_SYNC_TRIGGER=$reason")
         if (knownDevice() != null) refreshStatus(reason)
     }
 
+    /** Read-only diagnostic, coalesced with existing refresh/sync/management ownership.
+     * No activateConfigured(): opening a diagnostic must not schedule sync or persist preferences.
+     * Null means busy; preserve the last observation and let its freshness expire normally.
+     */
+    internal suspend fun readPowerDiagnostic(): Result<BeaconRuntimeStatus>? {
+        val device = knownDevice() ?: return Result.failure(IllegalStateException("No configured Beacon"))
+        if (refreshJob?.isActive == true || manualSync != null || managementJob?.isActive == true || syncMutex.isLocked) return null
+        // Reuse the existing cancellable refresh slot, without blocking syncNow()
+        // behind a diagnostic-held sync mutex. Its normal cancellation path wins.
+        return supervisorScope {
+            val requestJob = async(start = CoroutineStart.LAZY) {
+                readBeaconPowerDiagnostic(device, lanClient::info, lanClient::status)
+            }
+            refreshJob = requestJob
+            try { requestJob.await() }
+            catch (cancelled: kotlinx.coroutines.CancellationException) {
+                currentCoroutineContext().ensureActive() // leaving the panel still cancels everything
+                null // a normal sync preempted this read; keep its next diagnostic refresh available
+            } finally { if (refreshJob === requestJob) refreshJob = null }
+        }
+    }
+
     fun refreshStatus(reason: String = "status_refresh") {
         val device = knownDevice() ?: return
-        if (refreshJob?.isActive == true || syncMutex.isLocked) return
+        if (refreshJob?.isActive == true || syncMutex.isLocked || manualSync != null || managementJob?.isActive == true) return
         refreshJob = scope.launch {
             Log.i(TAG, "BEACON_DISCOVERY_START")
             Log.i(TAG, "BEACON_SAVED_HOST_TRY")
             lanClient.info(device).fold(
                 onSuccess = { validated ->
-                    if (validated.protocolVersion != SUPPORTED_PROTOCOL_VERSION) {
+                    if (validated.id != device.id) {
+                        startLanDiscovery(device, preserveRuntimeState = true)
+                    } else if (validated.protocolVersion != SUPPORTED_PROTOCOL_VERSION) {
                         _state.value = BeaconState.Error(
                             BeaconErrorCode.PROTOCOL_INCOMPATIBLE,
                             "Protocol ${validated.protocolVersion}",
@@ -424,10 +563,53 @@ class BeaconRepository private constructor(
     }
 
     fun syncNow() {
+        if (manualSync != null || syncMutex.isLocked || managementJob?.isActive == true) return
         val device = preferences.configuredBeacon() ?: preferences.pairedBeacon()?.device ?: return
         val current = _state.value.runtimeStatusOrNull() ?: return
-        scope.launch {
-            synchronizeWithRetry(device, current, "manual")
+        val request = ManualSync(SystemClock.elapsedRealtimeNanos(), device, current)
+        // An older foreground refresh must not replace manual progress with its late response.
+        refreshJob?.cancel()
+        manualSync = request
+        _state.value = BeaconState.Syncing(current)
+        try {
+            ContextCompat.startForegroundService(appContext,
+                Intent(appContext, BeaconSyncService::class.java)
+                    .setAction(BeaconSyncService.ACTION_START).putExtra(BeaconSyncService.EXTRA_ID, request.id))
+        } catch (_: RuntimeException) {
+            manualSyncStartFailed(request.id)
+            BeaconSyncService.postStartFailure(appContext)
+        }
+    }
+
+    internal fun hasManualSync(id: Long): Boolean = manualSync?.id == id
+
+    internal fun manualSyncStartFailed(id: Long) {
+        val request = manualSync?.takeIf { it.id == id } ?: return
+        _state.value = BeaconState.Error(BeaconErrorCode.SYNC_FAILED, device = request.device)
+        event(BeaconUiEventKind.ERROR)
+        manualSync = null
+        shared.closeIfUnused(this)
+    }
+
+    /** Only the manual service calls this; paging, retry, ACK and outcome remain here. */
+    internal suspend fun executeManualSync(id: Long, onFinished: (Boolean) -> Unit) {
+        val request = manualSync?.takeIf { it.id == id } ?: return
+        var delivered = false
+        try {
+            synchronizeWithRetry(request.device, request.status, "manual") { success ->
+                delivered = true
+                onFinished(success)
+            }
+        } finally {
+            if (!delivered) {
+                _state.value = BeaconState.Error(BeaconErrorCode.SYNC_FAILED, device = request.device)
+                event(BeaconUiEventKind.ERROR)
+                onFinished(false)
+            }
+            if (manualSync?.id == id) {
+                manualSync = null
+                shared.closeIfUnused(this)
+            }
         }
     }
 
@@ -437,10 +619,12 @@ class BeaconRepository private constructor(
         knownStatus: BeaconRuntimeStatus? = null,
         reason: String = "online"
     ) {
+        if (manualSync != null) return
         val status = knownStatus ?: lanClient.status(device).getOrElse {
             _state.value = BeaconState.BeaconOffline(device)
             return
         }
+        if (manualSync != null) return
         val current = withLocalSyncTime(status)
         _state.value = runtimeState(current)
         if (sync && (current.pendingRecords ?: 0L) > 0L) {
@@ -451,21 +635,29 @@ class BeaconRepository private constructor(
     private suspend fun synchronizeWithRetry(
         device: BeaconDevice,
         status: BeaconRuntimeStatus,
-        reason: String
+        reason: String,
+        onFinished: (Boolean) -> Unit = {}
     ) {
         if (!syncMutex.tryLock()) return
         try {
             var failure: Throwable? = null
-            repeat(SYNC_MAX_ATTEMPTS) { attempt ->
-                val result = syncManager.synchronize(device) { processed, total ->
+            for (attempt in 0 until SYNC_MAX_ATTEMPTS) {
+                var pages = 0
+                val result = syncManager.synchronize(device,
+                    onPageAcknowledged = { count -> pages = count; event(BeaconUiEventKind.ACK, count.toLong()) }
+                ) { processed, total ->
                     _state.value = BeaconState.Syncing(
                         status = withLocalSyncTime(status),
                         progress = if (total > 0L) processed.toFloat() / total else 1f,
                         processedRecords = processed,
-                        totalRecords = total
+                        totalRecords = total,
+                        acknowledgedPages = pages
                     )
                 }
                 if (result.isSuccess) {
+                    lastImportedRecords = result.getOrThrow().imported
+                    event(BeaconUiEventKind.SYNC_COMPLETE, lastImportedRecords?.toLong())
+                    onFinished(true) // Whole sync succeeded; an intermediate page ACK never calls this.
                     lanClient.status(device).fold(
                         onSuccess = { refreshed -> _state.value = runtimeState(withLocalSyncTime(refreshed)) },
                         onFailure = { _state.value = runtimeState(withLocalSyncTime(status)) }
@@ -473,31 +665,89 @@ class BeaconRepository private constructor(
                     return
                 }
                 failure = result.exceptionOrNull()
+                if (failure is BeaconHistoryTimestampException) break // Retrying cannot recover an old boot's clock.
                 if (attempt + 1 < SYNC_MAX_ATTEMPTS) {
                     Log.i(TAG, "SYNC_RETRY=${attempt + 1}")
                     delay(SYNC_RETRY_DELAYS_MS[attempt])
                 }
             }
-            _state.value = BeaconState.Error(BeaconErrorCode.SYNC_FAILED, failure?.message, device)
+            _state.value = BeaconState.Error(
+                if (failure is BeaconHistoryTimestampException) BeaconErrorCode.HISTORY_TIME_UNAVAILABLE
+                else BeaconErrorCode.SYNC_FAILED, failure?.message, device)
+            onFinished(false)
         } finally {
             syncMutex.unlock()
         }
     }
 
     private fun withLocalSyncTime(status: BeaconRuntimeStatus): BeaconRuntimeStatus = status.copy(
-        lastSyncAtMillis = preferences.lastSyncAtMillis() ?: status.lastSyncAtMillis
+        lastSyncAtMillis = preferences.lastSyncAtMillis() ?: status.lastSyncAtMillis,
+        acknowledgedSequence = preferences.lastSyncedSequence().takeIf { it > 0L },
+        lastImportedRecords = lastImportedRecords
     )
 
     fun settings(): BeaconSettings = preferences.settings()
-    fun saveSettings(settings: BeaconSettings) = preferences.saveSettings(settings)
+    fun saveSettings(settings: BeaconSettings) {
+        preferences.saveSettings(settings)
+        BeaconSyncSchedule.configure(appContext)
+        if (settings.backgroundSync) BeaconSyncSchedule.requestNow(appContext)
+    }
+
+    fun requestFactoryReset() = manage {
+        val device = knownDevice() ?: error("No Beacon")
+        BeaconSyncGate.mutex.withLock {
+            AndroidBeaconLanClient(context = appContext).factoryReset(device).getOrThrow()
+            // Accepted durable reset only: cancel old jobs/configuration, preserve Android history.
+            forget()
+            _management.value = BeaconManagementState(resetAccepted = true)
+        }
+    }
+
+    fun previewUnrecoverableHistory() = manage {
+        val device = knownDevice() ?: error("No Beacon")
+        BeaconSyncGate.mutex.withLock {
+            _discardPreview.value = AndroidBeaconLanClient(context = appContext).discardPreview(device).getOrThrow()
+        }
+    }
+
+    fun discardUnrecoverableHistory(preview: BeaconDiscardPreview) = manage {
+        val device = knownDevice() ?: error("No Beacon")
+        BeaconSyncGate.mutex.withLock {
+            val through = AndroidBeaconLanClient(context = appContext).discard(device, preview).getOrThrow()
+            require(knownDevice()?.id == device.id)
+            preferences.confirmDiscardThrough(through)
+            Log.i(TAG, "BEACON_HISTORY_DISCARD_CONFIRMED count=${preview.recordCount}")
+            _discardPreview.value = null
+            _management.value = BeaconManagementState(discarded = preview.recordCount)
+        }
+        refreshStatus("explicit_discard")
+    }
+
+    fun dismissDiscardPreview() { _discardPreview.value = null }
+
+    private fun manage(action: suspend () -> Unit) {
+        if (managementJob?.isActive == true || manualSync != null) return
+        _management.value = BeaconManagementState(busy = true)
+        managementJob = scope.launch {
+            try {
+                action()
+                if (_management.value.busy) _management.value = BeaconManagementState()
+            } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+            catch (_: Exception) { _management.value = BeaconManagementState(failed = true) }
+        }
+    }
 
     fun forget() {
+        androidPairingJob?.cancel()
+        refreshJob?.cancel()
         cancelLanDiscovery()
         provisioningJob?.cancel()
         provisioningTimeoutJob?.cancel()
         bleProvisioning.close()
+        knownDevice()?.id?.let(managementCredentials::delete)
         preferences.pairedBeacon()?.keyAlias?.let(credentials::delete)
         preferences.clearPairing()
+        BeaconSyncSchedule.configure(appContext)
         setupDevice = null
         _state.value = BeaconState.NotConfigured
     }
@@ -509,14 +759,19 @@ class BeaconRepository private constructor(
     }
 
     override fun close() {
+        shared.release(this)
+    }
+
+    private fun dispose() {
+        preferences.stopObservingSync(syncListener)
         cancelLanDiscovery()
         refreshJob?.cancel()
         provisioningJob?.cancel()
         provisioningTimeoutJob?.cancel()
         bleProvisioning.close()
         runCatching { connectivityManager?.unregisterNetworkCallback(networkCallback) }
-        syncManager.close()
         scope.cancel()
+        scope.coroutineContext[Job]?.invokeOnCompletion { syncManager.close() } ?: syncManager.close()
     }
 
     private fun cancelLanDiscovery() {
@@ -535,7 +790,8 @@ class BeaconRepository private constructor(
     private fun runtimeState(status: BeaconRuntimeStatus): BeaconState = when {
         !status.storageHealthy -> BeaconState.StorageWarning(status)
         status.dishyAvailable == false -> BeaconState.DishyUnavailable(status)
-        status.storageCapacityBytes != null && status.storageCapacityBytes > 0L &&
+        status.device.implementation != "android" &&
+            status.storageCapacityBytes != null && status.storageCapacityBytes > 0L &&
             status.pendingRecords != null &&
             status.pendingRecords.toDouble() / (status.storageCapacityBytes / 64L).coerceAtLeast(1L) >= .9 ->
             BeaconState.StorageWarning(status)
@@ -565,12 +821,17 @@ class BeaconRepository private constructor(
         private const val PROVISIONING_TIMEOUT_MS = 180_000L
         private const val SYNC_MAX_ATTEMPTS = 3
         private val SYNC_RETRY_DELAYS_MS = longArrayOf(1_000L, 2_500L)
+        private val shared = BeaconRepositoryLease<BeaconRepository>(
+            busy = { it.manualSync != null || it.managementJob?.isActive == true }, dispose = { it.dispose() })
 
-        fun create(context: Context): BeaconRepository {
+        fun create(context: Context): BeaconRepository = shared.acquire { createInstance(context) }
+
+        private fun createInstance(context: Context): BeaconRepository {
             val app = context.applicationContext
             val preferences = BeaconPreferences(app)
-            val lanClient = AndroidBeaconLanClient()
+            val lanClient = AndroidBeaconLanClient(context = app)
             return BeaconRepository(
+                appContext = app,
                 preferences = preferences,
                 discovery = AndroidNsdBeaconDiscovery(app),
                 bleProvisioning = AndroidBeaconBleProvisioning(app),

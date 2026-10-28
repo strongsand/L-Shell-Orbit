@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="product_history_subtitle">Connection events and alerts.</string>
+    <string name="product_previous_day">Previous day</string>
+    <string name="product_next_day">Next day</string>
+    <string name="product_no_events">No events recorded for this period.</string>
+    <string name="product_connection">Connection</string>
+    <string name="product_quality">Quality</string>
+    <string name="product_tests">Tests</string>
+    <string name="product_hardware">Equipment</string>
+    <string name="product_other">Other</string>
+    <string name="product_normal_test">Normal test</string>
+    <string name="product_completed">Completed</string>
+    <string name="product_failed">Failed</string>
+    <string name="product_interrupted">Interrupted</string>
+    <string name="product_no_results">No saved tests yet.</string>
+    <string name="product_normal_summary">A quick connection measurement.</string>
+    <string name="product_extreme_summary">Multiple rounds to analyze stability and peaks.</string>
+    <string name="product_choose_rounds">Choose rounds</string>
+    <string name="product_continue_test">Continue test</string>
+    <string name="product_test_active">Test running</string>
+    <string name="product_auto_off">Off</string>
+    <string name="product_budget_exhausted">Today’s limit reached</string>
+    <string name="product_waiting_idle">Waiting for low usage</string>
+    <string name="product_waiting_android">Waiting for Android to run</string>
+    <string name="product_next_approx">Next opportunity · ~%1$s</string>
+    <string name="product_smart_summary">Tests when the connection is idle.</string>
+    <string name="product_schedule_summary">Runs tests throughout the day.</string>
+    <string name="product_frequency">Frequency</string>
+    <string name="product_intensity">Daily opportunities</string>
+    <string name="product_up_to_day">Up to %1$d/day</string>
+    <string name="product_distributed">Spread throughout the day. Android may delay a run.</string>
+    <string name="product_budget">Today · %1$d/%2$d shared attempts</string>
+    <string name="product_last_activity">Last activity · %1$s</string>
+    <string name="product_how_it_works">How it works</string>
+    <string name="product_shared_help">Scheduled and smart tests share up to 8 daily attempts, including failures and cancellations. Tests cannot run in parallel, with at least 1 hour between attempts and other tests. Smart opportunities are spaced throughout the day; missed opportunities are not run back to back. Real low traffic, screen off, and battery, network and notification conditions are required. Missing readings do not mean idle.</string>
+</resources>

@@ -1,323 +1,304 @@
 package io.github.strongsand.lshell
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
+import io.github.strongsand.lshell.beacon.BeaconPreferences
+import io.github.strongsand.lshell.core.data.ConnectionEvent
+import io.github.strongsand.lshell.core.data.TelemetrySample
+import io.github.strongsand.lshell.core.data.LivePowerReading
 import io.github.strongsand.lshell.core.model.DishySnapshot
-import io.github.strongsand.lshell.core.network.grpc.RouterClientInfo
-import io.github.strongsand.lshell.core.network.grpc.RouterGrpcClient
-import io.github.strongsand.lshell.beacon.BeaconSampleSource
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.Locale
 
-enum class MetricDetailKind { DOWNLOAD, UPLOAD, LATENCY, SIGNAL }
+enum class MetricDetailKind { DOWNLOAD, UPLOAD, LATENCY, SIGNAL, POWER }
+internal fun MetricDetailKind.historyMetric() = when (this) {
+    MetricDetailKind.DOWNLOAD -> HistoricalMetric.DOWNLOAD
+    MetricDetailKind.UPLOAD -> HistoricalMetric.UPLOAD
+    MetricDetailKind.LATENCY -> HistoricalMetric.LATENCY
+    MetricDetailKind.SIGNAL -> HistoricalMetric.LOSS
+    MetricDetailKind.POWER -> HistoricalMetric.POWER
+}
+private data class MetricDetailView(val series: MetricHistorySeries, val traffic: TrafficSummary?,
+    val mean: Double?, val median: Double?, val minimum: Double?, val maximum: Double?, val obstructions: Int)
 
+/** Read-only Home details. The separate traffic monitor retains all recording/session controls. */
 @Composable
 fun MetricDetailScreen(kind: MetricDetailKind, snapshot: DishySnapshot, modifier: Modifier = Modifier,
-                       onBack: () -> Unit) {
+    onBack: () -> Unit, liveSamples: List<TelemetrySample> = emptyList(),
+    @Suppress("UNUSED_PARAMETER") liveEvents: List<ConnectionEvent> = emptyList(),
+    livePower: LivePowerReading? = null) {
     val context = LocalContext.current
-    var entries by remember { mutableStateOf<List<HistoryEntry>>(emptyList()) }
-    var clients by remember { mutableStateOf<List<RouterClientInfo>>(emptyList()) }
-    var routerMessage by remember { mutableStateOf<String?>(null) }
-    var hours by rememberSaveable { mutableIntStateOf(1) }
-    val latestMinute = snapshot.timestamp / 60_000L
-    LaunchedEffect(kind, hours, latestMinute) {
-        val cutoff = System.currentTimeMillis() - hours * 3_600_000L
-        entries = withContext(Dispatchers.IO) {
-            HistoryStore(context).use { it.between(cutoff, System.currentTimeMillis() + 1_000L) }
-                .filter { item -> item.kind == "reading" || item.kind == "terminal_history" || item.kind == "beacon_history" }
-                .distinctBy { it.timestamp / 1_000L }
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    var minutes by rememberSaveable(kind) { mutableIntStateOf(15) }
+    var revision by remember { mutableIntStateOf(0) }
+    var view by remember(kind, minutes) { mutableStateOf<MetricDetailView?>(null) }
+    var failed by remember(kind, minutes) { mutableStateOf(false) }
+    var loading by remember(kind, minutes) { mutableStateOf(true) }
+    DisposableEffect(lifecycle, context) {
+        val prefs = BeaconPreferences(context)
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == "background_completed" || key == "last_sync_at") revision++
         }
-        if (kind == MetricDetailKind.DOWNLOAD || kind == MetricDetailKind.UPLOAD) {
-            RouterGrpcClient().fetch().fold(
-                onSuccess = { info ->
-                    clients = mergeClientSnapshots(clients, info.clients)
-                    routerMessage = null
-                },
-                onFailure = { routerMessage = "O roteador não respondeu agora." }
-            )
+        val observer = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_START) revision++ }
+        prefs.observeSync(listener); lifecycle.addObserver(observer)
+        onDispose { prefs.stopObservingSync(listener); lifecycle.removeObserver(observer) }
+    }
+    // Existing telemetry drives refresh; no RPC, new collector, speedtest or background timer.
+    val cadence = if (minutes <= 30) 5_000 else 30_000
+    LaunchedEffect(kind, minutes, snapshot.timestamp / cadence, revision, lifecycle) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            loading = true; failed = false
+            try {
+                val end = System.currentTimeMillis()
+                val start = end - minutes * 60_000L
+                val stored = withContext(Dispatchers.IO) { HistoryStore(context).use { it.between(start - 5_000, end) } }
+                val live = liveSamples.filter { it.timestamp >= start - 5_000 && it.timestamp < end }.map {
+                    HistoryEntry(it.timestamp, if (it.isHistory) "terminal_history" else "reading", "",
+                        it.downloadMbps, it.uploadMbps, it.latencyMs, it.dropPercent, powerWatts = it.powerWatts)
+                }
+                val current = snapshot.takeIf { it.isOnline && !it.isFromCache && it.timestamp in start until end }?.let {
+                    listOf(HistoryEntry(it.timestamp, "reading", "", it.throughput.downlinkMbps, it.throughput.uplinkMbps,
+                        it.latency.popPingLatencyMs, it.latency.popPingDropRate * 100, it.obstruction.obstructionPercentage))
+                }.orEmpty()
+                view = withContext(Dispatchers.Default) {
+                    val rows = stored + live + current
+                    val series = MetricHistorySeriesBuilder.build(rows, kind.historyMetric(), start, end)
+                    val values = series.values.sorted()
+                    val traffic = if (kind == MetricDetailKind.DOWNLOAD || kind == MetricDetailKind.UPLOAD)
+                        TrafficSessionAnalyzer.analyze(rows, start, end).summary(
+                            if (kind == MetricDetailKind.DOWNLOAD) TrafficMetric.DOWNLOAD else TrafficMetric.UPLOAD) else null
+                    MetricDetailView(series, traffic, values.takeIf { it.isNotEmpty() }?.average(),
+                        values.takeIf { it.isNotEmpty() }?.let { (it[(it.size - 1) / 2] + it[it.size / 2]) / 2 },
+                        values.firstOrNull(), values.lastOrNull(), stored.count {
+                            it.timestamp >= start && it.obstructionPercent.isFinite() && it.obstructionPercent >= 1 })
+                }
+                failed = false
+            } catch (e: CancellationException) { throw e }
+            catch (_: Exception) { failed = true }
+            finally { loading = false }
         }
     }
-    val title = when (kind) {
-        MetricDetailKind.DOWNLOAD -> "Download"
-        MetricDetailKind.UPLOAD -> "Upload"
-        MetricDetailKind.LATENCY -> "Latência"
-        MetricDetailKind.SIGNAL -> "Qualidade do sinal"
-    }
+    val title = stringResource(when (kind) {
+        MetricDetailKind.DOWNLOAD -> R.string.traffic_download
+        MetricDetailKind.UPLOAD -> R.string.traffic_upload
+        MetricDetailKind.LATENCY -> R.string.traffic_latency
+        MetricDetailKind.SIGNAL -> R.string.metric_detail_signal
+        MetricDetailKind.POWER -> R.string.editorial_dish_power
+    })
     val icon = when (kind) {
-        MetricDetailKind.DOWNLOAD -> Icons.Rounded.Download
-        MetricDetailKind.UPLOAD -> Icons.Rounded.Upload
-        MetricDetailKind.LATENCY -> Icons.Rounded.Speed
-        MetricDetailKind.SIGNAL -> Icons.Rounded.SignalCellularAlt
-    }
-    val values = when (kind) {
-        MetricDetailKind.DOWNLOAD -> entries.map { it.downloadMbps }
-        MetricDetailKind.UPLOAD -> entries.map { it.uploadMbps }
-        MetricDetailKind.LATENCY -> entries.map { it.latencyMs }
-        MetricDetailKind.SIGNAL -> entries.map { it.dropPercent }
+        MetricDetailKind.DOWNLOAD -> OrbitSymbols.Download; MetricDetailKind.UPLOAD -> OrbitSymbols.Upload
+        MetricDetailKind.LATENCY -> OrbitSymbols.Speed; MetricDetailKind.SIGNAL -> OrbitSymbols.SignalCellularAlt
+        MetricDetailKind.POWER -> OrbitSymbols.Bolt
     }
     val unit = when (kind) {
         MetricDetailKind.DOWNLOAD, MetricDetailKind.UPLOAD -> "Mbps"
-        MetricDetailKind.LATENCY -> "ms"
-        MetricDetailKind.SIGNAL -> "% de perda"
+        MetricDetailKind.LATENCY -> "ms"; MetricDetailKind.SIGNAL -> "%"; MetricDetailKind.POWER -> "W"
     }
-    LazyColumn(modifier.fillMaxSize().padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        item {
-            Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = hapticClick(action = onBack)) { Icon(Icons.Rounded.ArrowBack, "Voltar") }
+    LazyColumn(modifier.fillMaxSize().padding(horizontal = 16.dp), contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        item(key = "heading") { Column {
+            Row(Modifier.expressiveReveal(kind, distance = 6.dp), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                IconButton(onClick = hapticClick(action = onBack)) { Icon(OrbitSymbols.ArrowBack, stringResource(R.string.auto_back)) }
                 Column(Modifier.weight(1f)) {
-                    Text(title, style = MaterialTheme.typography.headlineLarge)
-                    Text("Leituras reais salvas no aparelho", style = MaterialTheme.typography.bodyMedium,
+                    Text(title, Modifier.semantics { heading() }, style = MaterialTheme.typography.headlineMedium)
+                    Text(stringResource(R.string.metric_detail_subtitle), style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                ExpressiveIcon(icon, MaterialTheme.colorScheme.primaryContainer,
-                    MaterialTheme.colorScheme.onPrimaryContainer)
+                Icon(icon, contentDescription = null, modifier = Modifier.size(24.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-        }
-        item {
-            Surface(Modifier.fillMaxWidth(), shape = DashDesign.hero,
+            if (kind == MetricDetailKind.POWER) PoeVoltageCard(snapshot)
+        } }
+        item(key = "period") {
+            Surface(Modifier.fillMaxWidth(), shape = DashDesign.section,
                 color = MaterialTheme.colorScheme.surfaceContainerLow) {
-                Column(Modifier.padding(DashDesign.inset), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        SectionHeading("Histórico", "Última${if (hours == 1) " hora" else "s $hours horas"}")
-                        Spacer(Modifier.weight(1f))
-                        PeriodMenu(hours) { hours = it }
-                    }
-                    val plottedValues = downsample(values)
-                    val plottedSources = downsampleSources(entries.map { it.source })
-                    MetricHistoryChart(plottedValues, plottedSources, MaterialTheme.colorScheme.primary)
-                    if (entries.any { it.source == BeaconSampleSource.BEACON }) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(14.dp),
-                            verticalAlignment = Alignment.CenterVertically) {
-                            if (entries.any { it.source == BeaconSampleSource.LOCAL_PHONE })
-                                MetricOriginLegend("Este dispositivo", MaterialTheme.colorScheme.primary)
-                            MetricOriginLegend("Via Beacon", MaterialTheme.colorScheme.onSecondaryContainer)
+                BoxWithConstraints(Modifier.fillMaxWidth().padding(16.dp)) {
+                    if (maxWidth / LocalDensity.current.fontScale < 280.dp) {
+                        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            CurrentMetricReadingValue(kind, snapshot, Modifier.fillMaxWidth(), livePower)
+                            MetricPeriodControl(minutes, Modifier.align(Alignment.End)) { minutes = it }
+                        }
+                    } else {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top,
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                            CurrentMetricReadingValue(kind, snapshot, Modifier.weight(1f), livePower)
+                            MetricPeriodControl(minutes) { minutes = it }
                         }
                     }
-                    val valid = values.filter { it.isFinite() && it >= 0f }
-                    AnimatedContent(valid.isNotEmpty(), label = "metric summary") { available ->
-                        if (available) AdaptiveStatPair("Média", "${one(valid.average().toFloat())} $unit",
-                            "Pico", "${one(valid.max())} $unit")
-                        else Text("Ainda não há leituras neste período.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+        item(key = "refresh") {
+            Box(Modifier.fillMaxWidth().height(4.dp)) {
+                if (loading && view != null) LinearProgressIndicator(Modifier.fillMaxSize())
+            }
+        }
+        if (failed) item(key = "error") {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(stringResource(R.string.metric_detail_load_error), color = MaterialTheme.colorScheme.error)
+                TextButton(enabled = !loading, onClick = hapticClick { revision++ }) {
+                    Text(stringResource(R.string.health_retry))
+                }
+            }
+        }
+        val data = view
+        if (data == null && !failed) {
+            item(key = "chart") { ChartLoadingPlaceholder(title, stringResource(R.string.metric_detail_loading)) }
+            item(key = "summary") {
+                Surface(Modifier.fillMaxWidth(), shape = DashDesign.section, color = MaterialTheme.colorScheme.surfaceContainerLow) {
+                    Column(Modifier.padding(DashDesign.inset).heightIn(min = 112.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(stringResource(R.string.traffic_summary), style = MaterialTheme.typography.titleLarge)
+                        Text(stringResource(R.string.metric_detail_loading), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
-        }
-        if (kind == MetricDetailKind.SIGNAL) item { SignalExplanation(snapshot, entries) }
-        if (kind == MetricDetailKind.DOWNLOAD || kind == MetricDetailKind.UPLOAD) {
-            item {
-                SectionHeading("Dispositivos", "Tráfego acumulado informado pelo roteador")
-                routerMessage?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            }
-            val ordered = clients.sortedByDescending {
-                if (kind == MetricDetailKind.DOWNLOAD) it.receivedBytes else it.sentBytes
-            }
-            val largest = ordered.maxOfOrNull {
-                if (kind == MetricDetailKind.DOWNLOAD) it.receivedBytes else it.sentBytes
-            }?.coerceAtLeast(1L) ?: 1L
-            if (ordered.isEmpty()) item {
-                Surface(Modifier.fillMaxWidth(), shape = DashDesign.section,
-                    color = MaterialTheme.colorScheme.surfaceContainerLow) {
-                    Text("Nenhum contador de dispositivo disponível.", Modifier.padding(18.dp))
+        } else if (data != null) {
+            item(key = "chart") { MetricDetailChart(data.series, if (kind == MetricDetailKind.SIGNAL) stringResource(R.string.traffic_loss) else title, unit) }
+            item(key = "summary") {
+                Surface(Modifier.fillMaxWidth().expressiveReveal("summary-$kind-$minutes", distance = 6.dp),
+                    shape = DashDesign.section, color = MaterialTheme.colorScheme.surfaceContainerLow) {
+                    Column(Modifier.padding(DashDesign.inset), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        Text(stringResource(R.string.traffic_summary), Modifier.semantics { heading() }, style = MaterialTheme.typography.titleLarge)
+                        val s = data.traffic
+                        MetricStatPair(stringResource(R.string.traffic_mean), trafficValue(s?.mean ?: data.mean, unit),
+                            stringResource(R.string.metric_detail_median), trafficValue(s?.median ?: data.median, unit))
+                        MetricStatPair(stringResource(R.string.traffic_minimum), trafficValue(data.minimum, unit),
+                            stringResource(R.string.metric_peak), trafficValue(s?.peak ?: data.maximum, unit))
+                        if (s != null) {
+                            listOf("30 s" to s.sustained30s, "1 min" to s.sustained1m, "5 min" to s.sustained5m).forEach { (window, value) ->
+                                MetricStat(stringResource(R.string.traffic_short_sustained, window), trafficValue(value, unit))
+                            }
+                            MetricStat(stringResource(R.string.metric_detail_estimated), s.estimatedBytes?.let(::trafficBytes) ?: stringResource(R.string.editorial_no_reading))
+                            MetricStat(stringResource(R.string.traffic_short_active), trafficShortDuration(s.activeMs))
+                        }
+                        Text(stringResource(R.string.metric_detail_support_note), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
-            } else items(ordered.take(12), key = { it.mac + it.name }) { client ->
-                val bytes = if (kind == MetricDetailKind.DOWNLOAD) client.receivedBytes else client.sentBytes
-                DeviceTrafficRow(client, bytes, largest)
             }
-        }
-        item { Spacer(Modifier.height(20.dp)) }
-    }
-}
-
-@Composable
-private fun PeriodMenu(hours: Int, onSelect: (Int) -> Unit) {
-    var open by remember { mutableStateOf(false) }
-    Box {
-        FilledTonalButton(onClick = hapticClick { open = true }) {
-            Text(if (hours == 1) "1 h" else "$hours h")
-            Icon(Icons.Rounded.ExpandMore, null, Modifier.size(18.dp))
-        }
-        DropdownMenu(open, { open = false }) {
-            listOf(1, 3, 6, 12, 24).forEach { option ->
-                DropdownMenuItem(text = { Text(if (option == 1) "1 hora" else "$option horas") },
-                    onClick = hapticClick { onSelect(option); open = false })
-            }
+            if (kind == MetricDetailKind.SIGNAL) item(key = "signal") { MetricSignalContext(snapshot, data.obstructions) }
         }
     }
 }
 
 @Composable
-private fun MetricHistoryChart(values: List<Float>, sources: List<BeaconSampleSource>, color: Color) {
-    val valid = values.filter { it.isFinite() && it >= 0f }
-    if (valid.size < 2) {
-        Surface(Modifier.fillMaxWidth().height(150.dp), shape = DashDesign.section,
-            color = MaterialTheme.colorScheme.surfaceContainer) {
-            Box(contentAlignment = Alignment.Center) { Text("Aguardando dados para o gráfico") }
-        }
-        return
+private fun CurrentMetricReadingValue(kind: MetricDetailKind, snapshot: DishySnapshot, modifier: Modifier = Modifier,
+    livePower: LivePowerReading? = null) {
+    val reading = currentMetricReading(kind, snapshot, System.currentTimeMillis(), livePower) ?: return
+    val title = stringResource(when (kind) {
+        MetricDetailKind.DOWNLOAD -> R.string.traffic_download
+        MetricDetailKind.UPLOAD -> R.string.traffic_upload
+        MetricDetailKind.LATENCY -> R.string.traffic_latency
+        MetricDetailKind.SIGNAL -> R.string.traffic_loss
+        MetricDetailKind.POWER -> R.string.editorial_dish_power
+    })
+    val unit = when (kind) {
+        MetricDetailKind.DOWNLOAD, MetricDetailKind.UPLOAD -> "Mbps"
+        MetricDetailKind.LATENCY -> "ms"
+        MetricDetailKind.SIGNAL -> "%"
+        MetricDetailKind.POWER -> "W"
     }
-    var entered by remember(values) { mutableStateOf(false) }
-    LaunchedEffect(values) { entered = true }
-    val reveal by animateFloatAsState(if (entered) 1f else 0f,
-        spring(dampingRatio = .76f, stiffness = 180f), label = "chart reveal")
-    val background = MaterialTheme.colorScheme.surfaceContainer
-    val grid = MaterialTheme.colorScheme.outlineVariant
-    val beaconColor = MaterialTheme.colorScheme.onSecondaryContainer
-    val max = valid.max().coerceAtLeast(1f)
-    Canvas(Modifier.fillMaxWidth().height(170.dp)) {
-        drawRoundRect(background, cornerRadius = androidx.compose.ui.geometry.CornerRadius(24.dp.toPx()))
-        repeat(3) { line ->
-            val y = size.height * (line + 1) / 4f
-            drawLine(grid, Offset(12.dp.toPx(), y), Offset(size.width - 12.dp.toPx(), y), 1.dp.toPx())
-        }
-        val endX = size.width * reveal
-        clipRect(right = endX) {
-            values.indices.drop(1).forEach { index ->
-                if (!values[index - 1].isFinite() || !values[index].isFinite()) return@forEach
-                val segmentColor = if (sources.getOrNull(index) == BeaconSampleSource.BEACON) beaconColor else color
-                drawLine(segmentColor, Offset(
-                    12.dp.toPx() + (size.width - 24.dp.toPx()) * (index - 1) / values.lastIndex.coerceAtLeast(1),
-                    size.height - 14.dp.toPx() - (size.height - 28.dp.toPx()) *
-                        (values[index - 1].coerceAtLeast(0f) / max)
-                ), Offset(
-                    12.dp.toPx() + (size.width - 24.dp.toPx()) * index / values.lastIndex.coerceAtLeast(1),
-                    size.height - 14.dp.toPx() - (size.height - 28.dp.toPx()) *
-                        (values[index].coerceAtLeast(0f) / max)
-                ), 3.dp.toPx(), StrokeCap.Round)
-            }
-        }
+    val locale = LocalConfiguration.current.locales[0] ?: Locale.getDefault()
+    val number = if (reading.state == CurrentMetricState.AVAILABLE)
+        if (kind == MetricDetailKind.LATENCY) formatCurrentLatency(checkNotNull(reading.value), locale)
+        else formatCurrentMbps(checkNotNull(reading.value), locale) else ""
+    val value = when (reading.state) {
+        CurrentMetricState.AVAILABLE -> "$number $unit"
+        CurrentMetricState.WAITING -> stringResource(R.string.metric_detail_current_waiting)
+        CurrentMetricState.UNAVAILABLE -> stringResource(R.string.metric_detail_current_unavailable)
+        CurrentMetricState.DISCONNECTED -> stringResource(R.string.metric_detail_current_disconnected)
     }
-}
-
-@Composable
-private fun MetricOriginLegend(label: String, color: Color) {
-    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-        Surface(Modifier.size(9.dp), shape = DashDesign.cookie, color = color) {}
-        Text(label, style = MaterialTheme.typography.labelMedium,
+    val spokenValue = if (reading.state == CurrentMetricState.AVAILABLE)
+        when (kind) {
+            MetricDetailKind.DOWNLOAD, MetricDetailKind.UPLOAD -> stringResource(R.string.test_rate_accessible, number)
+            MetricDetailKind.LATENCY -> stringResource(R.string.metric_detail_current_latency_spoken, number)
+            MetricDetailKind.SIGNAL -> stringResource(R.string.metric_detail_current_loss_spoken, number)
+            MetricDetailKind.POWER -> stringResource(R.string.metric_detail_current_power_spoken, number)
+        } else value
+    val accessibility = stringResource(R.string.metric_detail_current_accessible, title, spokenValue)
+    Column(modifier.clearAndSetSemantics { contentDescription = accessibility },
+        verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(stringResource(R.string.metric_detail_current), style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
+        MetricDetailValueText(value, style = if (reading.state == CurrentMetricState.AVAILABLE)
+            MaterialTheme.typography.titleLarge else MaterialTheme.typography.titleMedium)
     }
 }
-
 @Composable
-private fun StatPill(label: String, value: String, modifier: Modifier = Modifier) {
-    Surface(modifier, shape = DashDesign.pill, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
-        Column(Modifier.padding(13.dp)) {
-            Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(value, style = MaterialTheme.typography.titleMedium)
-        }
+private fun MetricPeriodControl(minutes: Int, modifier: Modifier = Modifier, select: (Int) -> Unit) {
+    Column(modifier, horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(stringResource(R.string.metric_detail_period), style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        MetricPeriodMenu(minutes, select)
     }
 }
-
 @Composable
-private fun DeviceTrafficRow(client: RouterClientInfo, bytes: Long, largest: Long) {
-    Surface(Modifier.fillMaxWidth(), shape = DashDesign.section,
-        color = MaterialTheme.colorScheme.surfaceContainerLow) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            ExpressiveIcon(if (client.interfaceName == "Ethernet") Icons.Rounded.Lan else Icons.Rounded.Wifi,
-                MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer)
-            Column(Modifier.weight(1f)) {
-                Text(client.name, style = MaterialTheme.typography.titleMedium,
-                    maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(client.interfaceName, style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+private fun MetricPeriodMenu(minutes: Int, select: (Int) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        FilledTonalButton(onClick = hapticClick { expanded = true }) { Text(metricPeriodLabel(minutes)); Icon(OrbitSymbols.ExpandMore, null, Modifier.size(20.dp)) }
+        DropdownMenu(expanded, { expanded = false }) {
+            listOf(5, 15, 30, 60, 120, 360, 1440).forEach { value ->
+                DropdownMenuItem(text = { Text(metricPeriodLabel(value)) }, onClick = hapticClick { select(value); expanded = false },
+                    modifier = Modifier.semantics { selected = value == minutes },
+                    trailingIcon = { if (value == minutes) Icon(OrbitSymbols.Check, null) })
             }
-            Text(formatBytes(bytes), style = MaterialTheme.typography.titleMedium)
-        }
-        LinearProgressIndicator(progress = { bytes.coerceAtLeast(0L).toFloat() / largest.toFloat() },
-            modifier = Modifier.fillMaxWidth().height(8.dp),
-            trackColor = MaterialTheme.colorScheme.surfaceContainerHigh)
         }
     }
 }
-
 @Composable
-private fun SignalExplanation(snapshot: DishySnapshot, entries: List<HistoryEntry>) {
-    Surface(Modifier.fillMaxWidth(), shape = DashDesign.section,
-        color = MaterialTheme.colorScheme.surfaceContainerLow) {
-        Column(Modifier.padding(DashDesign.inset), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            SectionHeading("Leitura do enlace", "O terminal não fornece um valor contínuo de SNR")
-            StatPill("Sinal acima do ruído", snapshot.latency.formattedSignal, Modifier.fillMaxWidth())
-            AdaptiveStatPair("Perda atual", snapshot.latency.formattedDropRate,
-                "Obstrução", snapshot.obstruction.formattedPercentage)
-            val obstructed = entries.count { it.obstructionPercent >= 1f }
-            Text(if (obstructed == 0) "Nenhuma leitura com obstrução relevante no período."
-                else "$obstructed leituras apresentaram ao menos 1% de obstrução.",
-                style = MaterialTheme.typography.bodyMedium)
-        }
-    }
-}
-
+private fun metricPeriodLabel(minutes: Int) = stringResource(if (minutes < 60) R.string.metric_detail_minutes else R.string.auto_hours,
+    if (minutes < 60) minutes else minutes / 60)
 @Composable
-private fun AdaptiveStatPair(firstLabel: String, firstValue: String, secondLabel: String, secondValue: String) {
+private fun MetricStatPair(label: String, value: String, secondLabel: String, secondValue: String) {
     BoxWithConstraints(Modifier.fillMaxWidth()) {
-        if (maxWidth / LocalDensity.current.fontScale < 300.dp) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                StatPill(firstLabel, firstValue, Modifier.fillMaxWidth())
-                StatPill(secondLabel, secondValue, Modifier.fillMaxWidth())
-            }
-        } else Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            StatPill(firstLabel, firstValue, Modifier.weight(1f))
-            StatPill(secondLabel, secondValue, Modifier.weight(1f))
+        if (maxWidth / LocalDensity.current.fontScale < 280.dp) Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            MetricStat(label, value); MetricStat(secondLabel, secondValue)
+        } else Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            MetricStat(label, value, Modifier.weight(1f)); MetricStat(secondLabel, secondValue, Modifier.weight(1f))
         }
     }
 }
-
-private fun one(value: Float) = String.format(Locale.getDefault(), "%.1f", value)
-private fun formatBytes(bytes: Long): String {
-    val value = bytes.coerceAtLeast(0L).toDouble()
-    return when {
-        value >= 1_000_000_000 -> String.format(Locale.getDefault(), "%.1f GB", value / 1_000_000_000)
-        value >= 1_000_000 -> String.format(Locale.getDefault(), "%.1f MB", value / 1_000_000)
-        value >= 1_000 -> String.format(Locale.getDefault(), "%.1f kB", value / 1_000)
-        else -> "${value.toLong()} B"
+@Composable
+private fun MetricStat(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        MetricDetailValueText(value, style = MaterialTheme.typography.titleLarge)
     }
 }
-
-private fun downsample(values: List<Float>, limit: Int = 300): List<Float> {
-    if (values.size <= limit) return values
-    val chunk = kotlin.math.ceil(values.size.toDouble() / limit).toInt()
-    return values.chunked(chunk).map { group ->
-        group.filter { it.isFinite() && it >= 0f }.takeIf { it.isNotEmpty() }?.average()?.toFloat() ?: Float.NaN
+@Composable
+private fun MetricSignalContext(snapshot: DishySnapshot, obstructions: Int) {
+    val recent = snapshot.isOnline && !snapshot.isFromCache && System.currentTimeMillis() - snapshot.timestamp in 0..10_000
+    Surface(Modifier.fillMaxWidth(), shape = DashDesign.section, color = MaterialTheme.colorScheme.surfaceContainerLow) {
+        Column(Modifier.padding(DashDesign.inset), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(stringResource(R.string.metric_detail_link), Modifier.semantics { heading() }, style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(R.string.metric_detail_signal_note), style = MaterialTheme.typography.bodyMedium)
+            MetricStat(stringResource(R.string.metric_detail_above_noise), if (recent) signalLabel(snapshot.latency.isSnrAboveNoiseFloor) else stringResource(R.string.editorial_no_reading))
+            MetricStatPair(stringResource(R.string.metric_detail_current_loss), if (recent) snapshot.latency.formattedDropRate else stringResource(R.string.editorial_no_reading),
+                stringResource(R.string.metric_detail_obstruction), if (recent) snapshot.obstruction.formattedPercentage else stringResource(R.string.editorial_no_reading))
+            Text(stringResource(R.string.metric_detail_obstruction_count, obstructions), style = MaterialTheme.typography.bodySmall)
+        }
     }
 }
-
-private fun downsampleSources(values: List<BeaconSampleSource>, limit: Int = 300): List<BeaconSampleSource> {
-    if (values.size <= limit) return values
-    val chunk = kotlin.math.ceil(values.size.toDouble() / limit).toInt()
-    return values.chunked(chunk).map { group ->
-        if (group.count { it == BeaconSampleSource.BEACON } >= group.size / 2f)
-            BeaconSampleSource.BEACON else BeaconSampleSource.LOCAL_PHONE
-    }
-}
-
-private fun mergeClientSnapshots(previous: List<RouterClientInfo>, current: List<RouterClientInfo>): List<RouterClientInfo> =
-    (previous + current).groupBy { it.mac.ifBlank { it.ipv4.ifBlank { it.name } } }.map { (_, versions) ->
-        val newest = versions.last()
-        newest.copy(
-            receivedBytes = versions.maxOf { it.receivedBytes },
-            sentBytes = versions.maxOf { it.sentBytes },
-            active = versions.any { it.active }
-        )
-    }.sortedWith(compareByDescending<RouterClientInfo> { it.active }.thenBy { it.name })

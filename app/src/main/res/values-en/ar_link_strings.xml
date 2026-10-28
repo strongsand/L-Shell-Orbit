@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ar_link_title">Link estimate</string>
+    <string name="ar_link_visible">Above horizon: %1$d · Shown: %2$d</string>
+    <string name="ar_link_candidate_name">%1$d. %2$s</string>
+    <string name="ar_link_filtered">hidden by filters</string>
+    <string name="ar_link_confidence_high">High geometric confidence</string>
+    <string name="ar_link_confidence_medium">Medium geometric confidence</string>
+    <string name="ar_link_confidence_low">Low geometric confidence</string>
+    <string name="ar_link_no_live">No recent telemetry from a connected dish.</string>
+    <string name="ar_link_no_orientation">Dish orientation unavailable.</string>
+    <string name="ar_link_no_location">Waiting for a recent location.</string>
+    <string name="ar_link_no_candidates">No candidates with recent orbital data in the estimated region.</string>
+    <string name="ar_link_disclaimer">Geometry-based estimate. Does not confirm the satellite in use.</string>
+    <string name="ar_link_names">Names</string>
+    <string name="ar_link_trails">Predicted paths</string>
+    <string name="ar_link_reduce_effects">Reduce effects</string>
+    <string name="ar_link_identity">NORAD: %1$s</string>
+    <string name="ar_link_unknown">not reported</string>
+    <string name="ar_link_angles">Azimuth %1$d° · Elevation %2$d°</string>
+    <string name="ar_link_primary">Likely link</string>
+    <string name="ar_link_possible">Possible candidates</string>
+    <string name="ar_link_exit">Estimated region exit in about %1$d s</string>
+    <string name="ar_link_exit_unknown">Region exit time not determined.</string>
+    <string name="ar_link_geometry_note">The region is approximate and uses the phone location. Use near the dish. Predicted exit is not a handover time; compass, location and orbits may have errors.</string>
+    <string name="ar_link_inspect">View details for %1$s</string>
+</resources>

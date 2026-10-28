@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="traffic_how">Cómo funciona</string>
+    <string name="traffic_summary">Resumen</string>
+    <string name="traffic_series">Tráfico mostrado</string>
+    <string name="traffic_ago">Hace %1$d s</string>
+    <string name="traffic_short_sustained">Máx. medio en %1$s</string>
+    <string name="traffic_short_active">Tiempo con tráfico activo</string>
+    <string name="traffic_seconds">%1$d s</string>
+    <string name="traffic_gap_short">%1$s sin telemetría</string>
+    <string name="traffic_source_caption">Origen: %1$s</string>
+    <string name="traffic_see_all">Ver todos</string>
+    <string name="traffic_show_less">Mostrar menos</string>
+    <string name="traffic_event_count">%1$d eventos observados</string>
+    <string name="traffic_no_events">Ningún evento observado</string>
+    <string name="traffic_help_estimates">Datos estimados</string>
+    <string name="traffic_help_coverage">Tiempo con datos</string>
+    <string name="traffic_help_events">Eventos</string>
+    <string name="traffic_help_devices">Dispositivos</string>
+    <string name="traffic_help_sessions">Grabaciones</string>
+    <string name="traffic_help_coverage_body">Es la parte del período con lecturas válidas. Cada gráfico calcula la cobertura de su propia métrica; las lecturas ausentes no cuentan como cero.</string>
+    <string name="traffic_help_sustained_body">Los valores de 30 s, 1 min y 5 min son los promedios más altos en ventanas completas. El tiempo activo cuenta tráfico superior a 100 kbit/s sin identificar qué app lo generó.</string>
+    <string name="traffic_close_inspection">Cerrar inspección</string>
+    <string name="traffic_chart_scale">Escala de cero a %1$s %2$s</string>
+    <string name="traffic_chart_gap_note">Los huecos interrumpen la línea</string>
+    <string name="traffic_session_actions">Grabaciones</string>
+    <string name="traffic_export_options">Opciones de exportación</string>
+    <string name="traffic_help_sustained">Máximos sostenidos</string>
+    <string name="traffic_recording_preparing">Preparando grabación</string>
+    <string name="traffic_recording_finishing">Deteniendo grabación</string>
+    <string name="traffic_recording_interrupted">Grabación interrumpida</string>
+    <string name="traffic_recording_open">Ver grabación actual</string>
+    <string name="traffic_point_missing">No hay una lectura válida de esta métrica en el punto seleccionado.</string>
+</resources>

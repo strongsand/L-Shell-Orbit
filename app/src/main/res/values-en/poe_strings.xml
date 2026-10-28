@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="poe_input_label">PoE</string>
+    <string name="poe_energy_label">PoE input voltage</string>
+    <string name="poe_energy_source">Voltage from the router input sensor. The power reading comes from the dish.</string>
+    <string name="poe_input_value">%1$s V</string>
+    <string name="poe_input_accessibility">Router PoE input voltage, %1$s volts</string>
+</resources>

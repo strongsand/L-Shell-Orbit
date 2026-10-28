@@ -1,6 +1,7 @@
 package io.github.strongsand.lshell.ar
 
 import android.content.Context
+import io.github.strongsand.lshell.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.BufferedReader
@@ -25,7 +26,9 @@ data class TLE(
     val argPRad: Double,
     val m0Rad: Double,
     val nRevDay: Double,
-    val epochTimeMs: Long
+    val epochTimeMs: Long,
+    val metadata: SatelliteCatalogMetadata? = null,
+    val classification: SatelliteClassification = SatelliteClassification()
 )
 
 data class SateliteRA(
@@ -33,7 +36,11 @@ data class SateliteRA(
     val azimute: Float,
     val elevacao: Float,
     val conectado: Boolean = false,
-    val noFovAntena: Boolean = true
+    val noFovAntena: Boolean = true,
+    val classification: SatelliteClassification = SatelliteClassification(),
+    val catalogNumber: String? = null,
+    val orbitEpochMs: Long? = null,
+    val rangeKm: Float? = null
 )
 
 enum class TipoAstro { SOL, LUA }
@@ -47,39 +54,48 @@ data class AstroObjeto(
 
 object StarlinkOrbitTracker {
 
-    private const val URL_PRINCIPAL = "https://celestrak.org/NORAD/elements/supplemental/sup-gp.php?FILE=starlink&FORMAT=tle"
-    private const val URL_SECUNDARIA = "https://celestrak.org/NORAD/elements/gp.php?GROUP=STARLINK&FORMAT=TLE"
+    private const val URL_PRINCIPAL = "https://celestrak.org/NORAD/elements/supplemental/sup-gp.php?FILE=starlink&FORMAT=JSON"
+    private const val URL_SECUNDARIA = "https://celestrak.org/NORAD/elements/gp.php?GROUP=STARLINK&FORMAT=JSON"
     private const val CACHE_FRESH_MS = 6 * 3_600_000L
     private const val COARSE_PASS_MS = 60_000L
     private const val COARSE_ELEVATION_FLOOR_DEG = -12.0
-    @Volatile var lastDownloadError: String = ""
+    @Volatile internal var lastDownloadError: ArUiText? = null
         private set
 
     suspend fun carregarTLEs(context: Context): List<TLE> = withContext(Dispatchers.IO) {
-        lastDownloadError = ""
-        val cacheFile = File(context.cacheDir, "starlink_supplemental_tle.txt")
+        lastDownloadError = null
+        val cacheFile = File(context.cacheDir, "starlink_omm.json")
+        val sourceFile = File(context.cacheDir, "starlink_omm_source.txt")
+        val cachedFeed = runCatching { sourceFile.readText().trim() }.getOrDefault("celestrak_starlink")
+            .takeIf { it in setOf("celestrak_starlink", "celestrak_starlink_supgp") } ?: "celestrak_starlink"
+        val resolver = runCatching {
+            context.assets.open("starlink_generation_catalog.json").bufferedReader().use {
+                SatelliteGenerationResolver.fromJson(it.readText())
+            }
+        }.getOrElse { SatelliteGenerationResolver(emptyList()) }
+        fun parse(raw: String, feed: String = cachedFeed): List<TLE> = runCatching { parseCatalog(raw, feed) }.getOrDefault(emptyList()).map { orbit ->
+            orbit.copy(classification = orbit.metadata?.let(resolver::resolve) ?: SatelliteClassification())
+        }
 
         if (cacheFile.exists() && cacheFile.length() > 1_000 &&
             (System.currentTimeMillis() - cacheFile.lastModified()) < CACHE_FRESH_MS) {
-            val cached = cacheFile.readText()
-            val parsed = parseCatalog(cached)
+            val parsed = runCatching { parse(cacheFile.readText()) }.getOrDefault(emptyList())
             if (parsed.isNotEmpty()) return@withContext parsed
         }
 
-        val raw = baixarComUserAgent(URL_PRINCIPAL) ?: baixarComUserAgent(URL_SECUNDARIA)
-
-        if (!raw.isNullOrBlank()) {
-            val parsed = parseCatalog(raw)
+        for ((url, feed) in listOf(URL_PRINCIPAL to "celestrak_starlink_supgp", URL_SECUNDARIA to "celestrak_starlink")) {
+            val raw = baixarComUserAgent(url) ?: continue
+            val parsed = parse(raw, feed)
             if (parsed.isNotEmpty()) {
-                try { cacheFile.writeText(raw) } catch (_: Exception) {}
+                try { cacheFile.writeText(raw); sourceFile.writeText(feed) } catch (_: Exception) {}
                 return@withContext parsed
             }
-            lastDownloadError = "Resposta sem órbitas legíveis"
+            lastDownloadError = ArUiText(R.string.ui_ar_empty_orbits)
         }
 
         // A stale real ephemeris is still preferable to an invented constellation.
-        if (cacheFile.exists() && cacheFile.length() > 1_000) {
-            val parsed = parseCatalog(cacheFile.readText())
+        for (fallback in listOf(cacheFile, File(context.cacheDir, "starlink_supplemental_tle.txt"))) {
+            val parsed = runCatching { if (fallback.exists()) parse(fallback.readText()) else emptyList() }.getOrDefault(emptyList())
             if (parsed.isNotEmpty()) return@withContext parsed
         }
 
@@ -108,18 +124,20 @@ object StarlinkOrbitTracker {
                 val baseStream = if (isGzip) GZIPInputStream(connection.inputStream) else connection.inputStream
                 BufferedReader(InputStreamReader(baseStream, Charsets.UTF_8)).use { it.readText() }
             } else {
-                lastDownloadError = "HTTP $responseCode"
+                lastDownloadError = ArUiText(R.string.ui_ar_http_error, listOf(responseCode))
                 null
             }
         } catch (e: Exception) {
-            lastDownloadError = e.localizedMessage?.take(90) ?: e.javaClass.simpleName
+            lastDownloadError = ArUiText(R.string.ui_ar_download_error,
+                diagnostic = e.localizedMessage?.take(90) ?: e.javaClass.simpleName)
             null
         } finally {
             conn?.disconnect()
         }
     }
 
-    private fun parseCatalog(raw: String): List<TLE> = parseTLEs(raw)
+    internal fun parseCatalog(raw: String, feed: String = "celestrak_starlink_supgp"): List<TLE> = if (raw.trimStart().startsWith("["))
+        OmmOrbitAdapter.parse(raw, feed) else parseTLEs(raw)
 
     private fun parseTLEs(raw: String): List<TLE> {
         val lines = raw.lines().map { it.trim() }.filter { it.isNotEmpty() }
@@ -161,7 +179,12 @@ object StarlinkOrbitTracker {
                             argPRad = argP,
                             m0Rad = m0,
                             nRevDay = nRevDay,
-                            epochTimeMs = cal.timeInMillis
+                            epochTimeMs = cal.timeInMillis,
+                            metadata = SatelliteCatalogMetadata(l1.substring(2, 7).trim(),
+                                l1.substring(9, 17).trim().takeIf { Regex("[0-9]{5}[A-Z]+").matches(it) }?.let {
+                                    val year = it.take(2).toInt()
+                                    "${if (year < 57) 2000 + year else 1900 + year}-${it.drop(2)}"
+                                }, name, "celestrak_starlink").normalized()
                         )
                     )
                 } catch (_: Exception) {}
@@ -196,7 +219,7 @@ object StarlinkOrbitTracker {
         return angSeparacao <= fovHalfAngle
     }
 
-    private data class Sgp4Entry(val name: String, val satellite: Satellite)
+    private data class Sgp4Entry(val orbit: TLE, val satellite: Satellite)
 
     private data class Sgp4TrackerState(
         val source: List<TLE>,
@@ -222,7 +245,7 @@ object StarlinkOrbitTracker {
             if (tle.line1.isBlank() || tle.line2.isBlank()) return@mapNotNull null
             runCatching {
                 Sgp4Entry(
-                    name = tle.name,
+                    orbit = tle,
                     satellite = SatelliteFactory.createSatellite(PredictTle(arrayOf(tle.name, tle.line1, tle.line2)))
                 )
             }.getOrNull()
@@ -230,6 +253,7 @@ object StarlinkOrbitTracker {
         return Sgp4TrackerState(tles, latitude, longitude, altitudeM, entries).also { sgp4State = it }
     }
 
+    @Synchronized
     fun calcularSatellitesVisiveis(
         tles: List<TLE>,
         obsLat: Double,
@@ -237,9 +261,9 @@ object StarlinkOrbitTracker {
         obsAltM: Double,
         minElevacao: Float = 15f,
         apenasFovAntena: Boolean = true,
-        distanciaMaximaKm: Float? = null
+        distanciaMaximaKm: Float? = null,
+        nowMs: Long = System.currentTimeMillis()
     ): List<SateliteRA> {
-        val nowMs = System.currentTimeMillis()
         val atDate = Date(nowMs)
         val ground = GroundStationPosition(obsLat, obsLon, obsAltM)
         val tracker = trackerFor(tles, obsLat, obsLon, obsAltM)
@@ -271,10 +295,40 @@ object StarlinkOrbitTracker {
 
                 val dentroFov = isNoFovAntena(azimuth, elevation, obsLat)
                 if (!apenasFovAntena || dentroFov) {
-                    add(SateliteRA(entry.name, azimuth, elevation, conectado = false, noFovAntena = dentroFov))
+                    add(SateliteRA(entry.orbit.name, azimuth, elevation, conectado = false, noFovAntena = dentroFov,
+                        classification = entry.orbit.classification, catalogNumber = entry.orbit.metadata?.catalogNumber,
+                        orbitEpochMs = entry.orbit.epochTimeMs, rangeKm = distanceKm.toFloat()))
                 }
             }
         }.sortedByDescending { it.elevacao }
+    }
+
+    /** Bounded SGP4 look-ahead for a shortlist, on the orbital worker, never per camera frame. */
+    @Synchronized
+    internal fun candidateForecasts(
+        tles: List<TLE>, shortlist: List<SateliteRA>, latitude: Double, longitude: Double,
+        altitudeM: Double, nowMs: Long
+    ): Map<String, ArCandidateForecast> {
+        if (shortlist.isEmpty()) return emptyMap()
+        val tracker = trackerFor(tles, latitude, longitude, altitudeM)
+        val keys = shortlist.take(ArLinkCandidatePolicy.MAX_FORECASTS).map { it.orbitKey }.toSet()
+        val ground = GroundStationPosition(latitude, longitude, altitudeM)
+        return buildMap {
+            for (entry in tracker.entries) {
+                val key = entry.orbit.metadata?.catalogNumber?.takeIf { it.isNotBlank() } ?: entry.orbit.name
+                if (key !in keys) continue
+                val points = buildList {
+                    for (seconds in 0..ArLinkCandidatePolicy.FORECAST_SECONDS step ArLinkCandidatePolicy.FORECAST_STEP_SECONDS) {
+                        val position = runCatching { entry.satellite.getPosition(ground, Date(nowMs + seconds * 1000L)) }.getOrNull() ?: break
+                        val azimuth = Math.toDegrees(position.azimuth).toFloat()
+                        val elevation = Math.toDegrees(position.elevation).toFloat()
+                        if (!azimuth.isFinite() || elevation !in -90f..90f) break
+                        add(ArOrbitPoint(seconds, normalizarGraus(azimuth), elevation))
+                    }
+                }
+                if (points.size >= 2) put(key, ArCandidateForecast(nowMs, points))
+            }
+        }
     }
 
     fun calcularAstroPosicoes(obsLat: Double, obsLon: Double): List<AstroObjeto> {
@@ -304,6 +358,7 @@ object StarlinkOrbitTracker {
         var azSun = Math.toDegrees(atan2(sinAzSun, cosAzSun)).toFloat()
         if (azSun < 0) azSun += 360f
 
+        // Internal legacy name; localized UI labels are selected using TipoAstro.
         resultado.add(AstroObjeto(nome = "Sol", azimute = azSun, elevacao = elSun, tipo = TipoAstro.SOL))
 
         // 2. LUA

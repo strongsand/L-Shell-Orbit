@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="beacon_android_pair">Pair Android Beacon</string>
+    <string name="beacon_android_scan">Scan the QR displayed on the Android Beacon</string>
+    <string name="beacon_android_type">Type · Android</string>
+    <string name="beacon_android_clock_help">The Android Beacon has records with unverifiable time. They remain stored; check the collector date and time. This phase does not discard or reconstruct those times.</string>
+    <string name="beacon_android_scan_action">Scan QR</string>
+</resources>

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="product_history_subtitle">Acontecimentos e alertas da conexão.</string>
+    <string name="product_previous_day">Dia anterior</string>
+    <string name="product_next_day">Próximo dia</string>
+    <string name="product_no_events">Nenhum acontecimento registrado neste período.</string>
+    <string name="product_connection">Conexão</string>
+    <string name="product_quality">Qualidade</string>
+    <string name="product_tests">Testes</string>
+    <string name="product_hardware">Equipamento</string>
+    <string name="product_other">Outros</string>
+    <string name="product_normal_test">Teste normal</string>
+    <string name="product_completed">Concluído</string>
+    <string name="product_failed">Falhou</string>
+    <string name="product_interrupted">Interrompido</string>
+    <string name="product_no_results">Nenhum teste salvo ainda.</string>
+    <string name="product_normal_summary">Uma medição rápida da conexão.</string>
+    <string name="product_extreme_summary">Várias rodadas para analisar estabilidade e picos.</string>
+    <string name="product_choose_rounds">Escolher rodadas</string>
+    <string name="product_continue_test">Continuar teste</string>
+    <string name="product_test_active">Teste em execução</string>
+    <string name="product_auto_off">Desligado</string>
+    <string name="product_budget_exhausted">Limite de hoje atingido</string>
+    <string name="product_waiting_idle">Aguardando momento de baixo uso</string>
+    <string name="product_waiting_android">Aguardando execução pelo Android</string>
+    <string name="product_next_approx">Próxima oportunidade · ~%1$s</string>
+    <string name="product_smart_summary">Testa quando a conexão está ociosa.</string>
+    <string name="product_schedule_summary">Executa testes ao longo do dia.</string>
+    <string name="product_frequency">Frequência</string>
+    <string name="product_intensity">Oportunidades por dia</string>
+    <string name="product_up_to_day">Até %1$d/dia</string>
+    <string name="product_distributed">Distribuídos ao longo do dia. O Android pode atrasar uma execução.</string>
+    <string name="product_budget">Hoje · %1$d/%2$d tentativas compartilhadas</string>
+    <string name="product_last_activity">Última atividade · %1$s</string>
+    <string name="product_how_it_works">Como funciona</string>
+    <string name="product_shared_help">Agendados e inteligentes compartilham até 8 tentativas por dia, incluindo falhas e cancelamentos. Não há testes paralelos e há pelo menos 1 hora entre uma tentativa e outro teste. No modo inteligente, as oportunidades são espaçadas ao longo do dia; uma oportunidade perdida não é reposta em sequência. É preciso tráfego baixo real, tela apagada e as condições de bateria, rede e notificações. Sem leitura não significa conexão ociosa.</string>
+</resources>

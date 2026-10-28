@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="polish_test_history">Test history</string>
+    <string name="polish_energy_period">%1$s · %2$s–%3$s</string>
+    <string name="polish_power_chart">Power throughout the day</string>
+    <string name="polish_energy_note">Estimated from available readings. Gaps over five minutes are excluded from energy use.</string>
+    <string name="polish_peak_time">Peak at %1$s</string>
+    <string name="polish_ar_open">Open AR mode</string>
+</resources>

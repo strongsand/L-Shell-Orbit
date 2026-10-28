@@ -1,0 +1,320 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="72dp" android:height="72dp" android:viewportWidth="100" android:viewportHeight="100">
+    <path android:fillColor="@color/widget_online" android:pathData="M48.0,4.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M29.6,8.600000000000001a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M34.2,8.600000000000001a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M38.8,8.600000000000001a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M43.4,8.600000000000001a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M48.0,8.600000000000001a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M52.6,8.600000000000001a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M57.2,8.600000000000001a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M61.8,8.600000000000001a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M66.4,8.600000000000001a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M20.400000000000002,13.200000000000003a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M25.0,13.200000000000003a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M29.6,13.200000000000003a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M34.2,13.200000000000003a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M38.8,13.200000000000003a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M43.4,13.200000000000003a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M48.0,13.200000000000003a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M52.6,13.200000000000003a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M57.2,13.200000000000003a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M61.8,13.200000000000003a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M66.4,13.200000000000003a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M71.0,13.200000000000003a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M75.6,13.200000000000003a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M15.800000000000004,17.800000000000004a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M20.400000000000002,17.800000000000004a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M25.0,17.800000000000004a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M29.6,17.800000000000004a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M34.2,17.800000000000004a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M38.8,17.800000000000004a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M43.4,17.800000000000004a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M48.0,17.800000000000004a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M52.6,17.800000000000004a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M57.2,17.800000000000004a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M61.8,17.800000000000004a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M66.4,17.800000000000004a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M71.0,17.800000000000004a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M75.6,17.800000000000004a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M80.19999999999999,17.800000000000004a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M11.200000000000003,22.400000000000002a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M15.800000000000004,22.400000000000002a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M20.400000000000002,22.400000000000002a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M25.0,22.400000000000002a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M29.6,22.400000000000002a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M34.2,22.400000000000002a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M38.8,22.400000000000002a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M43.4,22.400000000000002a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M48.0,22.400000000000002a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M52.6,22.400000000000002a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M57.2,22.400000000000002a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M61.8,22.400000000000002a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M66.4,22.400000000000002a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M71.0,22.400000000000002a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M75.6,22.400000000000002a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M80.19999999999999,22.400000000000002a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M84.8,22.400000000000002a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M11.200000000000003,27.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M15.800000000000004,27.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M20.400000000000002,27.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M25.0,27.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M29.6,27.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M34.2,27.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M38.8,27.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M43.4,27.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M48.0,27.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M52.6,27.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M57.2,27.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M61.8,27.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M66.4,27.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M71.0,27.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M75.6,27.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M80.19999999999999,27.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M84.8,27.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M6.600000000000001,31.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M11.200000000000003,31.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M15.800000000000004,31.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M20.400000000000002,31.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M25.0,31.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M29.6,31.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M34.2,31.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M38.8,31.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M43.4,31.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M48.0,31.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M52.6,31.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M57.2,31.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M61.8,31.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M66.4,31.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M71.0,31.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M75.6,31.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M80.19999999999999,31.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M84.8,31.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M89.4,31.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M6.600000000000001,36.2a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M11.200000000000003,36.2a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M15.800000000000004,36.2a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M20.400000000000002,36.2a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M25.0,36.2a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M29.6,36.2a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M34.2,36.2a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M38.8,36.2a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M43.4,36.2a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M48.0,36.2a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M52.6,36.2a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M57.2,36.2a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M61.8,36.2a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M66.4,36.2a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M71.0,36.2a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M75.6,36.2a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M80.19999999999999,36.2a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M84.8,36.2a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M89.4,36.2a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M6.600000000000001,40.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M11.200000000000003,40.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M15.800000000000004,40.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M20.400000000000002,40.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M25.0,40.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M29.6,40.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M34.2,40.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M38.8,40.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M43.4,40.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M48.0,40.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M52.6,40.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M57.2,40.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M61.8,40.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M66.4,40.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M71.0,40.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_warning" android:pathData="M75.6,40.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_warning" android:pathData="M80.19999999999999,40.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_warning" android:pathData="M84.8,40.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_warning" android:pathData="M89.4,40.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M6.600000000000001,45.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M11.200000000000003,45.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M15.800000000000004,45.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M20.400000000000002,45.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M25.0,45.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M29.6,45.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M34.2,45.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M38.8,45.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M43.4,45.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M48.0,45.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M52.6,45.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M57.2,45.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M61.8,45.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M66.4,45.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M71.0,45.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_warning" android:pathData="M75.6,45.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_warning" android:pathData="M80.19999999999999,45.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_warning" android:pathData="M84.8,45.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_warning" android:pathData="M89.4,45.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M2.0,50.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M6.600000000000001,50.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M11.200000000000003,50.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M15.800000000000004,50.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M20.400000000000002,50.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M25.0,50.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M29.6,50.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M34.2,50.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M38.8,50.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M43.4,50.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M48.0,50.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M52.6,50.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M57.2,50.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M61.8,50.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M66.4,50.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M71.0,50.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_warning" android:pathData="M75.6,50.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_warning" android:pathData="M80.19999999999999,50.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_warning" android:pathData="M84.8,50.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_warning" android:pathData="M89.4,50.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_warning" android:pathData="M94.0,50.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M6.600000000000001,54.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M11.200000000000003,54.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M15.800000000000004,54.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M20.400000000000002,54.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M25.0,54.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M29.6,54.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M34.2,54.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M38.8,54.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M43.4,54.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M48.0,54.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M52.6,54.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M57.2,54.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M61.8,54.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M66.4,54.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M71.0,54.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_warning" android:pathData="M75.6,54.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_warning" android:pathData="M80.19999999999999,54.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_warning" android:pathData="M84.8,54.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_warning" android:pathData="M89.4,54.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M6.600000000000001,59.2a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M11.200000000000003,59.2a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M15.800000000000004,59.2a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M20.400000000000002,59.2a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M25.0,59.2a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M29.6,59.2a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M34.2,59.2a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M38.8,59.2a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M43.4,59.2a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M48.0,59.2a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M52.6,59.2a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M57.2,59.2a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M61.8,59.2a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M66.4,59.2a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M71.0,59.2a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_warning" android:pathData="M75.6,59.2a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_warning" android:pathData="M80.19999999999999,59.2a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_warning" android:pathData="M84.8,59.2a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_warning" android:pathData="M89.4,59.2a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M6.600000000000001,63.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M11.200000000000003,63.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M15.800000000000004,63.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M20.400000000000002,63.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M25.0,63.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M29.6,63.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M34.2,63.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M38.8,63.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M43.4,63.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M48.0,63.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M52.6,63.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M57.2,63.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M61.8,63.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M66.4,63.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M71.0,63.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M75.6,63.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M80.19999999999999,63.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M84.8,63.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M89.4,63.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M6.600000000000001,68.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M11.200000000000003,68.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M15.800000000000004,68.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M20.400000000000002,68.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M25.0,68.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M29.6,68.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M34.2,68.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M38.8,68.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M43.4,68.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M48.0,68.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M52.6,68.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M57.2,68.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M61.8,68.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M66.4,68.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M71.0,68.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M75.6,68.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M80.19999999999999,68.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M84.8,68.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M89.4,68.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M11.200000000000003,73.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M15.800000000000004,73.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M20.400000000000002,73.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M25.0,73.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M29.6,73.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M34.2,73.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M38.8,73.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M43.4,73.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M48.0,73.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M52.6,73.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M57.2,73.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M61.8,73.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M66.4,73.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M71.0,73.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M75.6,73.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M80.19999999999999,73.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M84.8,73.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M11.200000000000003,77.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M15.800000000000004,77.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M20.400000000000002,77.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M25.0,77.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M29.6,77.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M34.2,77.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M38.8,77.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M43.4,77.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M48.0,77.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M52.6,77.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M57.2,77.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M61.8,77.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M66.4,77.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M71.0,77.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M75.6,77.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M80.19999999999999,77.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M84.8,77.6a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M15.800000000000004,82.19999999999999a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M20.400000000000002,82.19999999999999a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M25.0,82.19999999999999a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M29.6,82.19999999999999a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M34.2,82.19999999999999a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M38.8,82.19999999999999a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M43.4,82.19999999999999a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M48.0,82.19999999999999a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M52.6,82.19999999999999a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M57.2,82.19999999999999a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M61.8,82.19999999999999a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M66.4,82.19999999999999a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M71.0,82.19999999999999a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M75.6,82.19999999999999a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M80.19999999999999,82.19999999999999a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M20.400000000000002,86.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M25.0,86.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M29.6,86.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M34.2,86.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M38.8,86.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M43.4,86.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M48.0,86.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M52.6,86.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M57.2,86.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M61.8,86.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M66.4,86.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M71.0,86.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M75.6,86.8a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M29.6,91.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M34.2,91.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M38.8,91.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_muted" android:fillAlpha="0.25" android:pathData="M43.4,91.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M48.0,91.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M52.6,91.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M57.2,91.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M61.8,91.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M66.4,91.4a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+    <path android:fillColor="@color/widget_online" android:pathData="M48.0,96.0a2,2 0,1 0,4,0a2,2 0,1 0,-4,0" />
+</vector>

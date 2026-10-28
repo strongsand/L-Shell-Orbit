@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="cards_organize">Arrange cards</string>
+    <string name="cards_edit">Edit</string>
+    <string name="cards_done">Done</string>
+    <string name="cards_hint">Drag the side handles to resize. Drag the card to move; hold near an edge to scroll.</string>
+    <string name="cards_compact">Make %1$s compact</string>
+    <string name="cards_normal">Normal size for %1$s</string>
+    <string name="cards_edit_card">Edit %1$s</string>
+    <string name="cards_options">Options for %1$s</string>
+    <string name="cards_size_compact">Compact size</string>
+    <string name="cards_size_normal">Normal size</string>
+    <string name="cards_accessibility_state">%1$s, position %2$d of %3$d</string>
+    <string name="cards_hold_hint">Hold a card to arrange</string>
+    <string name="cards_resize_handle">Resize %1$s</string>
+    <string name="cards_above_recent">Above recent baseline</string>
+    <string name="cards_latest">Latest</string>
+</resources>

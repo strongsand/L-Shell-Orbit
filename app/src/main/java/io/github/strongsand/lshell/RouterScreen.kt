@@ -1,135 +1,170 @@
 package io.github.strongsand.lshell
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Devices
-import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.Router
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.core.spring
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import io.github.strongsand.lshell.core.network.grpc.RouterClientInfo
-import io.github.strongsand.lshell.core.network.grpc.RouterGrpcClient
 import io.github.strongsand.lshell.core.network.grpc.RouterInfo
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.util.Locale
 
 @Composable
 fun RouterScreen(modifier: Modifier = Modifier) {
-    val client = remember { RouterGrpcClient() }
+    val runtime = remember { RouterTelemetryRuntime.shared }
+    val telemetry by rememberRouterTelemetry(includeDetails = true)
     var router by remember { mutableStateOf<RouterInfo?>(null) }
-    var error by remember { mutableStateOf<String?>(null) }
-    var refreshing by remember { mutableStateOf(true) }
-    var refreshKey by remember { mutableIntStateOf(0) }
+    val error = telemetry.error
+    val refreshing = telemetry.refreshing || (!telemetry.includesDetails && error == null)
     var confirmReboot by remember { mutableStateOf(false) }
+    var topologyInfo by rememberSaveable { mutableStateOf(false) }
     var actionBusy by remember { mutableStateOf(false) }
     var actionMessage by remember { mutableStateOf<String?>(null) }
+    var actionDetail by remember { mutableStateOf<String?>(null) }
+    val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
 
-    LaunchedEffect(refreshKey) {
-        while (isActive) {
-            refreshing = true
-            client.fetch().fold(
-                onSuccess = { fresh ->
-                    router = fresh.copy(clients = retainRouterClients(router?.clients.orEmpty(), fresh.clients))
-                    error = null
-                },
-                onFailure = { error = it.message ?: "Falha ao consultar o roteador" }
-            )
-            refreshing = false
-            delay(15_000)
-        }
+    LaunchedEffect(telemetry.info, telemetry.includesDetails) {
+        if (telemetry.includesDetails) telemetry.info?.let { router = retainRouterSnapshot(router, it) }
     }
 
-    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
+    val info = router
+    val repeaters = remember(info?.clients) { info?.let { RouterTopology.reportedRepeaters(it.clients) }.orEmpty() }
+    val otherClients = remember(info?.clients) { info?.let { RouterTopology.unassignedClients(it.clients) }.orEmpty() }
+    LazyColumn(modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 24.dp)) {
+        item("heading") { Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Rounded.Router, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Icon(OrbitSymbols.Router, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
             Spacer(Modifier.width(12.dp))
-            Text("Roteador", style = MaterialTheme.typography.headlineLarge, modifier = Modifier.weight(1f))
-            IconButton(onClick = hapticClick { refreshKey++ }) {
-                Icon(Icons.Rounded.Refresh, contentDescription = "Atualizar roteador")
+            Text(androidx.compose.ui.res.stringResource(R.string.editorial_router), style = MaterialTheme.typography.headlineLarge, modifier = Modifier.weight(1f))
+            FilledTonalIconButton(enabled = !refreshing, onClick = hapticClick { runtime.requestRefresh() }) {
+                Icon(OrbitSymbols.Refresh, contentDescription = androidx.compose.ui.res.stringResource(R.string.editorial_refresh_router))
             }
         }
         Spacer(Modifier.height(8.dp))
-        Text("Atualização automática a cada 15 s", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.height(16.dp))
-
-        if (error != null) {
-            RouterCard("Conexão", MaterialTheme.colorScheme.errorContainer) {
-                Text(error.orEmpty(), color = MaterialTheme.colorScheme.onErrorContainer)
-                Spacer(Modifier.height(6.dp))
-                Text("Conecte o celular ao Wi-Fi da Starlink e toque em atualizar. O roteador deve responder em 192.168.1.1:9000.")
-            }
-            Spacer(Modifier.height(12.dp))
-        }
-        val info = router
-        if (info == null) {
-            if (refreshing) LinearProgressIndicator(Modifier.fillMaxWidth())
-            return@Column
-        }
-
-        RouterCard("Comandos do roteador", MaterialTheme.colorScheme.surfaceContainerHigh) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = hapticClick { confirmReboot = true }, enabled = !actionBusy,
-                    modifier = Modifier.fillMaxWidth()) {
-                    Text("Reiniciar")
-                }
-                OutlinedButton(onClick = hapticClick {
-                    actionBusy = true
-                    scope.launch {
-                        actionMessage = client.fetch().fold(
-                            onSuccess = {
-                                router = it
-                                if (it.alerts.any { alert -> alert == "Atualização pendente" })
-                                    "O roteador informa uma atualização pendente."
-                                else "Nenhuma atualização pendente informada pelo roteador."
-                            },
-                            onFailure = { "Falha na consulta: ${it.message ?: "sem resposta"}" })
-                        actionBusy = false
-                    }
-                }, enabled = !actionBusy, modifier = Modifier.fillMaxWidth()) {
-                    Text("Verificar atualização")
-                }
-            }
-            actionMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+        Text(stringResource(R.string.router_refresh_interval), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Box(Modifier.fillMaxWidth().padding(top = 8.dp).height(4.dp)) {
+            if (refreshing) LinearProgressIndicator(Modifier.fillMaxSize())
         }
         Spacer(Modifier.height(12.dp))
 
-        RouterCard("Estado do roteador", MaterialTheme.colorScheme.primaryContainer) {
-            Text("${info.clients.size} dispositivos encontrados", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
+        } }
+        item("error") { Column {
+        if (error != null) {
+            RouterCard(stringResource(R.string.router_connection), MaterialTheme.colorScheme.errorContainer) {
+                Text(androidx.compose.ui.res.stringResource(R.string.editorial_router_error), color = amoledCardContent(MaterialTheme.colorScheme.onErrorContainer))
+                if (LocalExperience.current.technical) Text(error.orEmpty(), style = MaterialTheme.typography.bodySmall)
+                Spacer(Modifier.height(6.dp))
+                Text(stringResource(R.string.router_connection_help))
+            }
+            Spacer(Modifier.height(12.dp))
+        }
+        } }
+        if (info == null) {
+            item("loading") {
+                if (refreshing && error == null) Text(stringResource(R.string.density_loading),
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        } else {
+        item("commands") {
+            Column {
+        RouterCard(stringResource(R.string.router_commands), MaterialTheme.colorScheme.surfaceContainerLow, OrbitSymbols.Tune) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OrbitActionButton(style = OrbitActionStyle.COMMAND, onClick = hapticClick { confirmReboot = true }, enabled = !actionBusy,
+                    modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.router_reboot))
+                }
+                OrbitActionButton(style = OrbitActionStyle.COMMAND, onClick = hapticClick {
+                    actionBusy = true
+                    scope.launch {
+                        actionMessage = runtime.refresh().fold(
+                            onSuccess = {
+                                router = retainRouterSnapshot(router, it)
+                                actionDetail = null
+                                if (it.hasPendingUpdate)
+                                    context.getString(R.string.editorial_router_update_pending)
+                                else context.getString(R.string.editorial_router_no_update)
+                            },
+                            onFailure = { actionDetail = it.message; context.getString(R.string.editorial_router_error) })
+                        actionBusy = false
+                    }
+                }, enabled = !actionBusy, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.router_check_update))
+                }
+            }
+            actionMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+            if (LocalExperience.current.technical) actionDetail?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+        }
+        Spacer(Modifier.height(12.dp))
+
+            }
+        }
+        item("state") {
+            Column {
+        RouterCard(stringResource(R.string.router_state), MaterialTheme.colorScheme.primaryContainer) {
+            Text(androidx.compose.ui.res.pluralStringResource(R.plurals.editorial_devices_found, info.clients.size, info.clients.size), style = MaterialTheme.typography.headlineSmall, color = amoledCardContent(MaterialTheme.colorScheme.onPrimaryContainer))
             Spacer(Modifier.height(8.dp))
-            RouterDetailRow("Ligado há", duration(info.uptimeSeconds))
+            RouterDetailRow(stringResource(R.string.router_uptime), duration(info.uptimeSeconds))
             RouterDetailRow("WAN IPv4", info.wanIpv4)
             RouterDetailRow("WAN IPv6", info.wanIpv6.joinToString("\n"))
         }
         Spacer(Modifier.height(12.dp))
 
-        RouterCard("Latência", MaterialTheme.colorScheme.surfaceContainerHigh) {
+            }
+        }
+        item("latency") {
+            Column {
+        RouterCard(stringResource(R.string.router_latency), MaterialTheme.colorScheme.surfaceContainerLow, OrbitSymbols.Speed) {
             RouterDetailRow("Internet", milliseconds(info.pingMs))
-            RouterDetailRow("Antena", milliseconds(info.dishPingMs))
+            RouterDetailRow(stringResource(R.string.router_dish), milliseconds(info.dishPingMs))
             RouterDetailRow("POP", milliseconds(info.popPingMs))
         }
         Spacer(Modifier.height(12.dp))
 
-        RouterCard("Hardware e software", MaterialTheme.colorScheme.surfaceContainerHigh) {
+            }
+        }
+        item("hardware") {
+            Column {
+        RouterCard(stringResource(R.string.router_hardware), MaterialTheme.colorScheme.surfaceContainerLow, OrbitSymbols.Memory) {
             RouterDetailRow("ID", info.id)
             RouterDetailRow("Hardware", info.hardware)
             RouterDetailRow("Software", info.software)
-            RouterDetailRow("Versão de fábrica", info.manufacturedSoftware)
+            RouterDetailRow(stringResource(R.string.router_factory), info.manufacturedSoftware)
         }
         Spacer(Modifier.height(12.dp))
 
+            }
+        }
+        item("networks") {
+            Column {
         if (info.networks.isNotEmpty()) {
-            RouterCard("Redes locais", MaterialTheme.colorScheme.surfaceContainerHigh) {
+            RouterCard(stringResource(R.string.router_networks), MaterialTheme.colorScheme.surfaceContainerHigh) {
                 info.networks.forEachIndexed { index, network ->
                     if (index > 0) HorizontalDivider(Modifier.padding(vertical = 10.dp))
-                    Text(network.domain.ifBlank { "Rede ${index + 1}" }, style = MaterialTheme.typography.titleMedium)
+                    Text(network.domain.ifBlank { context.getString(R.string.router_network_number, index + 1) }, style = MaterialTheme.typography.titleMedium)
                     RouterDetailRow("IPv4", network.ipv4)
                     RouterDetailRow("IPv6", network.ipv6.joinToString("\n"))
                     RouterDetailRow("Ethernet", network.ethernetClients.toString())
@@ -140,93 +175,160 @@ fun RouterScreen(modifier: Modifier = Modifier) {
             Spacer(Modifier.height(12.dp))
         }
 
-        RouterCard("Inicializações e alertas", MaterialTheme.colorScheme.surfaceContainerHigh) {
-            RouterDetailRow("Último motivo", info.bootReason)
-            RouterDetailRow("Total", info.bootCount.takeIf { it > 0 }?.toString().orEmpty())
-            info.bootCounts.forEach { (reason, count) -> RouterDetailRow(reason, count.toString()) }
+            }
+        }
+        item("boot-alerts") {
+            Column {
+        RouterCard(stringResource(R.string.router_boot_alerts), MaterialTheme.colorScheme.surfaceContainerHigh) {
+            RouterDetailRow(stringResource(R.string.router_boot_reason), routerBootLabel(info.bootReason))
+            RouterDetailRow(stringResource(R.string.router_total), info.bootCount.takeIf { it > 0 }?.toString().orEmpty())
+            info.bootCounts.forEach { (reason, count) -> RouterDetailRow(routerBootLabel(reason), count.toString()) }
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
-            if (info.alerts.isEmpty()) Text("Nenhum alerta informado")
-            else info.alerts.forEach { Text("• $it", color = MaterialTheme.colorScheme.error) }
+            if (info.alerts.isEmpty()) Text(stringResource(R.string.router_no_alerts))
+            else info.alerts.forEach { Text("• ${stringResource(RouterClientPresentation.alertLabel(it))}", color = MaterialTheme.colorScheme.error) }
         }
         Spacer(Modifier.height(20.dp))
 
+            }
+        }
+        item("devices-heading") { Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Rounded.Devices, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Icon(OrbitSymbols.Devices, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
             Spacer(Modifier.width(10.dp))
-            Text("Dispositivos", style = MaterialTheme.typography.headlineSmall)
+            Text(stringResource(R.string.router_devices), style = MaterialTheme.typography.headlineSmall)
         }
         Spacer(Modifier.height(10.dp))
+        } }
         if (info.clients.isEmpty()) {
-            RouterCard("Nenhum dispositivo retornado", MaterialTheme.colorScheme.surfaceContainerHigh) {
-                Text("O roteador respondeu, mas não enviou a lista de clientes nesta consulta.")
+            item("no-clients") {
+                RouterCard(stringResource(R.string.router_no_clients), MaterialTheme.colorScheme.surfaceContainerHigh) {
+                    Text(stringResource(R.string.router_clients_empty))
+                }
             }
         } else {
-            info.clients.forEach { connected ->
-                RouterClientCard(connected)
-                Spacer(Modifier.height(10.dp))
+            if (repeaters.isNotEmpty()) {
+                item("repeaters-heading") {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(pluralStringResource(R.plurals.rich_mesh_nodes, repeaters.size), Modifier.weight(1f),
+                            style = MaterialTheme.typography.titleLarge)
+                        IconButton(onClick = hapticClick { topologyInfo = true }) {
+                            Icon(OrbitSymbols.Info, stringResource(R.string.rich_mesh_info))
+                        }
+                    }
+                }
+                items(repeaters, key = { "client:" + it.mac.ifBlank { it.ipv4.ifBlank { it.name } } }, contentType = { "client" }) { repeater ->
+                    Column { RouterClientCard(repeater); Spacer(Modifier.height(10.dp)) }
+                }
+                item("repeaters-spacing") { Spacer(Modifier.height(16.dp)) }
+            }
+            if (repeaters.isNotEmpty() && otherClients.isNotEmpty()) {
+                item("other-heading") {
+                    Column {
+                        Text(stringResource(R.string.rich_other_devices), style = MaterialTheme.typography.titleMedium)
+                        Spacer(Modifier.height(10.dp))
+                    }
+                }
+            }
+            items(otherClients, key = { "client:" + it.mac.ifBlank { it.ipv4.ifBlank { it.name } } }, contentType = { "client" }) { connected ->
+                Column { RouterClientCard(connected); Spacer(Modifier.height(10.dp)) }
             }
         }
+        }
+    }
+    if (topologyInfo) {
+        AlertDialog(onDismissRequest = { topologyInfo = false },
+            icon = { Icon(OrbitSymbols.Hub, null) },
+            title = { Text(stringResource(R.string.rich_mesh_info)) },
+            text = { Text(stringResource(R.string.router_topology_limit)) },
+            confirmButton = { TextButton(onClick = hapticClick { topologyInfo = false }) { Text(stringResource(R.string.rich_done)) } })
     }
     if (confirmReboot) {
         AlertDialog(onDismissRequest = { confirmReboot = false },
-            title = { Text("Reiniciar roteador?") },
-            text = { Text("O Wi-Fi e a conexão com a antena ficarão indisponíveis por alguns minutos.") },
+            title = { Text(stringResource(R.string.router_reboot_question)) },
+            text = { Text(stringResource(R.string.router_reboot_warning)) },
             confirmButton = { TextButton(onClick = hapticClick(DashFeedback.CONFIRM) {
                 confirmReboot = false
                 actionBusy = true
                 scope.launch {
-                    actionMessage = client.reboot().fold(
-                        onSuccess = { "Comando enviado ao roteador." },
-                        onFailure = { "Falha ao enviar: ${it.message ?: "sem resposta"}" })
+                    actionMessage = runtime.reboot().fold(
+                        onSuccess = { actionDetail = null; context.getString(R.string.editorial_router_command_sent) },
+                        onFailure = { actionDetail = it.message; context.getString(R.string.editorial_router_command_error) })
                     actionBusy = false
                 }
-            }) { Text("Reiniciar") } },
-            dismissButton = { TextButton(onClick = hapticClick { confirmReboot = false }) { Text("Cancelar") } })
-    }
-}
-
-private fun retainRouterClients(previous: List<RouterClientInfo>, current: List<RouterClientInfo>): List<RouterClientInfo> {
-    fun RouterClientInfo.key() = mac.ifBlank { ipv4.ifBlank { "$name|$interfaceName" } }
-    val previousByKey = previous.associateBy { it.key() }
-    val currentKeys = current.mapTo(mutableSetOf()) { it.key() }
-    val refreshed = current.map { client ->
-        val old = previousByKey[client.key()]
-        client.copy(
-            receivedBytes = maxOf(client.receivedBytes, old?.receivedBytes ?: 0L),
-            sentBytes = maxOf(client.sentBytes, old?.sentBytes ?: 0L)
-        )
-    }
-    val temporarilyMissing = previous.filter { it.key() !in currentKeys }.map { it.copy(active = false) }
-    return (refreshed + temporarilyMissing)
-        .sortedWith(compareByDescending<RouterClientInfo> { it.active }.thenBy { it.name })
-}
-
-@Composable
-private fun RouterClientCard(client: RouterClientInfo) {
-    RouterCard(client.name, MaterialTheme.colorScheme.surfaceContainerHigh) {
-        Text("${client.role} · ${client.interfaceName}${if (client.active) " · Ativo" else ""}", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
-        Spacer(Modifier.height(10.dp))
-        RouterDetailRow("IPv4", client.ipv4)
-        if (client.ipv6.isNotEmpty()) RouterDetailRow("IPv6", client.ipv6.joinToString("\n"))
-        RouterDetailRow("MAC", client.mac)
-        if (client.signalDbm != null) RouterDetailRow("Sinal", "${format(client.signalDbm)} dBm")
-        if (client.snrDb != null) RouterDetailRow("Sinal/ruído", "${format(client.snrDb)} dB")
-        if (client.connectedSeconds > 0) RouterDetailRow("Conectado há", duration(client.connectedSeconds))
-        RouterDetailRow("Recebido", bytes(client.receivedBytes))
-        RouterDetailRow("Enviado", bytes(client.sentBytes))
+            }) { Text(stringResource(R.string.router_reboot)) } },
+            dismissButton = { TextButton(onClick = hapticClick { confirmReboot = false }) { Text(stringResource(R.string.router_cancel)) } })
     }
 }
 
 @Composable
-private fun RouterCard(title: String, color: androidx.compose.ui.graphics.Color, content: @Composable ColumnScope.() -> Unit) {
-    val contentColor = contentColorFor(color)
+internal fun RouterClientCard(client: RouterClientInfo) {
+    var details by rememberSaveable(client.mac, client.ipv4, client.name) { mutableStateOf(false) }
+    val motion = LocalOrbitMotion.current
+    val rotation = androidx.compose.animation.core.animateFloatAsState(if (details) 180f else 0f,
+        OrbitMotion.spec(OrbitMotionRole.SETTLE, motion), label = "client disclosure")
+    val role = stringResource(RouterClientPresentation.roleLabel(client.role))
+    val band = stringResource(RouterClientPresentation.interfaceLabel(client.interfaceKind))
+    val status = stringResource(if (client.active) R.string.router_active else R.string.router_inactive)
+    val disclosure = stringResource(if (details) R.string.reports_expanded else R.string.reports_collapsed)
+    Surface(Modifier.fillMaxWidth(), shape = DashDesign.section, color = MaterialTheme.colorScheme.surfaceContainerLow) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(Modifier.semantics(mergeDescendants = true) {}, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(if (client.reportedRole == 2) OrbitSymbols.Hub else OrbitSymbols.Devices, null,
+                        Modifier.size(22.dp), tint = MaterialTheme.colorScheme.primary)
+                    Text(routerClientName(client), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                }
+                Text("$role · $band", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                HomeStatusPill(status, if (client.active) HealthTone.GOOD else HealthTone.UNKNOWN)
+                client.signalDbm?.let {
+                    val value = format(it)
+                    val spoken = stringResource(R.string.rich_signal_spoken, value)
+                    Text("${stringResource(R.string.router_signal)} · $value dBm",
+                        Modifier.clearAndSetSemantics { contentDescription = spoken }, style = MaterialTheme.typography.labelLarge)
+                }
+            }
+            val counters = RouterClientPresentation.counters(client)
+            if (counters.isNotEmpty()) ReportSummaryGrid(counters.map { (label, value) ->
+                { ReportSummaryMetric(stringResource(label), bytes(value)) }
+            }, minimumWidthDp = 300f)
+            TextButton(onClick = hapticClick { details = !details },
+                modifier = Modifier.semantics { stateDescription = disclosure }) {
+                Text(stringResource(R.string.router_details))
+                Icon(OrbitSymbols.ExpandMore, null, Modifier.graphicsLayer { rotationZ = rotation.value })
+            }
+            AnimatedVisibility(details,
+                enter = if (motion) fadeIn() + expandVertically(animationSpec = OrbitMotion.spec(OrbitMotionRole.STATE, true)) else EnterTransition.None,
+                exit = if (motion) fadeOut() + shrinkVertically(animationSpec = OrbitMotion.spec(OrbitMotionRole.STATE, true)) else ExitTransition.None) {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(stringResource(R.string.router_unassigned), style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    RouterDetailRow("IPv4", client.ipv4)
+                    RouterDetailRow("IPv6", client.ipv6.joinToString("\n"))
+                    RouterDetailRow("MAC", client.mac)
+                    if (client.snrDb != null) RouterDetailRow(stringResource(R.string.router_snr), "${format(client.snrDb)} dB")
+                    if (client.connectedSeconds > 0) RouterDetailRow(stringResource(R.string.router_associated), duration(client.connectedSeconds))
+                    if (LocalExperience.current.technical) {
+                        RouterDetailRow(stringResource(R.string.rich_mesh_raw_role), client.reportedRole.toString())
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RouterCard(title: String, color: androidx.compose.ui.graphics.Color, icon: ImageVector = OrbitSymbols.Router, content: @Composable ColumnScope.() -> Unit) {
+    val contentColor = amoledCardContent(contentColorFor(color))
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = DashDesign.section,
-        colors = CardDefaults.cardColors(containerColor = color, contentColor = contentColor)
+        shape = RoundedCornerShape(topStart = 30.dp, topEnd = 18.dp, bottomEnd = 30.dp, bottomStart = 18.dp),
+        colors = CardDefaults.cardColors(containerColor = amoledCardColor(color), contentColor = contentColor)
     ) {
         Column(Modifier.padding(DashDesign.inset), content = {
-            SectionHeading(title)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                ExpressiveIcon(icon, MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer)
+                Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+            }
             Spacer(Modifier.height(12.dp))
             content()
         })
@@ -237,7 +339,7 @@ private fun RouterCard(title: String, color: androidx.compose.ui.graphics.Color,
 private fun RouterDetailRow(label: String, value: String) {
     if (value.isBlank()) return
     val color = LocalContentColor.current
-    InfoRow(label, value, labelColor = color, valueColor = color)
+    InfoRow(label, value, labelColor = color.copy(alpha = .78f), valueColor = color)
 }
 
 private fun milliseconds(value: Float?): String = value?.let { "${format(it)} ms" } ?: ""

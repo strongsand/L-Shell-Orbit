@@ -10,8 +10,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -24,8 +22,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 
-private data class Credit(val name: String, val use: String, val url: String)
+private data class Credit(val name: String, val use: String, val url: String, val licenseUrl: String? = null)
 
 @Composable
 internal fun CreditsSheet(onDismiss: () -> Unit) {
@@ -35,54 +34,58 @@ internal fun CreditsSheet(onDismiss: () -> Unit) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
             .navigationBarsPadding().padding(horizontal = 20.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Text("Créditos", style = MaterialTheme.typography.headlineMedium,
+            Text(stringResource(R.string.settings_credits), style = MaterialTheme.typography.headlineMedium,
                 modifier = Modifier.expressiveReveal("credits-title"))
-            Text("Tecnologias e fontes realmente usadas no L-Shell Orbit. Os links levam aos projetos e aos seus avisos oficiais.",
+            Text(stringResource(R.string.ui_technologies_and_sources_used_in_l_shell_orbit_links_open_the_pro),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.expressiveReveal("credits-description", 35))
-            CreditGroup("Interface e navegação", 0, listOf(
-                Credit("Jetpack Compose e Material 3", "Interface, componentes e animações", "https://developer.android.com/develop/ui/compose"),
-                Credit("Material Icons", "Ícones da interface", "https://fonts.google.com/icons"),
-                Credit("Navigation Compose", "Navegação e transições entre telas", "https://developer.android.com/guide/navigation"),
-                Credit("Android Canvas", "Gráficos, mapa de obstrução e arte dos widgets", "https://developer.android.com/develop/ui/views/graphics/draw-on-canvas")
+            CreditGroup(stringResource(R.string.ui_interface_and_navigation), 0, listOf(
+                Credit(stringResource(R.string.ui_jetpack_compose_and_material_3), stringResource(R.string.ui_interface_components_and_animations), "https://developer.android.com/develop/ui/compose"),
+                Credit("Material Icons", stringResource(R.string.ui_interface_icons), "https://fonts.google.com/icons"),
+                Credit("Material Symbols", stringResource(R.string.symbols_credit_use), "https://fonts.google.com/icons",
+                    "https://www.apache.org/licenses/LICENSE-2.0"),
+                Credit("Navigation Compose", stringResource(R.string.ui_navigation_and_screen_transitions), "https://developer.android.com/guide/navigation"),
+                Credit("Android Canvas", stringResource(R.string.ui_charts_obstruction_map_and_widget_artwork), "https://developer.android.com/develop/ui/views/graphics/draw-on-canvas")
             ))
-            CreditGroup("Recursos Android", 1, listOf(
-                Credit("CameraX", "Prévia da câmera no céu em AR", "https://developer.android.com/media/camera/camerax"),
-                Credit("Jetpack Glance", "Widgets da tela inicial", "https://developer.android.com/develop/ui/compose/glance"),
-                Credit("WorkManager", "Trabalho em segundo plano", "https://developer.android.com/topic/libraries/architecture/workmanager"),
-                Credit("DataStore", "Preferências locais", "https://developer.android.com/topic/libraries/architecture/datastore"),
-                Credit("AndroidX Core, Activity e Lifecycle", "Integração com o Android", "https://developer.android.com/jetpack/androidx")
+            CreditGroup(stringResource(R.string.ui_android_features), 1, listOf(
+                Credit("CameraX", stringResource(R.string.ui_camera_preview_in_the_ar_sky_view), "https://developer.android.com/media/camera/camerax"),
+                Credit("Jetpack Glance", stringResource(R.string.ui_home_screen_widgets), "https://developer.android.com/develop/ui/compose/glance"),
+                Credit("WorkManager", stringResource(R.string.ui_background_work), "https://developer.android.com/topic/libraries/architecture/workmanager"),
+                Credit("DataStore", stringResource(R.string.ui_local_preferences), "https://developer.android.com/topic/libraries/architecture/datastore"),
+                Credit(stringResource(R.string.ui_androidx_core_activity_and_lifecycle), stringResource(R.string.ui_android_integration), "https://developer.android.com/jetpack/androidx")
             ))
-            CreditGroup("Comunicação e dados", 2, listOf(
-                Credit("Kotlin Coroutines", "Tarefas assíncronas", "https://github.com/Kotlin/kotlinx.coroutines"),
-                Credit("gRPC Java/Kotlin e transporte OkHttp", "Comunicação local com a antena e o roteador", "https://grpc.io"),
-                Credit("Protocol Buffers", "Mensagens da telemetria", "https://protobuf.dev")
+            CreditGroup(stringResource(R.string.ui_communication_and_data), 2, listOf(
+                Credit("Kotlin Coroutines", stringResource(R.string.ui_asynchronous_tasks), "https://github.com/Kotlin/kotlinx.coroutines"),
+                Credit(stringResource(R.string.ui_grpc_java_kotlin_and_okhttp_transport), stringResource(R.string.ui_local_communication_with_the_dish_and_router), "https://grpc.io"),
+                Credit("Protocol Buffers", stringResource(R.string.ui_telemetry_messages), "https://protobuf.dev")
             ))
-            CreditGroup("Dados orbitais e referências", 3, listOf(
-                Credit("CelesTrak", "Efemérides suplementares da SpaceX usadas na AR", "https://celestrak.org"),
-                Credit("predict4java", "Propagação orbital SGP4/SDP4 no modo AR (MIT)", "https://github.com/g4dpz/predict4java"),
-                Credit("starlink-grpc-tools", "Referência comunitária para a interface gRPC local (The Unlicense)", "https://github.com/sparky8512/starlink-grpc-tools"),
-                Credit("Dishylink", "Referência para rastreamento orbital e leitura do mapa de obstrução (MIT)", "https://github.com/daveyhert/Dishylink")
+            CreditGroup(stringResource(R.string.ui_orbital_data_and_references), 3, listOf(
+                Credit("CelesTrak", stringResource(R.string.ui_supplemental_spacex_ephemerides_used_in_ar), "https://celestrak.org"),
+                Credit(stringResource(R.string.satellite_catalog_credit_name), stringResource(R.string.satellite_catalog_credit_use),
+                    "https://planet4589.org/space/con/star/"),
+                Credit("predict4java", stringResource(R.string.ui_sgp4_sdp4_orbital_propagation_in_ar_mit), "https://github.com/g4dpz/predict4java"),
+                Credit("starlink-grpc-tools", stringResource(R.string.ui_community_reference_for_the_local_grpc_interface_the_unlicense), "https://github.com/sparky8512/starlink-grpc-tools"),
+                Credit("Dishylink", stringResource(R.string.ui_reference_for_orbital_tracking_and_reading_the_obstruction_map_mi), "https://github.com/daveyhert/Dishylink")
             ))
             Card(Modifier.fillMaxWidth().expressiveReveal("equipment-data", 210), shape = DashDesign.section,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
                 Column(Modifier.padding(DashDesign.inset), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("Dados do equipamento", style = MaterialTheme.typography.titleMedium,
+                    Text(stringResource(R.string.ui_equipment_data), style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.primary)
-                    Text("A telemetria e o teste de velocidade consultam os serviços gRPC locais do terminal e do roteador Starlink.",
+                    Text(stringResource(R.string.ui_telemetry_and_speed_tests_query_the_local_grpc_services_of_the_st),
                         style = MaterialTheme.typography.bodySmall)
                 }
             }
-            CreditGroup("Testes", 4, listOf(
-                Credit("JUnit 4", "Testes automatizados do projeto", "https://junit.org/junit4/")
+            CreditGroup(stringResource(R.string.product_tests), 4, listOf(
+                Credit("JUnit 4", stringResource(R.string.ui_automated_project_tests), "https://junit.org/junit4/")
             ))
-            Text("L-Shell Orbit é um projeto independente e não oficial, sem afiliação ou endosso da Starlink ou SpaceX.",
+            Text(stringResource(R.string.ui_l_shell_orbit_is_an_independent_unofficial_project_without_affili),
                 modifier = Modifier.fillMaxWidth().expressiveReveal("credits-disclaimer", 250),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-            Text("feito com amor por hurricane", modifier = Modifier.fillMaxWidth()
+            Text(stringResource(R.string.ui_made_with_love_by_hurricane), modifier = Modifier.fillMaxWidth()
                 .expressiveReveal("credits-signature", 280),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
@@ -109,7 +112,12 @@ private fun CreditGroup(title: String, index: Int, items: List<Credit>) {
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     IconButton(onClick = hapticClick { uriHandler.openUri(credit.url) }) {
-                        Icon(Icons.AutoMirrored.Rounded.OpenInNew, contentDescription = "Abrir projeto ${credit.name}")
+                        Icon(OrbitSymbols.OpenInNew, contentDescription = androidx.compose.ui.res.stringResource(R.string.editorial_project, credit.name))
+                    }
+                    credit.licenseUrl?.let { license ->
+                        IconButton(onClick = hapticClick { uriHandler.openUri(license) }) {
+                            Icon(OrbitSymbols.Info, contentDescription = stringResource(R.string.symbols_license))
+                        }
                     }
                 }
             }

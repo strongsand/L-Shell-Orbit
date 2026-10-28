@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="cards_organize">Organizar tarjetas</string>
+    <string name="cards_edit">Editar</string>
+    <string name="cards_done">Listo</string>
+    <string name="cards_hint">Arrastra los controles laterales para cambiar el tamaño. Arrastra la tarjeta para moverla; acércala a un borde para desplazar.</string>
+    <string name="cards_compact">Reducir %1$s</string>
+    <string name="cards_normal">Tamaño normal de %1$s</string>
+    <string name="cards_edit_card">Editar %1$s</string>
+    <string name="cards_options">Opciones de %1$s</string>
+    <string name="cards_size_compact">Tamaño compacto</string>
+    <string name="cards_size_normal">Tamaño normal</string>
+    <string name="cards_accessibility_state">%1$s, posición %2$d de %3$d</string>
+    <string name="cards_hold_hint">Mantén pulsada una tarjeta para organizar</string>
+    <string name="cards_resize_handle">Cambiar tamaño de %1$s</string>
+    <string name="cards_above_recent">Por encima del nivel reciente</string>
+    <string name="cards_latest">Reciente</string>
+</resources>

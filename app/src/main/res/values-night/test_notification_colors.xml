@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="test_result_surface">#2C2831</color>
+    <color name="test_result_status_tone">#4B3464</color>
+    <color name="test_result_accent">#D6BAF4</color>
+    <color name="test_result_success">#9AE3A8</color>
+    <color name="test_result_success_surface">#173C22</color>
+</resources>

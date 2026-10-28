@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="antenna_back">Volver</string>
+    <string name="antenna_history_title">Historial de la antena</string>
+    <string name="antenna_saved_readings">Lecturas guardadas en este dispositivo</string>
+    <string name="antenna_readings">Lecturas</string>
+    <string name="antenna_timeline">Línea de tiempo</string>
+    <string name="antenna_filters">Filtros</string>
+    <string name="antenna_done">Listo</string>
+    <string name="antenna_history_counts">%1$d lecturas cargadas · %2$d eventos</string>
+    <string name="antenna_minutes_ago">Hace %1$d min</string>
+    <string name="antenna_mean_loss">Pérdida media %1$s%%</string>
+    <string name="antenna_expanded">Expandido</string>
+    <string name="antenna_collapsed">Contraído</string>
+    <string name="antenna_today">Hoy</string>
+    <string name="antenna_yesterday">Ayer</string>
+    <string name="antenna_timeline_context">Eventos consolidados del período</string>
+    <string name="antenna_timeline_summary">%1$d eventos · %2$s observados</string>
+    <string name="antenna_partial">Observación parcial: los intervalos sin datos permanecen sin lectura.</string>
+    <string name="antenna_loading">Cargando eventos…</string>
+    <string name="antenna_empty_timeline">No hay eventos en este período.</string>
+    <string name="antenna_show_details">Mostrar detalles</string>
+    <string name="antenna_hide_details">Ocultar detalles</string>
+</resources>

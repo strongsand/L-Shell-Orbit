@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="rich_connection_now">Sua conexão, agora</string>
+    <string name="rich_connection_hint">Tráfego e qualidade do enlace</string>
+    <string name="rich_cached_metrics">Últimas métricas salvas</string>
+    <string name="rich_terminal_overview">Visão geral do terminal</string>
+    <string name="rich_operating">Sistemas operando</string>
+    <string name="rich_cached_status">Dados da última conexão</string>
+    <string name="rich_no_live_reading">Sem leitura atual</string>
+    <string name="rich_check_terminal">Verifique o estado da antena</string>
+    <string name="rich_temperature">Temperatura</string>
+    <string name="rich_normal">Normal</string>
+    <string name="rich_attention">Atenção</string>
+    <string name="rich_software">Software · %1$s</string>
+    <string name="rich_loss">Perda %1$s</string>
+    <string name="rich_latency">Latência POP</string>
+    <string name="rich_signal_above">Acima do ruído</string>
+    <string name="rich_signal_low">Não acima do ruído</string>
+    <string name="rich_power_reading">Leitura atual</string>
+    <string name="rich_sample">Última amostra · %1$s</string>
+    <string name="rich_beacon_recording">Na rede local · coletando dados</string>
+    <string name="rich_speed_spoken">Download %1$s megabits por segundo. Upload %2$s megabits por segundo.</string>
+    <string name="rich_coverage">Cobertura %1$s%%</string>
+    <string name="rich_coverage_spoken">Cobertura de %1$s por cento</string>
+    <string name="rich_availability_spoken">Disponibilidade de %1$s por cento</string>
+    <string name="rich_field">Campo de visão</string>
+    <string name="rich_obstruction">Obstrução da antena</string>
+    <string name="rich_view_active">Obstrução ativa</string>
+    <string name="rich_view_critical">Crítico</string>
+    <string name="rich_view_blocked">Visada comprometida</string>
+    <string name="rich_view_caution">Atenção à visada</string>
+    <string name="rich_view_clear">Visada excelente</string>
+    <string name="rich_view_wait">Aguardando leitura</string>
+    <string name="rich_view_no_data">Conecte-se à antena para avaliar a visada.</string>
+    <string name="rich_view_cache">Última leitura salva. A situação atual pode ter mudado.</string>
+    <string name="rich_view_block">Há um bloqueio na direção dos satélites.</string>
+    <string name="rich_view_move">Procure uma posição com mais céu livre.</string>
+    <string name="rich_view_small">Pequenos bloqueios podem interromper a conexão.</string>
+    <string name="rich_view_good">Céu livre, boas condições de visada.</string>
+    <string name="rich_equipment">Seu equipamento</string>
+    <string name="rich_uptime">Ligado há</string>
+    <string name="rich_mesh_node">Nó mesh</string>
+    <string name="rich_mesh_info">Sobre a topologia mesh</string>
+    <string name="rich_mesh_raw_role">Papel reportado (valor bruto)</string>
+    <string name="rich_interface_unknown">Interface não informada</string>
+    <string name="rich_wifi_24">Wi-Fi 2,4 GHz</string>
+    <string name="rich_wifi_5_high">Wi-Fi 5 GHz · banda alta</string>
+    <string name="rich_other_devices">Outros dispositivos</string>
+    <string name="rich_signal_spoken">Sinal %1$s decibéis relativos a um miliwatt</string>
+    <string name="rich_unit_mbps">megabits por segundo</string>
+    <string name="rich_unit_ms">milissegundos</string>
+    <string name="rich_unit_watts">watts</string>
+    <string name="rich_done">Entendi</string>
+    <plurals name="rich_terminal_warnings">
+        <item quantity="one">%1$d aviso na antena</item>
+        <item quantity="other">%1$d avisos na antena</item>
+    </plurals>
+    <plurals name="rich_mesh_nodes">
+        <item quantity="one">Nó mesh</item>
+        <item quantity="other">Nós mesh</item>
+    </plurals>
+    <string name="rich_obstruction_spoken">%1$s. Obstrução %2$s</string>
+</resources>

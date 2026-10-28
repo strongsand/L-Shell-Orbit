@@ -1,0 +1,24 @@
+{
+  "boot_id": 7,
+  "beacon_uptime_ms": 2000,
+  "electrical": {
+    "schema_version": 1,
+    "source": "simulator",
+    "simulated": true,
+    "circuit": "battery_bus",
+    "circuit_index": 0,
+    "validity": "valid",
+    "timestamp_ms": null,
+    "capture_uptime_ms": 2000,
+    "boot_id": 7,
+    "energy_basis": "net_since_sensor_start",
+    "voltage_v": 24.1234,
+    "current_a": -1.5678,
+    "power_w": -37.8206665,
+    "energy_wh": -0.0105057407,
+    "battery_percent": null,
+    "remaining_wh": null,
+    "charging": null,
+    "autonomy_seconds": null
+  }
+}

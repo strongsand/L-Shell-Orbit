@@ -9,4 +9,5 @@
     <color name="widget_muted">#CFC8B7</color>
     <color name="widget_online">#A4D5AA</color>
     <color name="widget_warning">#F2B8B5</color>
+    <color name="widget_on_primary">#F4E6B5</color>
 </resources>

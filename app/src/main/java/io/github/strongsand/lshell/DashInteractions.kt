@@ -20,23 +20,25 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 
-enum class DashFeedback { TAP, CONFIRM, TOGGLE_ON, TOGGLE_OFF, SPECIAL, WARNING }
-
 @Stable
-class DashHaptics(private val view: View) {
+class DashHaptics(private val view: View, private val level: () -> HapticLevel) {
     private var lastFeedback = -100L
 
     fun perform(feedback: DashFeedback = DashFeedback.TAP) {
         val now = SystemClock.uptimeMillis()
         if (!view.isAttachedToWindow || !view.hasWindowFocus() || !view.isHapticFeedbackEnabled || now - lastFeedback < 70L) return
         lastFeedback = now
-        val effect = when (feedback) {
-            DashFeedback.TAP -> HapticFeedbackConstants.CLOCK_TICK
-            DashFeedback.CONFIRM -> if (Build.VERSION.SDK_INT >= 30) HapticFeedbackConstants.CONFIRM else HapticFeedbackConstants.CONTEXT_CLICK
-            DashFeedback.SPECIAL -> if (Build.VERSION.SDK_INT >= 30) HapticFeedbackConstants.GESTURE_START else HapticFeedbackConstants.CONTEXT_CLICK
-            DashFeedback.WARNING -> if (Build.VERSION.SDK_INT >= 30) HapticFeedbackConstants.REJECT else HapticFeedbackConstants.CONTEXT_CLICK
-            DashFeedback.TOGGLE_ON -> if (Build.VERSION.SDK_INT >= 34) HapticFeedbackConstants.TOGGLE_ON else HapticFeedbackConstants.CLOCK_TICK
-            DashFeedback.TOGGLE_OFF -> if (Build.VERSION.SDK_INT >= 34) HapticFeedbackConstants.TOGGLE_OFF else HapticFeedbackConstants.CLOCK_TICK
+        val gesture = hapticGesture(feedback, level()) ?: return
+        val effect = when (gesture) {
+            HapticGesture.TICK -> if (Build.VERSION.SDK_INT >= 34) HapticFeedbackConstants.SEGMENT_TICK else HapticFeedbackConstants.CLOCK_TICK
+            HapticGesture.SOFT_TICK -> if (Build.VERSION.SDK_INT >= 34) HapticFeedbackConstants.SEGMENT_FREQUENT_TICK else HapticFeedbackConstants.CLOCK_TICK
+            HapticGesture.CONTEXT -> HapticFeedbackConstants.CONTEXT_CLICK
+            HapticGesture.CONFIRM -> if (Build.VERSION.SDK_INT >= 30) HapticFeedbackConstants.CONFIRM else HapticFeedbackConstants.CONTEXT_CLICK
+            HapticGesture.REJECT -> if (Build.VERSION.SDK_INT >= 30) HapticFeedbackConstants.REJECT else HapticFeedbackConstants.CONTEXT_CLICK
+            HapticGesture.START -> if (Build.VERSION.SDK_INT >= 30) HapticFeedbackConstants.GESTURE_START else HapticFeedbackConstants.CONTEXT_CLICK
+            HapticGesture.END -> if (Build.VERSION.SDK_INT >= 30) HapticFeedbackConstants.GESTURE_END else HapticFeedbackConstants.CONTEXT_CLICK
+            HapticGesture.ON -> if (Build.VERSION.SDK_INT >= 34) HapticFeedbackConstants.TOGGLE_ON else HapticFeedbackConstants.CLOCK_TICK
+            HapticGesture.OFF -> if (Build.VERSION.SDK_INT >= 34) HapticFeedbackConstants.TOGGLE_OFF else HapticFeedbackConstants.CLOCK_TICK
         }
         // No forced vibrator fallback: View respects system settings and hardware support.
         runCatching { view.performHapticFeedback(effect) }
@@ -46,7 +48,8 @@ class DashHaptics(private val view: View) {
 @Composable
 fun rememberDashHaptics(): DashHaptics {
     val view = LocalView.current
-    return remember(view) { DashHaptics(view) }
+    val level = rememberUpdatedState(LocalExperience.current.haptics)
+    return remember(view) { DashHaptics(view) { level.value } }
 }
 
 @Composable
@@ -68,19 +71,19 @@ fun hapticToggle(action: (Boolean) -> Unit): (Boolean) -> Unit {
 @Composable
 fun Modifier.pressMotion(source: MutableInteractionSource, compression: Float = 0.97f): Modifier {
     val pressed by source.collectIsPressedAsState()
-    val scale by animateFloatAsState(if (pressed) compression else 1f,
-        spring(dampingRatio = 0.86f, stiffness = Spring.StiffnessMedium), label = "press spring")
-    return graphicsLayer { scaleX = scale; scaleY = scale }
+    val scale = animateFloatAsState(if (pressed && LocalOrbitMotion.current) compression else 1f,
+        OrbitMotion.spec(OrbitMotionRole.TOUCH, LocalOrbitMotion.current), label = "press spring")
+    return graphicsLayer { scaleX = scale.value; scaleY = scale.value }
 }
 
 /** A small shared entrance motion that also respects Android's reduced-motion setting. */
 @Composable
 fun Modifier.expressiveReveal(
     key: Any? = Unit,
-    delayMillis: Int = 0,
+    @Suppress("UNUSED_PARAMETER") delayMillis: Int = 0,
     distance: Dp = 12.dp
 ): Modifier {
-    val animationsEnabled = remember { ValueAnimator.areAnimatorsEnabled() }
+    val animationsEnabled = LocalOrbitMotion.current
     val progress = remember(key) { Animatable(if (animationsEnabled) 0f else 1f) }
     val distancePx = with(LocalDensity.current) { distance.toPx() }
 
@@ -89,13 +92,10 @@ fun Modifier.expressiveReveal(
             progress.snapTo(1f)
         } else {
             progress.snapTo(0f)
-            if (delayMillis > 0) delay(delayMillis.toLong())
+            // Start immediately; legacy stagger arguments no longer hide controls while waiting.
             progress.animateTo(
                 targetValue = 1f,
-                animationSpec = spring(
-                    dampingRatio = 0.82f,
-                    stiffness = Spring.StiffnessLow
-                )
+                animationSpec = OrbitMotion.spec(OrbitMotionRole.SPATIAL, true)
             )
         }
     }

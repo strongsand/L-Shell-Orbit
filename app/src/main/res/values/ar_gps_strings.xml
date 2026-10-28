@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ar_gps_excellent">GPS excelente</string>
+    <string name="ar_gps_good">GPS bom</string>
+    <string name="ar_gps_fair">GPS regular</string>
+    <string name="ar_gps_weak">GPS fraco</string>
+    <string name="ar_gps_no_fix">Sem GPS</string>
+    <string name="ar_gps_stale">GPS desatualizado</string>
+    <string name="ar_gps_unknown_accuracy">GPS sem precisão</string>
+    <string name="ar_gps_quality_accessibility">Qualidade da posição: %1$s</string>
+</resources>

@@ -2,7 +2,7 @@
 
 ## Scope
 
-`app/src/main/proto/device.proto` contains only the subset of Protocol Buffers definitions required by L-Shell Orbit to interoperate with the local gRPC service exposed by compatible Starlink equipment. It includes protocol names that must remain exact for wire compatibility, such as `SpaceX.API.Device`, `DishGetStatus`, and `DishGetHistory`.
+`dishyCore/src/main/proto/device.proto` contains only the subset of Protocol Buffers definitions required by L-Shell Orbit to interoperate with the local gRPC service exposed by compatible Starlink equipment. It includes protocol names that must remain exact for wire compatibility, such as `SpaceX.API.Device`, `DishGetStatus`, and `DishGetHistory`.
 
 The file is not presented as an official schema published or endorsed by SpaceX or Starlink.
 
@@ -21,6 +21,19 @@ The maintainer reports that the first version was created on 2026-09-20 as a min
 The original repository history was not present in the project copy used for this audit, so those historical details are recorded as **not independently verified** beyond what is consistent with the file's earlier header and current contents.
 
 ## Community reference
+
+### Receive-only PoE addition, 2026-10-23
+
+The maintainer supplied a router get_status observation/procedure with PoeStats
+and vsns_vin. Field numbers were cross-checked against generated community
+[PoeStats/PoeState bindings](https://docs.rs/starlink-grpc-client/latest/src/starlink_grpc_client/proto_bindings/space_x.api.device.rs.html)
+and the [router status schema](https://github.com/clarkzjw/starlink-grpc-golang/blob/master/proto/spacex_api/device/wifi.proto).
+The minimal local selection adds poe_stats=1022, dish_id=1023, PoeState and only
+PoeStats.poe_state=1/vsns_vin=7. Explicit optional scalar presence keeps omitted
+voltage missing; wire type/number are unchanged. No third-party implementation
+code or generated source was copied. `vsns_vin` is interpreted as router input-sense
+voltage in volts, not power or a calculated current. Availability depends on
+compatible equipment and a fresh reading associated with the current terminal.
 
 An important reference was [sparky8512/starlink-grpc-tools](https://github.com/sparky8512/starlink-grpc-tools), a community project for interacting with the local Starlink terminal gRPC service. That project is distributed under [The Unlicense](https://github.com/sparky8512/starlink-grpc-tools/blob/main/LICENSE).
 

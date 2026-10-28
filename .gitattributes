@@ -11,3 +11,9 @@ gradlew text eol=lf
 *.webp binary
 *.apk binary
 *.aab binary
+
+# Preserve the exact packaged asset bytes validated for 0.2.0-beta.2 on every OS.
+# Text normalization would otherwise change the public APK during a Git checkout.
+app/src/main/assets/starlink_generation_catalog.json -text
+app/src/main/assets/licenses/material-symbols-NOTICE.txt -text
+dishyCore/src/main/proto/device.proto -text

@@ -1,0 +1,16 @@
+<resources>
+    <string name="archive_title">Report export</string>
+    <string name="archive_explanation">Local JSON/CSV files in your chosen folder. The internal database remains the app source. A chosen provider may synchronize the folder independently.</string>
+    <string name="archive_no_folder">No folder selected</string>
+    <string name="archive_folder_ready">Folder selected</string>
+    <string name="archive_choose_folder">Choose or change folder</string>
+    <string name="archive_automatic">Export automatically</string>
+    <string name="archive_format">Format</string>
+    <string name="archive_test_access">Test folder access</string>
+    <string name="archive_export_now">Export this report</string>
+    <string name="archive_exported">Export completed</string>
+    <string name="archive_access_ok">Folder is writable</string>
+    <string name="archive_access_error">Cannot access or write to the folder. Select it again and retry.</string>
+    <string name="archive_last">Last export: %1$s</string>
+    <string name="archive_working">Preparing files…</string>
+</resources>

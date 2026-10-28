@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="metric_detail_current">Actual</string>
+    <string name="metric_detail_current_waiting">Esperando la primera lectura</string>
+    <string name="metric_detail_current_unavailable">Lectura no disponible</string>
+    <string name="metric_detail_current_disconnected">Antena desconectada</string>
+    <string name="metric_detail_current_accessible">%1$s actual, %2$s</string>
+    <string name="metric_detail_current_latency_spoken">%1$s milisegundos</string>
+    <string name="metric_detail_current_loss_spoken">%1$s por ciento de pérdida de paquetes</string>
+    <string name="metric_detail_current_power_spoken">%1$s vatios</string>
+    <string name="metric_detail_minutes">%1$d min</string>
+    <string name="metric_detail_signal">Calidad de señal</string>
+    <string name="metric_detail_subtitle">Lecturas reales del período</string>
+    <string name="metric_detail_period">Período</string>
+    <string name="metric_detail_load_error">No se pudo actualizar el historial. Intenta abrirlo de nuevo.</string>
+    <string name="metric_detail_loading">Cargando lecturas…</string>
+    <string name="metric_detail_median">Mediana</string>
+    <string name="metric_detail_estimated">Datos estimados</string>
+    <string name="metric_detail_support_note">Resumen basado en lecturas originales. Los intervalos sin datos no cuentan como cero.</string>
+    <string name="metric_detail_link">Lecturas del enlace</string>
+    <string name="metric_detail_signal_note">Este gráfico muestra pérdida de paquetes, no la relación señal-ruido (SNR). La antena indica si la señal supera el ruido, pero no ofrece una serie continua de SNR.</string>
+    <string name="metric_detail_above_noise">Señal por encima del ruido</string>
+    <string name="metric_detail_current_loss">Pérdida actual</string>
+    <string name="metric_detail_obstruction">Obstrucción</string>
+    <string name="metric_detail_obstruction_count">%1$d lecturas con al menos un 1%% de obstrucción en el período.</string>
+    <string name="metric_detail_chart_description">%1$s. Cobertura: %2$s%%. Máximo real: %3$s. Los vacíos interrumpen la línea.</string>
+    <string name="metric_detail_previous">Lectura anterior</string>
+    <string name="metric_detail_inspect_action">Inspeccionar gráfico</string>
+    <string name="metric_detail_next">Siguiente lectura</string>
+    <string name="metric_detail_gap">Sin datos válidos en este intervalo</string>
+    <string name="metric_detail_coverage">%1$s%% de cobertura · %2$s con datos</string>
+    <string name="metric_detail_inspect_hint">Toca o arrastra para inspeccionar. Desacelera para ampliar la región; acelera para recorrer el período.</string>
+    <string name="metric_detail_precision">Enfoque estable · usa los bordes para recorrer la serie. Desliza rápidamente o suelta para salir.</string>
+</resources>

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="satellite_generation_all">All generations</string>
+    <string name="satellite_generation_unknown">Unidentified</string>
+    <string name="satellite_generation_v1">V1</string>
+    <string name="satellite_generation_v1_5">V1.5</string>
+    <string name="satellite_generation_v2">V2 Mini</string>
+    <string name="satellite_generation_d2c">V2 Mini Direct-to-Cell</string>
+    <string name="satellite_generation_v3">V3</string>
+    <string name="satellite_generation_note">Generation is shown only when the catalog provides a verifiable identification. Otherwise, it is shown as Unidentified.</string>
+    <string name="satellite_marker_overview">AR satellites: %1$d. The generation legend is in the filter.</string>
+    <string name="satellite_marker_description">%1$s, %2$s. NORAD %3$s. Azimuth %4$d degrees, elevation %5$d degrees.</string>
+    <string name="satellite_catalog_credit_name">Jonathan McDowell</string>
+    <string name="satellite_catalog_credit_use">Starlink identity and family catalog (CC-BY)</string>
+</resources>

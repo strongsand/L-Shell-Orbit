@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:padding="12dp" android:background="@drawable/widget_background">
+<LinearLayout android:layout_width="match_parent" android:layout_height="48dp" android:orientation="horizontal" android:gravity="center_vertical">
+<TextView android:layout_width="0dp" android:layout_height="wrap_content" android:text="@string/widget_beacon_full_title" android:textSize="14sp" android:textColor="@color/widget_text" android:maxLines="2" android:ellipsize="end" android:textStyle="bold" android:layout_weight="1" />
+<ImageView android:layout_width="48dp" android:layout_height="48dp" android:padding="14dp" android:src="@drawable/ic_widget_refresh" android:tint="@color/widget_muted" android:contentDescription="@string/editorial_refresh" />
+</LinearLayout>
+<LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal" android:gravity="center_vertical">
+<LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:padding="12dp" android:background="@drawable/widget_state_surface">
+<TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/widget_collection_active" android:textSize="10sp" android:textColor="@color/widget_on_primary" android:maxLines="2" android:ellipsize="end" android:textStyle="bold"  />
+<TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/widget_recording" android:textSize="20sp" android:textColor="@color/widget_on_primary" android:maxLines="2" android:ellipsize="end" android:textStyle="bold" android:layout_marginTop="4dp" />
+</LinearLayout>
+<LinearLayout android:layout_width="76dp" android:layout_height="wrap_content" android:layout_marginStart="8dp" android:orientation="vertical" android:gravity="center_horizontal">
+<TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0" android:textSize="44sp" android:textStyle="bold" android:textColor="@color/widget_text" />
+<TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/widget_pending" android:textSize="11sp" android:textColor="@color/widget_muted" android:maxLines="2" android:ellipsize="end"  />
+</LinearLayout></LinearLayout>
+<LinearLayout android:layout_width="match_parent" android:layout_height="32dp" android:orientation="horizontal" android:gravity="center_vertical">
+<ImageView android:layout_width="16dp" android:layout_height="16dp" android:src="@drawable/ic_widget_synced" android:tint="@color/widget_accent" android:importantForAccessibility="no" />
+<TextView android:layout_width="0dp" android:layout_height="wrap_content" android:text="@string/widget_synced_short" android:textSize="11sp" android:textColor="@color/widget_muted" android:maxLines="2" android:ellipsize="end" android:layout_weight="1" android:layout_marginStart="4dp" />
+<TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/widget_preview_time" android:textSize="11sp" android:textColor="@color/widget_muted" android:maxLines="2" android:ellipsize="end" android:gravity="end" />
+</LinearLayout>
+</LinearLayout>

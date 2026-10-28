@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="poe_input_label">PoE</string>
+    <string name="poe_energy_label">Tensión de entrada PoE</string>
+    <string name="poe_energy_source">Tensión del sensor de entrada del router. La lectura de potencia proviene de la antena.</string>
+    <string name="poe_input_value">%1$s V</string>
+    <string name="poe_input_accessibility">Tensión de entrada PoE del router, %1$s voltios</string>
+</resources>

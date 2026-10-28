@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="polish_test_history">Historial de pruebas</string>
+    <string name="polish_energy_period">%1$s · %2$s–%3$s</string>
+    <string name="polish_power_chart">Potencia a lo largo del día</string>
+    <string name="polish_energy_note">Estimación con las lecturas disponibles. Los huecos de más de cinco minutos se excluyen del consumo.</string>
+    <string name="polish_peak_time">Pico a las %1$s</string>
+    <string name="polish_ar_open">Abrir modo AR</string>
+</resources>

@@ -2,10 +2,10 @@ package io.github.strongsand.lshell.beacon
 
 import android.content.Context
 
-class BeaconPreferences(context: Context) {
+class BeaconPreferences(context: Context) : BeaconSyncCursor {
     private val prefs = context.applicationContext.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 
-    fun pairedBeacon(): PairedBeacon? {
+    override fun pairedBeacon(): PairedBeacon? {
         val id = prefs.getString(KEY_ID, null) ?: return null
         val alias = prefs.getString(KEY_ALIAS, null) ?: return null
         return PairedBeacon(
@@ -35,7 +35,7 @@ class BeaconPreferences(context: Context) {
             .apply()
     }
 
-    fun configuredBeacon(): BeaconDevice? {
+    override fun configuredBeacon(): BeaconDevice? {
         val id = prefs.getString(KEY_CONFIGURED_ID, null) ?: return null
         return BeaconDevice(
             id = id,
@@ -43,13 +43,17 @@ class BeaconPreferences(context: Context) {
             host = prefs.getString(KEY_CONFIGURED_HOST, null).orEmpty(),
             port = prefs.getInt(KEY_CONFIGURED_PORT, 0),
             firmwareVersion = prefs.getString(KEY_CONFIGURED_FIRMWARE, null),
-            protocolVersion = prefs.getInt(KEY_CONFIGURED_PROTOCOL, 0).takeIf { it > 0 }
+            protocolVersion = prefs.getInt(KEY_CONFIGURED_PROTOCOL, 0).takeIf { it > 0 },
+            implementation = prefs.getString("configured_implementation", null),
+            capabilities = prefs.getStringSet("configured_capabilities", emptySet()).orEmpty().toSet()
         )
     }
 
     fun saveConfiguredBeacon(device: BeaconDevice) {
         prefs.edit()
             .putString(KEY_CONFIGURED_ID, device.id)
+            .putString("configured_implementation", device.implementation)
+            .putStringSet("configured_capabilities", device.capabilities)
             .putString(KEY_CONFIGURED_NAME, device.name)
             .putString(KEY_CONFIGURED_HOST, device.host)
             .putInt(KEY_CONFIGURED_PORT, device.port)
@@ -58,12 +62,19 @@ class BeaconPreferences(context: Context) {
             .apply()
     }
 
-    fun setLastSyncedSequence(sequence: Long) = prefs.edit()
+    override fun setLastSyncedSequence(sequence: Long) { prefs.edit()
         .putLong(KEY_LAST_SEQUENCE, sequence).putLong(KEY_LAST_SYNC_AT, System.currentTimeMillis()).apply()
-    fun lastSyncedSequence(): Long = prefs.getLong(KEY_LAST_SEQUENCE, 0L).coerceAtLeast(0L)
+    }
+    override fun lastSyncedSequence(): Long = prefs.getLong(KEY_LAST_SEQUENCE, 0L).coerceAtLeast(0L)
+    fun confirmDiscardThrough(sequence: Long) {
+        require(sequence > lastSyncedSequence())
+        check(prefs.edit().putLong(KEY_LAST_SEQUENCE, sequence).commit())
+    }
     fun lastSyncAtMillis(): Long? = prefs.getLong(KEY_LAST_SYNC_AT, 0L).takeIf { it > 0L }
 
     fun settings(): BeaconSettings = BeaconSettings(
+        backgroundSync = prefs.getBoolean("background_sync", false),
+        syncIntervalMinutes = BeaconSyncSchedule.normalizeInterval(prefs.getLong("sync_interval_minutes", 30)),
         automaticSync = prefs.getBoolean(KEY_AUTO_SYNC, true),
         wifiOnly = prefs.getBoolean(KEY_WIFI_ONLY, true),
         retentionDays = prefs.getInt(KEY_RETENTION, 30).coerceIn(1, 365),
@@ -74,6 +85,8 @@ class BeaconPreferences(context: Context) {
 
     fun saveSettings(settings: BeaconSettings) {
         prefs.edit()
+            .putBoolean("background_sync", settings.backgroundSync)
+            .putLong("sync_interval_minutes", BeaconSyncSchedule.normalizeInterval(settings.syncIntervalMinutes))
             .putBoolean(KEY_AUTO_SYNC, settings.automaticSync)
             .putBoolean(KEY_WIFI_ONLY, settings.wifiOnly)
             .putInt(KEY_RETENTION, settings.retentionDays.coerceIn(1, 365))
@@ -89,8 +102,19 @@ class BeaconPreferences(context: Context) {
             .remove(KEY_LAST_SYNC_AT)
             .remove(KEY_CONFIGURED_ID).remove(KEY_CONFIGURED_NAME).remove(KEY_CONFIGURED_HOST)
             .remove(KEY_CONFIGURED_PORT).remove(KEY_CONFIGURED_FIRMWARE).remove(KEY_CONFIGURED_PROTOCOL)
-            .apply()
+            .remove("configured_implementation").remove("configured_capabilities")
+            .commit()
     }
+
+    fun recordBackgroundSync(imported: Int) = prefs.edit()
+        .putLong(KEY_LAST_SYNC_AT, System.currentTimeMillis())
+        .putInt("background_imported", imported).putLong("background_completed", System.currentTimeMillis()).apply()
+
+    fun observeSync(listener: android.content.SharedPreferences.OnSharedPreferenceChangeListener) =
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+
+    fun stopObservingSync(listener: android.content.SharedPreferences.OnSharedPreferenceChangeListener) =
+        prefs.unregisterOnSharedPreferenceChangeListener(listener)
 
     private companion object {
         const val FILE = "beacon_preferences"

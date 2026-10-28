@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="session_channel">Traffic recordings</string>
+    <string name="session_waiting">Waiting for dish data • no recent reading</string>
+    <string name="session_storage_error">Could not save readings</string>
+    <string name="session_open">View recording</string>
+    <string name="session_unpin">Unpin</string>
+    <string name="session_recover">Collection was interrupted. Resume the recording to continue.</string>
+    <string name="session_retry">Resume recording</string>
+    <string name="session_background">Keeps recording outside the app with a notification.</string>
+    <string name="session_interrupted">Recording interrupted • there may be data gaps</string>
+    <string name="session_notification_title">Recording notifications</string>
+    <string name="session_notification_help">Allow notifications and the Traffic recordings channel to follow and stop collection outside the app. No recording was started.</string>
+    <string name="session_notification_settings">Open notification settings</string>
+    <string name="session_failure">Collection was interrupted. Tap to review the recording.</string>
+</resources>

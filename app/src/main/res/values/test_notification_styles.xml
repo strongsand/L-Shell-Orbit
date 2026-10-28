@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- System notification text appearances adapt to the host's light/dark theme. -->
+    <style name="TestResultTitle" parent="TextAppearance.Compat.Notification.Title">
+        <item name="android:textSize">18sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+    <style name="TestResultMetric" parent="TextAppearance.Compat.Notification.Title">
+        <item name="android:textSize">28sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+    <style name="TestResultSecondary" parent="TextAppearance.Compat.Notification.Title">
+        <item name="android:textSize">18sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+    <style name="TestResultLabel" parent="TextAppearance.Compat.Notification.Line2">
+        <item name="android:textSize">12sp</item>
+    </style>
+</resources>

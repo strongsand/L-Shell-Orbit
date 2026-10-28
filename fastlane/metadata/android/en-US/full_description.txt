@@ -1,11 +1,17 @@
-L-Shell Orbit is an independent, unofficial Android app for locally monitoring and diagnosing compatible Starlink terminals and routers.
+L-Shell Orbit is an independent, unofficial app for monitoring and diagnosing compatible Starlink terminals and routers over the local network.
 
-It displays connection state, latency, traffic, obstruction, alerts, power history and equipment information exposed by the local interface. It also provides local reports, notifications, diagnostics, supported equipment actions, installation tools and an optional augmented-reality satellite view based on public orbital data.
+Follow connection state, traffic, latency, packet loss, signal, power, obstruction and alerts using the data exposed by the equipment. Explore history and daily, weekly and monthly reports, export information, and manually back up and restore local data.
 
-L-Shell Beacon is an optional ESP32 companion. It can retain local Dishy history while the phone is away and synchronize that history back to the app on the same network.
+On compatible routers, also view reported PoE input voltage associated with the current terminal. This is not a measurement of current or cable-output voltage.
 
-The core monitoring flow does not require a Starlink account, Google Play Services, advertising, analytics or a project cloud service. Feature availability depends on hardware, firmware and network topology. The app communicates with compatible equipment on the local network; the optional satellite catalog is downloaded from CelesTrak over HTTPS.
+Arrange home screen cards, explore charts and follow metrics through widgets and notifications. Run normal and extreme speed tests or configure scheduled and smart tests. Android controls background execution and may delay these tests.
 
-The current app interface is primarily in Brazilian Portuguese. The L-Shell Beacon flow includes partial English and Spanish localization.
+L-Shell Beacon is an optional collector that can retain Dishy history while the phone is away and synchronize it on the same network. Power Monitor displays electrical readings received from a compatible HTTP source; simulated data is labeled and never becomes a real measurement. Starlink monitoring works without an electrical sensor. Beacon features depend on compatible firmware.
+
+The optional augmented-reality view uses public orbital data from CelesTrak. It shows predicted positions and does not confirm which satellite serves the terminal.
+
+Core monitoring requires no Starlink account or Google Play Services. There are no ads, analytics or project cloud service. Telemetry and history stay on the device. Feature availability depends on hardware, firmware and network topology. The optional orbital catalog is downloaded over HTTPS; speed tests use the Internet connection.
+
+Portuguese, English and Spanish text, widgets and AMOLED mode.
 
 L-Shell Orbit is not affiliated with or endorsed by Starlink or SpaceX.

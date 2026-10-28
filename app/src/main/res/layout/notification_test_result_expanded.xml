@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Result content only: Android owns the outer surface, header and accessible action. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical"
+    android:paddingTop="2dp" android:paddingBottom="2dp">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginBottom="8dp">
+        <ImageView android:id="@+id/test_result_status" android:layout_width="32dp" android:layout_height="32dp"
+            android:layout_marginEnd="8dp" android:padding="6dp" android:background="@drawable/test_notification_status"
+            android:importantForAccessibility="no" />
+        <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+            android:layout_weight="1" android:orientation="vertical">
+            <TextView android:id="@+id/test_result_title" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:textAppearance="@style/TestResultTitle"
+                android:maxLines="2" android:ellipsize="end" />
+            <TextView android:id="@+id/test_result_summary" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:textAppearance="@style/TestResultLabel"
+                android:maxLines="1" android:ellipsize="end" />
+        </LinearLayout>
+    </LinearLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:baselineAligned="false">
+        <LinearLayout android:id="@+id/test_result_down" android:layout_width="0dp"
+            android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical"
+            android:layout_marginEnd="4dp" android:background="@drawable/test_notification_tile" android:padding="8dp"
+            android:importantForAccessibility="yes" android:screenReaderFocusable="true">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="horizontal" android:gravity="center_vertical">
+                <ImageView android:layout_width="16dp" android:layout_height="16dp" android:layout_marginEnd="4dp"
+                    android:src="@drawable/ic_test_result_download" android:importantForAccessibility="no" />
+                <TextView android:id="@+id/test_result_down_label" android:layout_width="0dp"
+                    android:layout_weight="1" android:layout_height="wrap_content"
+                    android:textAppearance="@style/TestResultLabel" android:minLines="2" android:maxLines="2" android:ellipsize="end"
+                    android:importantForAccessibility="no" />
+            </LinearLayout>
+            <TextView android:id="@+id/test_result_down_value" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:layout_marginTop="4dp"
+                android:textAppearance="@style/TestResultMetric" android:includeFontPadding="false"
+                android:maxLines="1" android:ellipsize="end" android:importantForAccessibility="no" />
+            <TextView android:id="@+id/test_result_down_unit" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:textAppearance="@style/TestResultLabel"
+                android:maxLines="1" android:importantForAccessibility="no" />
+        </LinearLayout>
+        <LinearLayout android:id="@+id/test_result_up" android:layout_width="0dp"
+            android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical"
+            android:layout_marginStart="4dp" android:background="@drawable/test_notification_tile" android:padding="8dp"
+            android:importantForAccessibility="yes" android:screenReaderFocusable="true">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="horizontal" android:gravity="center_vertical">
+                <ImageView android:layout_width="16dp" android:layout_height="16dp" android:layout_marginEnd="4dp"
+                    android:src="@drawable/ic_test_result_upload" android:importantForAccessibility="no" />
+                <TextView android:id="@+id/test_result_up_label" android:layout_width="0dp"
+                    android:layout_weight="1" android:layout_height="wrap_content"
+                    android:textAppearance="@style/TestResultLabel" android:minLines="2" android:maxLines="2" android:ellipsize="end"
+                    android:importantForAccessibility="no" />
+            </LinearLayout>
+            <TextView android:id="@+id/test_result_up_value" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:layout_marginTop="4dp"
+                android:textAppearance="@style/TestResultMetric" android:includeFontPadding="false"
+                android:maxLines="1" android:ellipsize="end" android:importantForAccessibility="no" />
+            <TextView android:id="@+id/test_result_up_unit" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:textAppearance="@style/TestResultLabel"
+                android:maxLines="1" android:importantForAccessibility="no" />
+        </LinearLayout>
+    </LinearLayout>
+    <!-- SystemUI supplies a narrower slot than the screen. Use full-width rows
+         for secondary metrics, with wrapping values rather than ellipsis. -->
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="vertical" android:layout_marginTop="8dp" android:padding="8dp"
+        android:background="@drawable/test_notification_tile">
+        <LinearLayout android:id="@+id/test_result_duration" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical"
+            android:paddingTop="2dp" android:paddingBottom="2dp"
+            android:importantForAccessibility="yes" android:screenReaderFocusable="true">
+            <ImageView android:layout_width="16dp" android:layout_height="16dp" android:layout_marginEnd="4dp"
+                android:src="@drawable/ic_test_result_duration" android:importantForAccessibility="no" />
+            <TextView android:id="@+id/test_result_duration_label" android:layout_width="0dp"
+                android:layout_weight="1" android:layout_height="wrap_content" android:layout_marginEnd="8dp"
+                android:textAppearance="@style/TestResultLabel" android:maxLines="2" android:ellipsize="end"
+                android:importantForAccessibility="no" />
+            <TextView android:id="@+id/test_result_duration_value" android:layout_width="0dp"
+                android:layout_weight="1" android:layout_height="wrap_content" android:gravity="end"
+                android:textAppearance="@style/TestResultSecondary" android:includeFontPadding="false"
+                android:maxLines="2" android:importantForAccessibility="no" />
+        </LinearLayout>
+        <LinearLayout android:id="@+id/test_result_latency" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical"
+            android:paddingTop="2dp" android:paddingBottom="2dp"
+            android:importantForAccessibility="yes" android:screenReaderFocusable="true">
+            <ImageView android:layout_width="16dp" android:layout_height="16dp" android:layout_marginEnd="4dp"
+                android:src="@drawable/ic_test_result_latency" android:importantForAccessibility="no" />
+            <TextView android:id="@+id/test_result_latency_label" android:layout_width="0dp"
+                android:layout_weight="1" android:layout_height="wrap_content" android:layout_marginEnd="8dp"
+                android:textAppearance="@style/TestResultLabel" android:maxLines="2" android:ellipsize="end"
+                android:importantForAccessibility="no" />
+            <TextView android:id="@+id/test_result_latency_value" android:layout_width="0dp"
+                android:layout_weight="1" android:layout_height="wrap_content" android:gravity="end"
+                android:textAppearance="@style/TestResultSecondary" android:includeFontPadding="false"
+                android:maxLines="2" android:importantForAccessibility="no" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>

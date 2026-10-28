@@ -1,5 +1,7 @@
 package io.github.strongsand.lshell
 
+import androidx.compose.ui.res.stringResource
+
 import android.animation.ValueAnimator
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
@@ -17,9 +19,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Bluetooth
-import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -39,7 +38,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.strongsand.lshell.beacon.BeaconDevice
 import kotlinx.coroutines.delay
@@ -59,7 +57,7 @@ fun BeaconPermissionSheet(denied: Boolean, onContinue: () -> Unit, onDismiss: ()
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Surface(shape = DashDesign.cookie, color = MaterialTheme.colorScheme.primaryContainer) {
-                Icon(Icons.Rounded.Security, null, Modifier.padding(18.dp).size(38.dp))
+                Icon(OrbitSymbols.Security, null, Modifier.padding(18.dp).size(38.dp))
             }
             Text(
                 if (denied) stringResource(R.string.ui_permission_needed_to_find_the_beacon)
@@ -72,7 +70,7 @@ fun BeaconPermissionSheet(denied: Boolean, onContinue: () -> Unit, onDismiss: ()
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Button(onClick = hapticClick(DashFeedback.CONFIRM, onContinue), modifier = Modifier.fillMaxWidth()) {
-                Text(if (denied) stringResource(R.string.beacon_try_again) else stringResource(R.string.editorial_continue))
+                Text(if (denied) androidx.compose.ui.res.stringResource(R.string.beacon_try_again) else androidx.compose.ui.res.stringResource(R.string.editorial_continue))
             }
             TextButton(onClick = hapticClick(action = onDismiss)) { Text(stringResource(R.string.beacon_not_now)) }
             Spacer(Modifier.height(8.dp))
@@ -120,7 +118,7 @@ fun BeaconNearbySheet(device: BeaconDevice, onPair: () -> Unit, onDismiss: () ->
                     Surface(shape = DashDesign.pill, color = MaterialTheme.colorScheme.secondaryContainer) {
                     Row(Modifier.padding(horizontal = 10.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Icon(Icons.Rounded.Bluetooth, null, Modifier.size(17.dp))
+                        Icon(OrbitSymbols.Bluetooth, null, Modifier.size(17.dp))
                         Text(stringResource(R.string.ui_nearby_bluetooth_secure_connection), style = MaterialTheme.typography.labelLarge)
                     }
                     }

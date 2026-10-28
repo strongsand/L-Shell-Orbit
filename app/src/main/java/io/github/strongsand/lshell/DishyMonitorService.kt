@@ -13,7 +13,6 @@ import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
-import io.github.strongsand.lshell.core.network.grpc.DishyGrpcClient
 import io.github.strongsand.lshell.core.model.DishState
 import io.github.strongsand.lshell.core.model.DishySnapshot
 import kotlinx.coroutines.CoroutineScope
@@ -50,11 +49,12 @@ class DishyMonitorService : Service() {
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val client = DishyGrpcClient()
+    private val runtime by lazy { TelemetryRuntime.get(applicationContext) }
     private lateinit var history: HistoryStore
     private var pollingJob: Job? = null
+    private var notificationJob: Job? = null
+    private var seenOnlineForNotification = false
     private var lastOnline: Boolean? = null
-    private var lastHistoryFetchAt = 0L
     private val notificationManager by lazy { getSystemService(NotificationManager::class.java) }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -69,6 +69,7 @@ class DishyMonitorService : Service() {
         if (intent?.action == ACTION_STOP || !MonitorPreferences.enabled(this)) {
             MonitorPreferences.setEnabled(this, false)
             pollingJob?.cancel()
+            notificationJob?.cancel()
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
             return START_NOT_STICKY
@@ -81,62 +82,62 @@ class DishyMonitorService : Service() {
             startForeground(MONITOR_NOTIFICATION_ID, notification)
         }
         if (intent?.action == ACTION_TEST) {
-            showAlerts(setOf("As notificações estão funcionando."), test = true)
+            showAlerts(setOf(getString(R.string.ui_notification_test_ok)), test = true)
             if (pollingJob?.isActive == true) return START_STICKY
         }
 
         pollingJob?.cancel()
+        notificationJob?.cancel()
+        runtime.acquire(TelemetryLeases.MONITOR, MonitorPreferences.intervalSeconds(this) * 1000L)
         pollingJob = scope.launch {
-            while (isActive) {
+            var nextCheckAt = 0L
+            runtime.repository.telemetryFlow.collect { snapshot ->
+                val now = System.currentTimeMillis()
+                if (snapshot.timestamp == 0L || now < nextCheckAt) return@collect
+                nextCheckAt = now + MonitorPreferences.intervalSeconds(this@DishyMonitorService) * 1000L
                 try {
-                client.fetchStatus().onSuccess { snapshot ->
-                    history.addReading(snapshot)
-                    if (lastOnline == false) history.addEvent("Conexão com a antena restabelecida")
-                    lastOnline = true
-                    MonitorPreferences.reportSuccess(this@DishyMonitorService)
-                    val active = activeConditions(snapshot)
-                    val previousAlerts = MonitorPreferences.lastAlerts(this@DishyMonitorService)
-                    val newAlerts = active - previousAlerts
-                    val resolvedAlerts = previousAlerts - active
-                    MonitorPreferences.setLastAlerts(this@DishyMonitorService, active)
-                    if (newAlerts.isNotEmpty()) {
-                        newAlerts.forEach { history.addEvent("Alerta: $it", snapshot.timestamp) }
-                        showAlerts(newAlerts)
-                    }
-                    resolvedAlerts.forEach { history.addEvent("Alerta resolvido: $it", snapshot.timestamp) }
-                    if (System.currentTimeMillis() - lastHistoryFetchAt >= 60_000L) {
-                        lastHistoryFetchAt = System.currentTimeMillis()
-                        client.fetchHistory().onSuccess { data ->
-                            val previousBoot = MonitorPreferences.historyBoot(this@DishyMonitorService)
-                            val candidateBoot = if (snapshot.deviceInfo.uptimeSeconds > 0L)
-                                System.currentTimeMillis() / 1_000L - snapshot.deviceInfo.uptimeSeconds
-                                else previousBoot.coerceAtLeast(0L)
-                            val previousCounter = MonitorPreferences.historyCounter(this@DishyMonitorService)
-                            val sameBoot = previousCounter < data.current && kotlin.math.abs(candidateBoot - previousBoot) <= 60L
-                            val boot = if (sameBoot) previousBoot else candidateBoot
-                            val cursor = if (sameBoot)
-                                previousCounter else -1L
-                            history.importTerminalHistory(data, cursor, boot)
-                            if (data.current > 0L && minOf(data.downloadMbps.size, data.uploadMbps.size,
-                                    data.latencyMs.size, data.dropPercent.size) > 0) {
-                                MonitorPreferences.setHistoryCursor(this@DishyMonitorService, data.current - 1, boot)
-                            }
+                    if (snapshot.isOnline && !snapshot.isFromCache) {
+                        if (lastOnline == false) history.addEvent("Conexão com a antena restabelecida")
+                        lastOnline = true
+                        MonitorPreferences.reportSuccess(this@DishyMonitorService)
+                        val active = activeConditions(snapshot)
+                        val previousAlerts = MonitorPreferences.lastAlerts(this@DishyMonitorService)
+                        val newAlerts = active - previousAlerts
+                        val resolvedAlerts = previousAlerts - active
+                        MonitorPreferences.setLastAlerts(this@DishyMonitorService, active)
+                        if (newAlerts.isNotEmpty()) {
+                            newAlerts.forEach { history.addEvent("Alerta: $it", snapshot.timestamp) }
+                            showAlerts(newAlerts)
                         }
+                        resolvedAlerts.forEach { history.addEvent("Alerta resolvido: $it", snapshot.timestamp) }
+                    } else {
+                        MonitorPreferences.reportFailure(this@DishyMonitorService,
+                            snapshot.errorMessage ?: "Sem resposta da antena")
+                        if (lastOnline == true) {
+                            history.addEvent("Conexão com a antena perdida")
+                            showAlerts(setOf("Conexão com a antena perdida"))
+                        }
+                        lastOnline = false
                     }
-                }.onFailure { failure ->
-                    MonitorPreferences.reportFailure(this@DishyMonitorService,
-                        failure.message ?: "Sem resposta da antena")
-                    if (lastOnline == true) {
-                        history.addEvent("Conexão com a antena perdida")
-                        showAlerts(setOf("Conexão com a antena perdida"))
-                    }
-                    lastOnline = false
-                }
                 } catch (e: CancellationException) { throw e }
                 catch (e: Exception) {
                     MonitorPreferences.reportFailure(this@DishyMonitorService, e.message ?: "Falha na coleta")
                 }
-                delay(MonitorPreferences.intervalSeconds(this@DishyMonitorService) * 1_000L)
+            }
+        }
+        notificationJob = scope.launch {
+            var previous: MonitorReading? = null
+            while (isActive) {
+                val snapshot = runtime.repository.telemetryFlow.value
+                if (snapshot.isOnline && !snapshot.isFromCache) seenOnlineForNotification = true
+                val reading = MonitorNotificationModel.reading(snapshot, System.currentTimeMillis(),
+                    MonitorPreferences.intervalSeconds(this@DishyMonitorService), seenOnlineForNotification)
+                if (reading != previous) {
+                    try { notificationManager.notify(MONITOR_NOTIFICATION_ID, monitorNotification(reading)) }
+                    catch (_: SecurityException) { }
+                    previous = reading
+                }
+                delay(MonitorNotificationModel.UPDATE_MS)
             }
         }
         return START_STICKY
@@ -157,16 +158,16 @@ class DishyMonitorService : Service() {
 
     private fun createChannels() {
         notificationManager.createNotificationChannel(
-            NotificationChannel(CHANNEL_MONITOR, "Monitoramento da antena", NotificationManager.IMPORTANCE_LOW).apply {
-                description = "Mostra quando o monitoramento em segundo plano está ativo"
+            NotificationChannel(CHANNEL_MONITOR, getString(R.string.editorial_monitor_channel), NotificationManager.IMPORTANCE_LOW).apply {
+                description = getString(R.string.editorial_monitor_channel_detail)
                 setSound(null, null)
             }
         )
         notificationManager.createNotificationChannel(
-            NotificationChannel(CHANNEL_ALERT, "Alertas da antena", NotificationManager.IMPORTANCE_DEFAULT)
+            NotificationChannel(CHANNEL_ALERT, getString(R.string.editorial_alert_channel), NotificationManager.IMPORTANCE_DEFAULT)
         )
         notificationManager.createNotificationChannel(
-            NotificationChannel(CHANNEL_ALERT_SILENT, "Alertas silenciosos da antena", NotificationManager.IMPORTANCE_LOW).apply {
+            NotificationChannel(CHANNEL_ALERT_SILENT, getString(R.string.editorial_silent_alert_channel), NotificationManager.IMPORTANCE_LOW).apply {
                 setSound(null, null)
                 enableVibration(false)
             }
@@ -177,20 +178,35 @@ class DishyMonitorService : Service() {
         this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )
 
-    private fun monitorNotification(): Notification {
+    private fun monitorNotification(reading: MonitorReading = MonitorReading(MonitorConnection.NO_DATA)): Notification {
         val stopIntent = PendingIntent.getService(
             this, 1, Intent(this, DishyMonitorService::class.java).setAction(ACTION_STOP),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        return NotificationCompat.Builder(this, CHANNEL_MONITOR)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle("L-Shell Orbit · monitorando a antena")
-            .setContentText("Consulta a cada ${MonitorPreferences.intervalSeconds(this)} s · toque para abrir")
+        val status = getString(when (reading.connection) {
+            MonitorConnection.CONNECTED -> R.string.monitor_connected
+            MonitorConnection.NO_DATA -> R.string.monitor_no_data
+            MonitorConnection.RECONNECTING -> R.string.monitor_reconnecting
+            MonitorConnection.UNAVAILABLE -> R.string.monitor_unavailable
+        })
+        val metrics = monitorMetricText(this, reading)
+        val text = if (reading.connection == MonitorConnection.CONNECTED) metrics else status
+        val public = NotificationCompat.Builder(this, CHANNEL_MONITOR)
+            .setSmallIcon(R.drawable.ic_session_notification).setContentTitle(getString(R.string.editorial_monitor_title))
+            .setContentText(status).build()
+        val normal = NotificationCompat.Builder(this, CHANNEL_MONITOR)
+            .setSmallIcon(R.drawable.ic_session_notification)
+            .setContentTitle(getString(R.string.editorial_monitor_title))
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(listOf(status, metrics).joinToString("\n")))
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE).setPublicVersion(public)
+            .setLocalOnly(true).setSilent(true)
             .setContentIntent(openAppIntent())
-            .addAction(0, "Parar", stopIntent)
+            .addAction(0, getString(R.string.editorial_stop_monitor), stopIntent)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .build()
+        return applyMonitorMetricStyle(this, normal, reading)
     }
 
     private fun showAlerts(alerts: Set<String>, test: Boolean = false) {
@@ -199,10 +215,10 @@ class DishyMonitorService : Service() {
         ) return
         val silent = MonitorPreferences.silent(this)
         val notification = NotificationCompat.Builder(this, if (silent) CHANNEL_ALERT_SILENT else CHANNEL_ALERT)
-            .setSmallIcon(android.R.drawable.ic_dialog_alert)
-            .setContentTitle(if (test) "Teste de notificação" else if (alerts.size == 1) "Alerta da antena Starlink" else "${alerts.size} alertas da antena")
-            .setContentText(alerts.joinToString(" · ").take(120))
-            .setStyle(NotificationCompat.BigTextStyle().bigText(alerts.joinToString("\n")))
+            .setSmallIcon(R.drawable.ic_notification_warning)
+            .setContentTitle(if (test) getString(R.string.ui_notification_test) else resources.getQuantityString(R.plurals.ui_dish_alerts, alerts.size, alerts.size))
+            .setContentText(alerts.joinToString(" · ") { telemetryText(it) }.take(120))
+            .setStyle(NotificationCompat.BigTextStyle().bigText(alerts.joinToString("\n") { telemetryText(it) }))
             .setContentIntent(openAppIntent())
             .setAutoCancel(true)
             .setSilent(silent)
@@ -213,9 +229,10 @@ class DishyMonitorService : Service() {
     }
 
     override fun onDestroy() {
+        notificationJob?.cancel()
         pollingJob?.cancel()
         scope.cancel()
-        client.close()
+        runtime.release(TelemetryLeases.MONITOR)
         if (this::history.isInitialized) history.close()
         super.onDestroy()
     }

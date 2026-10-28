@@ -1,7 +1,23 @@
 package io.github.strongsand.lshell
 
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.graphics.PointMode
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,8 +29,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -23,6 +37,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.runtime.State
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -48,35 +66,58 @@ import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
 
-private const val CLEAR_OBSTRUCTION_FLOOR = 0.005f
-private const val PARTIAL_OBSTRUCTION_CEILING = 0.25f
+
+internal class ObstructionMapState {
+    var map by mutableStateOf<DishyGrpcClient.ObstructionMapReading?>(null)
+    var error by mutableStateOf<Throwable?>(null)
+    var loading by mutableStateOf(true)
+    var refreshRequest by mutableIntStateOf(0)
+}
+
+@Composable
+internal fun rememberObstructionMapState(): ObstructionMapState {
+    val state = remember { ObstructionMapState() }
+    val client = remember { DishyGrpcClient() }
+    DisposableEffect(client) { onDispose { client.close() } }
+    LaunchedEffect(state.refreshRequest) {
+        state.loading = true
+        state.error = null
+        client.fetchObstructionMap().fold(
+            onSuccess = { state.map = it; state.error = null },
+            onFailure = { state.error = it }
+        )
+        state.loading = false
+    }
+    return state
+}
 
 @Composable
 fun ObstructionMapCard(boresightAzimuthDegrees: Float) {
-    val client = remember { DishyGrpcClient() }
-    DisposableEffect(client) { onDispose { client.close() } }
-    var map by remember { mutableStateOf<DishyGrpcClient.ObstructionMapReading?>(null) }
-    var error by remember { mutableStateOf<String?>(null) }
-    var loading by remember { mutableStateOf(true) }
-    var refreshRequest by remember { mutableIntStateOf(0) }
+    ObstructionMapCard(boresightAzimuthDegrees, rememberObstructionMapState())
+}
 
-    LaunchedEffect(refreshRequest) {
-        loading = true
-        error = null
-        client.fetchObstructionMap().fold(
-            onSuccess = {
-                map = it
-                error = null
-            },
-            onFailure = {
-                error = it.message ?: "Não foi possível ler o mapa de obstrução."
-            }
-        )
-        loading = false
+@Composable
+internal fun ObstructionMapCard(boresightAzimuthDegrees: Float, state: ObstructionMapState) {
+    val motion = LocalOrbitMotion.current
+    val map = state.map
+    val error = state.error
+    val loading = state.loading
+    val view = LocalView.current
+    var visible by remember { mutableStateOf(false) }
+    var revealed by remember { mutableStateOf(false) }
+    val reveal = remember { Animatable(if (motion) 0f else 1f) }
+    LaunchedEffect(visible, map != null, motion) {
+        if (!motion) { reveal.snapTo(1f); revealed = true }
+        else if (visible && map != null && !revealed) {
+            reveal.animateTo(1f, tween(950, easing = FastOutSlowInEasing)); revealed = true
+        }
     }
 
     Card(
-        Modifier.fillMaxWidth().animateContentSize(),
+        Modifier.fillMaxWidth().onGloballyPositioned {
+            val bounds = it.boundsInWindow()
+            visible = bounds.bottom > 0f && bounds.top < view.height && bounds.right > 0f && bounds.left < view.width
+        }.animateContentSize(if (motion) spring(dampingRatio = .82f, stiffness = 380f) else snap()),
         shape = DashDesign.section,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
     ) {
@@ -86,30 +127,34 @@ fun ObstructionMapCard(boresightAzimuthDegrees: Float) {
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.weight(1f)) {
-                    SectionHeading("Mapa de obstrução", "Leitura real do céu feita pelo terminal")
+                    SectionHeading(stringResource(R.string.ui_obstruction_map), stringResource(R.string.ui_actual_sky_reading_from_the_terminal))
                 }
                 IconButton(
-                    onClick = hapticClick { refreshRequest++ },
+                    onClick = hapticClick { state.refreshRequest++ },
                     enabled = !loading
                 ) {
                     if (loading && map != null) {
                         CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
                     } else {
-                        Icon(Icons.Rounded.Refresh, contentDescription = "Atualizar mapa")
+                        Icon(OrbitSymbols.Refresh, contentDescription = stringResource(R.string.ui_refresh_map))
                     }
                 }
             }
 
             AnimatedContent(
                 targetState = Triple(map, error, loading),
+                transitionSpec = {
+                    if (motion) fadeIn(tween(160)) togetherWith fadeOut(tween(80))
+                    else (EnterTransition.None togetherWith ExitTransition.None).using(SizeTransform { _, _ -> snap() })
+                },
                 label = "estado do mapa de obstrução"
             ) { (currentMap, currentError, isLoading) ->
                 when {
                     currentMap != null -> Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        ObstructionMapContent(currentMap, boresightAzimuthDegrees)
+                        ObstructionMapContent(currentMap, boresightAzimuthDegrees, reveal.asState())
                         currentError?.let {
                             Text(
-                                "Não foi possível atualizar agora. O último mapa continua visível.",
+                                stringResource(R.string.ui_could_not_refresh_now_the_last_map_remains_visible),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.error
                             )
@@ -120,9 +165,9 @@ fun ObstructionMapCard(boresightAzimuthDegrees: Float) {
                         contentAlignment = Alignment.Center
                     ) { CircularProgressIndicator() }
                     else -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("Mapa indisponível", style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(R.string.ui_map_unavailable), style = MaterialTheme.typography.titleMedium)
                         Text(
-                            currentError ?: "A antena ainda não forneceu dados do céu.",
+                            currentError?.message ?: stringResource(if (currentError != null) R.string.ui_map_read_error else R.string.ui_map_waiting),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -136,7 +181,7 @@ fun ObstructionMapCard(boresightAzimuthDegrees: Float) {
 @Composable
 private fun ObstructionMapContent(
     map: DishyGrpcClient.ObstructionMapReading,
-    boresightAzimuthDegrees: Float
+    boresightAzimuthDegrees: Float, reveal: State<Float>
 ) {
     val coverage = remember(map) {
         val columnCenter = (map.columns - 1) / 2f
@@ -157,7 +202,7 @@ private fun ObstructionMapContent(
         surveyedCells * 100f / skyCells.coerceAtLeast(1)
     }
     val surveyedPercent = coverage
-    val description = "Mapa de obstrução com ${formatPercent(surveyedPercent)} do céu analisado"
+    val description = androidx.compose.ui.res.stringResource(R.string.editorial_map_description, formatPercent(surveyedPercent))
     val good = healthColors(HealthTone.GOOD)
     val caution = healthColors(HealthTone.CAUTION)
     val clearColor = good.foreground
@@ -170,6 +215,11 @@ private fun ObstructionMapContent(
         (map.referenceFrame == DishyGrpcClient.ObstructionMapReading.ReferenceFrame.USER_TERMINAL &&
             boresightAzimuthDegrees.isFinite())
     val safeAzimuth = boresightAzimuthDegrees.takeIf { it.isFinite() } ?: 0f
+    val cells = remember(map, safeAzimuth) {
+        ObstructionRevealPolicy.cells(map.columns, map.rows, map.usableFractions,
+            map.referenceFrame == DishyGrpcClient.ObstructionMapReading.ReferenceFrame.USER_TERMINAL, safeAzimuth)
+    }
+
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Box(
@@ -180,82 +230,63 @@ private fun ObstructionMapContent(
                 .aspectRatio(1f)
                 .semantics { contentDescription = description }
         ) {
-            Canvas(Modifier.fillMaxSize().padding(22.dp)) {
+            Box(Modifier.fillMaxSize().padding(22.dp).drawWithCache {
                 val radius = min(size.width, size.height) / 2f
                 val center = Offset(size.width / 2f, size.height / 2f)
                 val clip = Path().apply { addOval(androidx.compose.ui.geometry.Rect(center, radius)) }
-                drawCircle(unmappedColor, radius, center)
-                clipPath(clip) {
-                    val columnCenter = (map.columns - 1) / 2f
-                    val rowCenter = (map.rows - 1) / 2f
-                    val gridRadius = min(columnCenter, rowCenter).coerceAtLeast(1f)
-                    val pointRadius = (radius / gridRadius * 0.58f).coerceAtLeast(1f)
-                    val azimuth = safeAzimuth * PI.toFloat() / 180f
-                    val sine = sin(azimuth)
-                    val cosine = cos(azimuth)
-                    map.usableFractions.forEachIndexed { index, usable ->
-                        val row = index / map.columns
-                        val column = index % map.columns
-                        val eastGrid = (column - columnCenter) / gridRadius
-                        val northGrid = (rowCenter - row) / gridRadius
-                        if (eastGrid * eastGrid + northGrid * northGrid > 1.02f) return@forEachIndexed
-                        val (east, north) = when (map.referenceFrame) {
-                            DishyGrpcClient.ObstructionMapReading.ReferenceFrame.USER_TERMINAL -> {
-                                val forward = -northGrid
-                                val right = eastGrid
-                                (right * cosine + forward * sine) to
-                                    (-right * sine + forward * cosine)
-                            }
-                            else -> eastGrid to northGrid
-                        }
-                        val obstruction = 1f - usable
-                        val color = when {
-                            usable < 0f -> unmappedColor
-                            obstruction <= CLEAR_OBSTRUCTION_FLOOR -> clearColor
-                            obstruction <= PARTIAL_OBSTRUCTION_CEILING -> partialColor
-                            else -> obstructedColor
-                        }
-                        drawCircle(
-                            color = color,
-                            radius = pointRadius,
-                            center = Offset(center.x + east * radius, center.y - north * radius)
-                        )
-                    }
+                val gridRadius = min((map.columns - 1) / 2f, (map.rows - 1) / 2f).coerceAtLeast(1f)
+                val pointRadius = (radius / gridRadius * .58f).coerceAtLeast(1f)
+                val colors = mapOf(SkyCellClass.UNREAD to unmappedColor, SkyCellClass.CLEAR to clearColor,
+                    SkyCellClass.PARTIAL to partialColor, SkyCellClass.BLOCKED to obstructedColor)
+                // At most 64 radial bands per class, batched once when geometry changes.
+                val batches = cells.groupBy { it.kind to (it.radius * 63f).toInt().coerceIn(0, 63) }.map { (key, cells) ->
+                    Triple(colors.getValue(key.first), cells.maxOf { it.radius },
+                        cells.map { Offset(center.x + it.east * radius, center.y - it.north * radius) })
                 }
-                drawCircle(outlineColor, radius, center, style = Stroke(width = 2.dp.toPx()))
-            }
+                onDrawBehind {
+                    val progress = reveal.value
+                    drawCircle(unmappedColor, radius, center)
+                    clipPath(clip) {
+                        batches.forEach { (color, radial, points) ->
+                            val alpha = if (progress >= .9999f) 1f else ObstructionRevealPolicy.alpha(progress, radial)
+                            if (alpha > 0f) drawPoints(points, PointMode.Points, color.copy(alpha = color.alpha * alpha),
+                                strokeWidth = pointRadius * 2f, cap = StrokeCap.Round)
+                        }
+                        if (progress > 0f && progress < 1f) drawCircle(outlineColor.copy(alpha = .25f * (1f - progress)),
+                            radius * progress, center, style = Stroke(1.5.dp.toPx()))
+                    }
+                    drawCircle(outlineColor, radius, center, style = Stroke(2.dp.toPx()))
+                }
+            })
             if (canOrient) {
-                CompassLabel("N", Modifier.align(Alignment.TopCenter), compassColor)
-                CompassLabel("L", Modifier.align(Alignment.CenterEnd), compassColor)
-                CompassLabel("S", Modifier.align(Alignment.BottomCenter), compassColor)
-                CompassLabel("O", Modifier.align(Alignment.CenterStart), compassColor)
+                CompassLabel(androidx.compose.ui.res.stringResource(R.string.editorial_compass_0), Modifier.align(Alignment.TopCenter), compassColor)
+                CompassLabel(androidx.compose.ui.res.stringResource(R.string.editorial_compass_2), Modifier.align(Alignment.CenterEnd), compassColor)
+                CompassLabel(androidx.compose.ui.res.stringResource(R.string.editorial_compass_4), Modifier.align(Alignment.BottomCenter), compassColor)
+                CompassLabel(androidx.compose.ui.res.stringResource(R.string.editorial_compass_6), Modifier.align(Alignment.CenterStart), compassColor)
             }
         }
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            MapLegend("Livre", clearColor, Modifier.weight(1f))
-            MapLegend("Parcial", partialColor, Modifier.weight(1f))
+            MapLegend(stringResource(R.string.editorial_free), clearColor, Modifier.weight(1f))
+            MapLegend(stringResource(R.string.editorial_partial), partialColor, Modifier.weight(1f))
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            MapLegend("Obstruído", obstructedColor, Modifier.weight(1f))
-            MapLegend("Não lido", unmappedColor, Modifier.weight(1f))
+            MapLegend(stringResource(R.string.editorial_blocked), obstructedColor, Modifier.weight(1f))
+            MapLegend(stringResource(R.string.ui_not_surveyed), unmappedColor, Modifier.weight(1f))
         }
 
         Text(
-            buildString {
-                append(formatPercent(surveyedPercent)).append(" do mapa analisado")
-                map.maxThetaDegrees?.let {
-                    append(" · horizonte a partir de ")
-                    append(String.format(Locale.getDefault(), "%.0f°", 90f - it))
-                }
-            },
+            stringResource(R.string.ui_map_surveyed, formatPercent(surveyedPercent)) +
+                (map.maxThetaDegrees?.let {
+                    stringResource(R.string.ui_map_horizon, String.format(Locale.getDefault(), "%.0f°", 90f - it))
+                } ?: ""),
             style = MaterialTheme.typography.labelLarge
         )
         Text(
             if (canOrient) {
-                "O mapa fica mais completo conforme a antena observa o céu. Norte permanece no topo."
+                stringResource(R.string.ui_the_map_becomes_more_complete_as_the_dish_observes_the_sky_north_)
             } else {
-                "O firmware não informou a orientação do mapa. As células são exibidas na ordem recebida."
+                androidx.compose.ui.res.stringResource(R.string.editorial_orientation_missing)
             },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -277,7 +308,7 @@ private fun MapLegend(label: String, color: Color, modifier: Modifier = Modifier
             horizontalArrangement = Arrangement.spacedBy(7.dp)
         ) {
             Surface(Modifier.size(10.dp), shape = DashDesign.cookie, color = color) {}
-            Text(label, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+            Text(label, style = MaterialTheme.typography.labelMedium, minLines = 1)
         }
     }
 }

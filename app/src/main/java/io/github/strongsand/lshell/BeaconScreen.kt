@@ -1,21 +1,19 @@
 package io.github.strongsand.lshell
 
-import android.animation.ValueAnimator
+import androidx.compose.runtime.collectAsState
+
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.text.format.DateUtils
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.BackHandler
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.snap
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,19 +28,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.CloudOff
-import androidx.compose.material.icons.rounded.DeleteOutline
-import androidx.compose.material.icons.rounded.History
-import androidx.compose.material.icons.rounded.Memory
-import androidx.compose.material.icons.rounded.Router
-import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material.icons.rounded.Sync
-import androidx.compose.material.icons.rounded.Wifi
-import androidx.compose.material.icons.rounded.Visibility
-import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -68,6 +53,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
@@ -85,7 +71,7 @@ import io.github.strongsand.lshell.beacon.BeaconState
 import io.github.strongsand.lshell.beacon.runtimeStatusOrNull
 import java.util.Locale
 
-private enum class BeaconPage { MAIN, SETUP, SETTINGS }
+private enum class BeaconPage { MAIN, SETUP, SETTINGS, POWER }
 
 @Composable
 fun BeaconScreen(
@@ -95,10 +81,25 @@ fun BeaconScreen(
     onBack: () -> Unit,
     onOpenHistory: () -> Unit
 ) {
+    val targetSaver = remember { androidx.compose.runtime.saveable.Saver<BeaconDevice?, List<Any>>(
+        save = { device -> device?.let { listOf(it.id, it.name, it.host, it.port) } },
+        restore = { BeaconDevice(it[0] as String, it[1] as String, it[2] as String, it[3] as Int, implementation = "android") }) }
+    var qrTarget by rememberSaveable(stateSaver = targetSaver) { mutableStateOf<BeaconDevice?>(null) }
+    val qrScanner = rememberLauncherForActivityResult(com.journeyapps.barcodescanner.ScanContract()) { result ->
+        val target = qrTarget
+        qrTarget = null
+        if (target != null && result.contents != null) repository.pairAndroid(target, result.contents)
+    }
     var pageName by rememberSaveable { mutableStateOf(BeaconPage.MAIN.name) }
     val page = BeaconPage.valueOf(pageName)
+    // The toolbar and Android Back return to the same parent page.
+    BackHandler(page != BeaconPage.MAIN) {
+        pageName = if (page == BeaconPage.POWER) BeaconPage.SETTINGS.name else BeaconPage.MAIN.name
+    }
     val haptics = rememberDashHaptics()
     val context = LocalContext.current
+    val recentEvents by repository.recentEvents.collectAsState()
+    val maintenance by repository.management.collectAsState()
     var permissionSheetVisible by rememberSaveable { mutableStateOf(false) }
     var permissionDenied by rememberSaveable { mutableStateOf(false) }
     val bluetoothPermissions = remember {
@@ -132,41 +133,70 @@ fun BeaconScreen(
             permissionSheetVisible = true
         }
     }
+    LaunchedEffect(maintenance.resetAccepted) {
+        if (maintenance.resetAccepted) pageName = BeaconPage.MAIN.name
+    }
     DisposableEffect(repository) {
         onDispose { repository.cancelInteractiveSession() }
     }
     LaunchedEffect(state::class) {
         when (state) {
             is BeaconState.Found, is BeaconState.BleFound -> haptics.perform(DashFeedback.SPECIAL)
-            is BeaconState.Connected, is BeaconState.SetupComplete -> haptics.perform(DashFeedback.CONFIRM)
+            is BeaconState.SetupComplete -> haptics.perform(DashFeedback.CONFIRM)
             else -> Unit
         }
+    }
+    if (page == BeaconPage.POWER) {
+        BeaconPowerDiagnosticScreen(repository, modifier, onBack = { pageName = BeaconPage.SETTINGS.name })
+        return
     }
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = hapticClick {
                 if (page == BeaconPage.MAIN) onBack() else pageName = BeaconPage.MAIN.name
-            }) { Icon(Icons.Rounded.ArrowBack, stringResource(R.string.beacon_back)) }
+            }) { Icon(OrbitSymbols.ArrowBack, stringResource(R.string.beacon_back)) }
             Column(Modifier.weight(1f)) {
-                Text(stringResource(R.string.beacon_title), style = MaterialTheme.typography.headlineMedium)
+                Text(stringResource(R.string.beacon_title), Modifier.orbitSharedBounds("beacon-title"), style = MaterialTheme.typography.headlineMedium)
                 if (page == BeaconPage.MAIN) Text(stringResource(R.string.beacon_subtitle),
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+            if (page == BeaconPage.MAIN) IconButton(onClick = hapticClick { pageName = BeaconPage.SETTINGS.name }) {
+                Icon(OrbitSymbols.Settings, stringResource(R.string.beacon_settings))
+            }
         }
-        AnimatedContent(page, label = "beacon page") { selected ->
+        if (page == BeaconPage.MAIN) OutlinedButton(onClick = repository::startAndroidDiscovery,
+            enabled = state !is BeaconState.Syncing && state !is BeaconState.Pairing,
+            modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.beacon_android_pair)) }
+        if (page == BeaconPage.MAIN) BeaconSyncStatusPill(beaconSyncPillState(state, recentEvents))
+        if (page == BeaconPage.MAIN && maintenance.resetAccepted) Text(stringResource(R.string.beacon_reset_accepted))
+        if (page == BeaconPage.MAIN && state is BeaconState.Error && state.code == BeaconErrorCode.HISTORY_TIME_UNAVAILABLE)
+            BeaconManagementControls(repository, state, showReset = false)
+        val pageContent: @Composable (BeaconPage) -> Unit = { selected ->
             when (selected) {
                 BeaconPage.SETUP -> BeaconSetupContent()
+                BeaconPage.POWER -> Unit // separate diagnostic page keeps its simulated-data banner fixed
                 BeaconPage.SETTINGS -> BeaconSettingsContent(
                     initial = repository.settings(),
                     onSave = repository::saveSettings,
-                    onForget = repository::forget
+                    onForget = repository::forget,
+                    repository = repository, state = state,
+                    onPower = { pageName = BeaconPage.POWER.name }
                 )
                 BeaconPage.MAIN -> BeaconMainContent(
                     state = state,
                     onSearch = startConfiguration,
                     onCancelSearch = repository::stopDiscovery,
-                    onConnect = repository::pair,
+                    onConnect = { device ->
+                        if (device.implementation == "android") {
+                            qrTarget = device
+                            qrScanner.launch(com.journeyapps.barcodescanner.ScanOptions()
+                                .setDesiredBarcodeFormats(com.journeyapps.barcodescanner.ScanOptions.QR_CODE)
+                                .setPrompt(context.getString(R.string.beacon_android_scan))
+                                .setBeepEnabled(false).setBarcodeImageEnabled(false)
+                                .setCaptureActivity(BeaconQrCaptureActivity::class.java))
+                        } else repository.pair(device)
+                    },
                     onBeginProvisioning = repository::beginBleProvisioning,
                     onSubmitWifi = repository::submitWifi,
                     onDismissFound = repository::dismissFound,
@@ -178,6 +208,9 @@ fun BeaconScreen(
                 )
             }
         }
+        if (LocalOrbitMotion.current) AnimatedContent(page, label = "beacon page") { pageContent(it) }
+        else pageContent(page)
+        if (page == BeaconPage.MAIN) BeaconRecentEvents(recentEvents)
     }
     if (permissionSheetVisible) {
         BeaconPermissionSheet(
@@ -209,7 +242,7 @@ private fun BeaconMainContent(
     onHistory: () -> Unit,
     onClearError: () -> Unit
 ) {
-    AnimatedContent(state, modifier = Modifier.fillMaxWidth(), label = "beacon state") { current ->
+    val stateContent: @Composable (BeaconState) -> Unit = { current ->
         when (current) {
             BeaconState.NotConfigured -> BeaconOnboarding(onSearch, onSetup)
             BeaconState.Discovering -> BeaconDiscovering(onCancelSearch, R.string.beacon_searching, true)
@@ -227,18 +260,21 @@ private fun BeaconMainContent(
                 R.string.beacon_lan_searching, R.string.beacon_mdns_service
             )
             is BeaconState.SetupComplete -> BeaconSetupComplete(current.device, onSearch, onSettings)
-            is BeaconState.Connected -> BeaconDashboard(current.status, false, true, false, onSync, onHistory, onSettings)
-            is BeaconState.Recording -> BeaconDashboard(current.status, false, false, false, onSync, onHistory, onSettings)
+            is BeaconState.Connected -> BeaconDashboard(current.status, false, false, onSync, onHistory, onSettings)
+            is BeaconState.Recording -> BeaconDashboard(current.status, false, false, onSync, onHistory, onSettings)
             is BeaconState.Syncing -> BeaconDashboard(
-                current.status, true, false, false, onSync, onHistory, onSettings,
-                current.processedRecords, current.totalRecords
+                current.status, true, false, onSync, onHistory, onSettings,
+                current.processedRecords, current.totalRecords, current.acknowledgedPages
             )
-            is BeaconState.DishyUnavailable -> BeaconDashboard(current.status, false, false, false, onSync, onHistory, onSettings)
-            is BeaconState.StorageWarning -> BeaconDashboard(current.status, false, false, true, onSync, onHistory, onSettings)
+            is BeaconState.DishyUnavailable -> BeaconDashboard(current.status, false, false, onSync, onHistory, onSettings)
+            is BeaconState.StorageWarning -> BeaconDashboard(current.status, false, true, onSync, onHistory, onSettings)
             is BeaconState.BeaconOffline -> BeaconOfflineContent(current.device, onSearch, onSettings)
             is BeaconState.Error -> BeaconErrorContent(current.code, current.technicalDetail, onClearError, onSetup)
         }
     }
+    if (LocalOrbitMotion.current) {
+        AnimatedContent(state, modifier = Modifier.fillMaxWidth(), contentKey = { it::class }, label = "beacon state") { stateContent(it) }
+    } else Box(Modifier.fillMaxWidth()) { stateContent(state) }
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -249,12 +285,12 @@ private fun BeaconOnboarding(onSearch: () -> Unit, onSetup: () -> Unit) {
         Text(stringResource(R.string.beacon_description), style = MaterialTheme.typography.bodyLarge)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf(
-                R.string.beacon_benefit_history to Icons.Rounded.History,
-                R.string.beacon_benefit_outages to Icons.Rounded.Router,
-                R.string.beacon_benefit_phone to Icons.Rounded.Memory,
-                R.string.beacon_benefit_sync to Icons.Rounded.Sync,
-                R.string.beacon_benefit_local to Icons.Rounded.Wifi,
-                R.string.beacon_benefit_cloud to Icons.Rounded.CloudOff
+                R.string.beacon_benefit_history to OrbitSymbols.History,
+                R.string.beacon_benefit_outages to OrbitSymbols.Router,
+                R.string.beacon_benefit_phone to OrbitSymbols.Memory,
+                R.string.beacon_benefit_sync to OrbitSymbols.Sync,
+                R.string.beacon_benefit_local to OrbitSymbols.Wifi,
+                R.string.beacon_benefit_cloud to OrbitSymbols.CloudOff
             ).forEach { (label, icon) ->
                 Surface(shape = DashDesign.pill, color = MaterialTheme.colorScheme.secondaryContainer) {
                     Row(Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
@@ -276,21 +312,17 @@ private fun BeaconOnboarding(onSearch: () -> Unit, onSetup: () -> Unit) {
 
 @Composable
 private fun BeaconDiscovering(onCancel: () -> Unit, title: Int, showMdns: Boolean) {
-    val animationsEnabled = remember { ValueAnimator.areAnimatorsEnabled() }
-    val transition = rememberInfiniteTransition(label = "beacon discovery")
-    val wave by transition.animateFloat(0.82f, if (animationsEnabled) 1.18f else 1f,
-        infiniteRepeatable(tween(1_300), RepeatMode.Reverse), label = "discovery wave")
-    Surface(shape = DashDesign.hero, color = MaterialTheme.colorScheme.primaryContainer) {
+    Surface(shape = DashDesign.hero, color = amoledCardColor(MaterialTheme.colorScheme.primaryContainer)) {
         Column(Modifier.fillMaxWidth().padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(18.dp)) {
             Box(Modifier.size(132.dp), contentAlignment = Alignment.Center) {
-                Surface(Modifier.size(116.dp).graphicsLayer { scaleX = wave; scaleY = wave; alpha = .18f },
+                Surface(Modifier.size(116.dp).expressiveReveal("beacon-discovery").graphicsLayer { alpha = .18f },
                     shape = DashDesign.cookie, color = MaterialTheme.colorScheme.primary) {}
                 BeaconHeroIcon(compact = true)
             }
             Text(stringResource(title), style = MaterialTheme.typography.titleLarge)
             if (showMdns) Text(stringResource(R.string.beacon_mdns_service), style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = .75f))
+                color = amoledCardContent(MaterialTheme.colorScheme.onPrimaryContainer).copy(alpha = .75f))
             TextButton(onClick = hapticClick(action = onCancel)) { Text(stringResource(R.string.beacon_not_now)) }
         }
     }
@@ -304,8 +336,8 @@ private fun BeaconFound(
     bluetooth: Boolean = false
 ) {
     Surface(Modifier.fillMaxWidth().expressiveReveal(device.id, distance = 16.dp)
-        .animateContentSize(spring(dampingRatio = .76f, stiffness = 260f)),
-        shape = DashDesign.hero, color = MaterialTheme.colorScheme.tertiaryContainer) {
+        .animateContentSize(if (LocalOrbitMotion.current) spring(dampingRatio = .76f, stiffness = 260f) else snap()),
+        shape = DashDesign.hero, color = amoledCardColor(MaterialTheme.colorScheme.tertiaryContainer)) {
         Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             BeaconHeroIcon(compact = true)
             Text(stringResource(if (bluetooth) R.string.beacon_ble_found else R.string.beacon_found),
@@ -313,14 +345,15 @@ private fun BeaconFound(
             Text(device.name, style = MaterialTheme.typography.titleLarge)
             BeaconInfoRow(stringResource(R.string.beacon_address),
                 if (bluetooth) stringResource(R.string.beacon_nearby) else "${device.host}:${device.port}")
+            if (device.implementation == "android") Text(stringResource(R.string.beacon_android_type), style = MaterialTheme.typography.labelLarge)
             BeaconInfoRow(stringResource(R.string.beacon_firmware),
                 device.firmwareVersion ?: stringResource(R.string.beacon_unknown))
             BeaconInfoRow(stringResource(R.string.beacon_status),
                 if (device.status == "SETUP_BLE") stringResource(R.string.beacon_ready_to_configure)
                 else device.status ?: stringResource(R.string.beacon_unknown))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Button(onClick = hapticClick(DashFeedback.CONFIRM) { onConnect(device) }, modifier = Modifier.weight(1f)) {
-                    Text(stringResource(if (bluetooth) R.string.beacon_configure else R.string.beacon_connect))
+                Button(onClick = hapticClick(DashFeedback.CONFIRM) { onConnect(device) }, modifier = Modifier.weight(1f).orbitSharedBounds("beacon-title")) {
+                    Text(stringResource(if (bluetooth) R.string.beacon_configure else if (device.implementation == "android") R.string.beacon_android_scan_action else R.string.beacon_connect))
                 }
                 TextButton(onClick = hapticClick(action = onDismiss)) { Text(stringResource(R.string.beacon_not_now)) }
             }
@@ -333,9 +366,9 @@ private fun BeaconWifiCredentials(device: BeaconDevice, onSubmit: (String, Strin
     var ssid by rememberSaveable { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var showPassword by remember { mutableStateOf(false) }
-    Surface(shape = DashDesign.hero, color = MaterialTheme.colorScheme.primaryContainer) {
+    Surface(shape = DashDesign.hero, color = amoledCardColor(MaterialTheme.colorScheme.primaryContainer)) {
         Column(Modifier.fillMaxWidth().padding(24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Icon(Icons.Rounded.Wifi, null, Modifier.size(40.dp))
+            Icon(OrbitSymbols.Wifi, null, Modifier.size(40.dp))
             Text(stringResource(R.string.beacon_wifi_title), style = MaterialTheme.typography.headlineSmall)
             Text(stringResource(R.string.beacon_wifi_body, device.name), style = MaterialTheme.typography.bodyMedium)
             OutlinedTextField(
@@ -353,7 +386,7 @@ private fun BeaconWifiCredentials(device: BeaconDevice, onSubmit: (String, Strin
                 visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
                 trailingIcon = {
                     IconButton(onClick = hapticClick { showPassword = !showPassword }) {
-                        Icon(if (showPassword) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility, null)
+                        Icon(if (showPassword) OrbitSymbols.VisibilityOff else OrbitSymbols.Visibility, null)
                     }
                 },
                 modifier = Modifier.fillMaxWidth()
@@ -369,14 +402,14 @@ private fun BeaconWifiCredentials(device: BeaconDevice, onSubmit: (String, Strin
                 modifier = Modifier.fillMaxWidth()
             ) { Text(stringResource(R.string.beacon_wifi_connect)) }
             Text(stringResource(R.string.beacon_wifi_local_note), style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = .75f))
+                color = amoledCardContent(MaterialTheme.colorScheme.onPrimaryContainer).copy(alpha = .75f))
         }
     }
 }
 
 @Composable
 private fun BeaconProgress(title: Int, body: Int) {
-    Surface(shape = DashDesign.hero, color = MaterialTheme.colorScheme.primaryContainer) {
+    Surface(shape = DashDesign.hero, color = amoledCardColor(MaterialTheme.colorScheme.primaryContainer)) {
         Column(Modifier.fillMaxWidth().padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)) {
             CircularProgressIndicator()
@@ -388,10 +421,10 @@ private fun BeaconProgress(title: Int, body: Int) {
 
 @Composable
 private fun BeaconSetupComplete(device: BeaconDevice, onVerify: () -> Unit, onSettings: () -> Unit) {
-    Surface(shape = DashDesign.hero, color = MaterialTheme.colorScheme.tertiaryContainer) {
+    Surface(shape = DashDesign.hero, color = amoledCardColor(MaterialTheme.colorScheme.tertiaryContainer)) {
         Column(Modifier.fillMaxWidth().padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Icon(Icons.Rounded.CheckCircle, null, Modifier.size(54.dp))
+            Icon(OrbitSymbols.CheckCircle, null, Modifier.size(54.dp))
             Text(stringResource(R.string.beacon_setup_complete), style = MaterialTheme.typography.headlineSmall)
             Text(stringResource(R.string.beacon_setup_complete_body, device.name),
                 style = MaterialTheme.typography.bodyLarge)
@@ -407,7 +440,7 @@ private fun BeaconSetupComplete(device: BeaconDevice, onVerify: () -> Unit, onSe
 
 @Composable
 private fun BeaconPairing(device: BeaconDevice) {
-    Surface(shape = DashDesign.hero, color = MaterialTheme.colorScheme.primaryContainer) {
+    Surface(shape = DashDesign.hero, color = amoledCardColor(MaterialTheme.colorScheme.primaryContainer)) {
         Column(Modifier.fillMaxWidth().padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)) {
             CircularProgressIndicator()
@@ -421,13 +454,13 @@ private fun BeaconPairing(device: BeaconDevice) {
 private fun BeaconDashboard(
     status: BeaconRuntimeStatus,
     syncing: Boolean,
-    pairedSuccess: Boolean,
     storageWarning: Boolean,
     onSync: () -> Unit,
     onHistory: () -> Unit,
     onSettings: () -> Unit,
     syncedRecords: Long = 0L,
-    totalRecords: Long = 0L
+    totalRecords: Long = 0L,
+    pages: Int = 0
 ) {
     var syncCompletedVisible by remember(status.lastSyncAtMillis) {
         mutableStateOf(status.lastSyncAtMillis?.let { System.currentTimeMillis() - it in 0L..5_000L } == true)
@@ -440,7 +473,7 @@ private fun BeaconDashboard(
     }
     val statusText = when {
         syncing -> stringResource(R.string.beacon_online_syncing)
-        syncCompletedVisible -> "Sincronização concluída"
+        syncCompletedVisible -> stringResource(R.string.ui_sync_completed)
         !status.storageHealthy -> stringResource(R.string.beacon_online_storage_error)
         status.dishyAvailable == false -> stringResource(R.string.beacon_online_dishy_unavailable)
         status.recording -> stringResource(R.string.beacon_online_recording)
@@ -453,23 +486,21 @@ private fun BeaconDashboard(
     }
     val statusColors = healthColors(tone)
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        if (pairedSuccess) Surface(Modifier.align(Alignment.CenterHorizontally)
-            .expressiveReveal("beacon-paired-success"), shape = DashDesign.cookie,
-            color = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary) {
-            Icon(Icons.Rounded.CheckCircle, stringResource(R.string.beacon_paired_success), Modifier.padding(22.dp).size(46.dp))
-        }
-        Surface(shape = DashDesign.hero, color = statusColors.container, contentColor = statusColors.foreground) {
+        Surface(shape = DashDesign.hero, color = amoledCardColor(statusColors.container),
+            contentColor = amoledCardContent(statusColors.foreground)) {
             Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    BeaconActivityIndicator(syncing, animate = status.dishyAvailable == true)
+                    BeaconActivityIndicator(syncing)
                     Column(Modifier.weight(1f)) {
                         Text(status.device.name, style = MaterialTheme.typography.titleLarge)
                         Text(statusText, style = MaterialTheme.typography.labelLarge)
                     }
-                    HealthChip(if (status.recording) "Registrando" else "Online", tone)
+                    HealthChip(if (status.recording) androidx.compose.ui.res.stringResource(R.string.editorial_collecting) else androidx.compose.ui.res.stringResource(R.string.editorial_lan), tone)
                 }
+                if (syncing) Text(stringResource(R.string.beacon_sync_flow, pages),
+                    style = MaterialTheme.typography.labelLarge)
                 if (syncing && totalRecords > 0L) {
-                    Text("$syncedRecords de $totalRecords registros", style = MaterialTheme.typography.labelLarge)
+                    Text(androidx.compose.ui.res.stringResource(R.string.editorial_synced_progress, syncedRecords, totalRecords), style = MaterialTheme.typography.labelLarge)
                     LinearProgressIndicator(
                         progress = { (syncedRecords.toFloat() / totalRecords).coerceIn(0f, 1f) },
                         modifier = Modifier.fillMaxWidth(),
@@ -485,22 +516,33 @@ private fun BeaconDashboard(
         }
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                BeaconStatTile("Última sincronização", relativeTime(status.lastSyncAtMillis), Modifier.weight(1f))
-                BeaconStatTile("Pendentes", status.pendingRecords?.toString() ?: "—", Modifier.weight(1f))
+                BeaconStatTile(androidx.compose.ui.res.stringResource(R.string.beacon_last_sync), relativeTime(status.lastSyncAtMillis), Modifier.weight(1f))
+                BeaconStatTile(androidx.compose.ui.res.stringResource(R.string.editorial_pending), status.pendingRecords?.toString() ?: "—", Modifier.weight(1f))
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                BeaconStatTile("Origem", "L-Shell Beacon", Modifier.weight(1f))
-                BeaconStatTile("Dishy", status.dishyAvailable?.let { if (it) "Acessível" else "Sem acesso" } ?: "—",
+                BeaconStatTile(androidx.compose.ui.res.stringResource(R.string.editorial_origin),
+                    stringResource(beaconImplementationLabel(status.device.implementation)), Modifier.weight(1f))
+                BeaconStatTile(androidx.compose.ui.res.stringResource(R.string.function_dish), status.dishyAvailable?.let { if (it) androidx.compose.ui.res.stringResource(R.string.editorial_accessible) else androidx.compose.ui.res.stringResource(R.string.editorial_unreachable) } ?: "—",
                     Modifier.weight(1f))
             }
         }
         BeaconDataCard(stringResource(R.string.beacon_status)) {
+            BeaconInfoRow(stringResource(R.string.beacon_address), status.device.host)
+            BeaconInfoRow(stringResource(R.string.beacon_contact), relativeTime(status.lastContactAtMillis))
+            BeaconInfoRow(stringResource(R.string.beacon_boot_id), status.bootId?.toString() ?: "—")
+            BeaconInfoRow(stringResource(R.string.beacon_wifi_rssi), status.wifiRssi?.let { "$it dBm" } ?: "—")
+            BeaconInfoRow(stringResource(R.string.beacon_ack), status.acknowledgedSequence?.toString() ?: "—")
+            BeaconInfoRow(stringResource(R.string.beacon_imported), status.lastImportedRecords?.toString() ?: "—")
+            BeaconInfoRow(stringResource(R.string.beacon_free_storage), status.storageCapacityBytes?.let { capacity ->
+                status.storageUsedBytes?.let { used -> "${(capacity - used).coerceAtLeast(0L) / 1024L} KiB" }
+            } ?: "—")
             BeaconInfoRow(stringResource(R.string.beacon_last_sample), relativeTime(status.lastSampleAtMillis))
             BeaconInfoRow(stringResource(R.string.beacon_last_collection), relativeTime(status.lastCollectionAtMillis))
             BeaconInfoRow(stringResource(R.string.beacon_last_sync), relativeTime(status.lastSyncAtMillis))
             BeaconInfoRow(stringResource(R.string.beacon_storage), formatStorage(status))
             BeaconInfoRow(stringResource(R.string.beacon_retention), status.estimatedRetentionHours?.let { "$it h" }
                 ?: stringResource(R.string.beacon_unknown))
+            if (status.device.implementation == "android") Text(stringResource(R.string.beacon_android_type), style = MaterialTheme.typography.labelLarge)
             BeaconInfoRow(stringResource(R.string.beacon_firmware), status.device.firmwareVersion
                 ?: stringResource(R.string.beacon_unknown))
             BeaconInfoRow(stringResource(R.string.beacon_wifi), stringResource(
@@ -520,22 +562,22 @@ private fun BeaconDashboard(
                     "${status.oldestSequence}–${status.newestSequence}"
                 else stringResource(R.string.beacon_unknown))
         }
-        Button(onClick = hapticClick(DashFeedback.CONFIRM, onSync), enabled = !syncing,
-            modifier = Modifier.fillMaxWidth()) { Icon(Icons.Rounded.Sync, null); Spacer(Modifier.size(8.dp)); Text(stringResource(R.string.beacon_sync_now)) }
+        Button(onClick = hapticClick(DashFeedback.SYNC_STARTED, onSync), enabled = !syncing,
+            modifier = Modifier.fillMaxWidth()) { Icon(OrbitSymbols.Sync, null); Spacer(Modifier.size(8.dp)); Text(stringResource(R.string.beacon_sync_now)) }
         FilledTonalButton(onClick = hapticClick(action = onHistory), modifier = Modifier.fillMaxWidth()) {
-            Icon(Icons.Rounded.History, null); Spacer(Modifier.size(8.dp)); Text(stringResource(R.string.beacon_view_history))
+            Icon(OrbitSymbols.History, null); Spacer(Modifier.size(8.dp)); Text(stringResource(R.string.beacon_view_history))
         }
         OutlinedButton(onClick = hapticClick(action = onSettings), modifier = Modifier.fillMaxWidth()) {
-            Icon(Icons.Rounded.Settings, null); Spacer(Modifier.size(8.dp)); Text(stringResource(R.string.beacon_settings))
+            Icon(OrbitSymbols.Settings, null); Spacer(Modifier.size(8.dp)); Text(stringResource(R.string.beacon_settings))
         }
     }
 }
 
 @Composable
 private fun BeaconOfflineContent(device: BeaconDevice, onSearch: () -> Unit, onSettings: () -> Unit) {
-    Surface(shape = DashDesign.hero, color = MaterialTheme.colorScheme.errorContainer) {
+    Surface(shape = DashDesign.hero, color = amoledCardColor(MaterialTheme.colorScheme.errorContainer)) {
         Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Icon(Icons.Rounded.CloudOff, null, Modifier.size(38.dp))
+            Icon(OrbitSymbols.CloudOff, null, Modifier.size(38.dp))
             Text(stringResource(R.string.beacon_offline), style = MaterialTheme.typography.headlineSmall)
             Text(device.name, style = MaterialTheme.typography.bodyLarge)
             Button(onClick = hapticClick(action = onSearch)) { Text(stringResource(R.string.beacon_try_again)) }
@@ -555,14 +597,15 @@ private fun BeaconErrorContent(code: BeaconErrorCode, technicalDetail: String?, 
         BeaconErrorCode.BLUETOOTH_BOND_INCONSISTENT -> R.string.beacon_error_bond_inconsistent
         BeaconErrorCode.CREDENTIAL_FAILED -> R.string.beacon_error_credential
         BeaconErrorCode.SYNC_FAILED -> R.string.beacon_error_sync
+        BeaconErrorCode.HISTORY_TIME_UNAVAILABLE -> R.string.beacon_error_history_time
     })
-    Surface(shape = DashDesign.section, color = MaterialTheme.colorScheme.errorContainer) {
+    Surface(shape = DashDesign.section, color = amoledCardColor(MaterialTheme.colorScheme.errorContainer)) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(R.string.beacon_error_title), style = MaterialTheme.typography.titleLarge)
             Text(message)
             technicalDetail?.takeIf { it.isNotBlank() && code != BeaconErrorCode.PROTOCOL_INCOMPATIBLE }?.let {
                 Text(it, style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = .75f))
+                    color = amoledCardContent(MaterialTheme.colorScheme.onErrorContainer).copy(alpha = .75f))
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TextButton(onClick = hapticClick(action = onClear)) { Text(stringResource(R.string.beacon_back)) }
@@ -584,8 +627,10 @@ private fun BeaconSetupContent() {
 }
 
 @Composable
-private fun BeaconSettingsContent(initial: BeaconSettings, onSave: (BeaconSettings) -> Unit, onForget: () -> Unit) {
+private fun BeaconSettingsContent(initial: BeaconSettings, onSave: (BeaconSettings) -> Unit, onForget: () -> Unit,
+    repository: BeaconRepository, state: BeaconState, onPower: () -> Unit) {
     var settings by remember(initial) { mutableStateOf(initial) }
+    val maintenance by repository.management.collectAsState()
     var confirmForget by remember { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text(stringResource(R.string.beacon_settings), style = MaterialTheme.typography.headlineSmall)
@@ -596,17 +641,50 @@ private fun BeaconSettingsContent(initial: BeaconSettings, onSave: (BeaconSettin
             BeaconSettingSwitch(R.string.beacon_wifi_only, settings.wifiOnly) {
                 settings = settings.copy(wifiOnly = it); onSave(settings)
             }
+            BeaconSettingSwitch(R.string.beacon_background_sync, settings.backgroundSync) {
+                settings = settings.copy(backgroundSync = it); onSave(settings)
+            }
+            Text(stringResource(R.string.beacon_background_explanation),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (settings.backgroundSync) {
+                var chooseInterval by remember { mutableStateOf(false) }
+                OutlinedButton(onClick = hapticClick { chooseInterval = true }) {
+                    Text(stringResource(R.string.beacon_background_interval, settings.syncIntervalMinutes))
+                }
+                if (chooseInterval) AlertDialog(
+                    onDismissRequest = { chooseInterval = false },
+                    title = { Text(stringResource(R.string.beacon_background_sync)) },
+                    text = {
+                        Column {
+                            io.github.strongsand.lshell.beacon.BeaconSyncSchedule.intervals.forEach { minutes ->
+                                TextButton(onClick = hapticClick {
+                                    settings = settings.copy(syncIntervalMinutes = minutes)
+                                    onSave(settings); chooseInterval = false
+                                }) { Text(stringResource(R.string.beacon_background_interval, minutes)) }
+                            }
+                        }
+                    },
+                    confirmButton = {}
+                )
+            }
             HorizontalDivider(Modifier.padding(vertical = 6.dp))
             Text(stringResource(R.string.beacon_requires_firmware), style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
             BeaconInfoRow(stringResource(R.string.beacon_retention),
-                stringResource(R.string.beacon_retention_days, settings.retentionDays))
+                androidx.compose.ui.res.pluralStringResource(R.plurals.editorial_retention_days, settings.retentionDays, settings.retentionDays))
             BeaconSettingSwitch(R.string.beacon_notifications, settings.notifications, enabled = false) {}
             BeaconSettingSwitch(R.string.beacon_notify_offline, settings.notifyOffline, enabled = false) {}
             BeaconSettingSwitch(R.string.beacon_notify_dishy, settings.notifyDishyUnavailable, enabled = false) {}
         }
-        OutlinedButton(onClick = hapticClick { confirmForget = true }, modifier = Modifier.fillMaxWidth()) {
-            Icon(Icons.Rounded.DeleteOutline, null); Spacer(Modifier.size(8.dp)); Text(stringResource(R.string.beacon_forget))
+        BeaconDataCard(stringResource(R.string.power_development)) {
+            Text(stringResource(R.string.power_diagnostic_help), style = MaterialTheme.typography.bodySmall)
+            OutlinedButton(onClick = hapticClick(action = onPower), modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.power_title))
+            }
+        }
+        BeaconManagementControls(repository, state)
+        OutlinedButton(onClick = hapticClick { confirmForget = true }, enabled = !maintenance.busy, modifier = Modifier.fillMaxWidth()) {
+            Icon(OrbitSymbols.DeleteOutline, null); Spacer(Modifier.size(8.dp)); Text(stringResource(R.string.beacon_forget))
         }
     }
     if (confirmForget) AlertDialog(onDismissRequest = { confirmForget = false },
@@ -630,19 +708,16 @@ private fun BeaconSettingSwitch(label: Int, checked: Boolean, enabled: Boolean =
 private fun BeaconHeroIcon(compact: Boolean = false) {
     Surface(shape = DashDesign.cookie, color = MaterialTheme.colorScheme.primary,
         contentColor = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(if (compact) 72.dp else 108.dp)) {
-        Box(contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Memory, null, Modifier.size(if (compact) 34.dp else 50.dp)) }
+        Box(contentAlignment = Alignment.Center) { Icon(OrbitSymbols.Memory, null, Modifier.size(if (compact) 34.dp else 50.dp)) }
     }
 }
 
 @Composable
-private fun BeaconActivityIndicator(syncing: Boolean, animate: Boolean = true) {
-    val animationsEnabled = remember { ValueAnimator.areAnimatorsEnabled() }
-    val transition = rememberInfiniteTransition(label = "beacon activity")
-    val shouldAnimate = animationsEnabled && animate
-    val scale by transition.animateFloat(if (shouldAnimate) .82f else 1f, if (shouldAnimate) 1.12f else 1f,
-        infiniteRepeatable(tween(if (syncing) 650 else 1_300), RepeatMode.Reverse), label = "beacon pulse")
-    Surface(Modifier.size(24.dp).graphicsLayer { scaleX = scale; scaleY = scale }, shape = DashDesign.cookie,
-        color = if (syncing) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary) {}
+private fun BeaconActivityIndicator(syncing: Boolean) {
+    if (syncing) CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
+    else Surface(Modifier.size(24.dp), shape = DashDesign.cookie,
+        color = MaterialTheme.colorScheme.primary) {}
+
 }
 
 @Composable
@@ -652,18 +727,15 @@ private fun BeaconStatTile(label: String, value: String, modifier: Modifier = Mo
             verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(label, style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(value, style = MaterialTheme.typography.titleMedium, maxLines = 1)
+            Text(value, style = MaterialTheme.typography.titleMedium)
         }
     }
 }
 
 @Composable
 private fun BeaconInfoRow(label: String, value: String) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(label, Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.bodyMedium)
-        Text(value, style = MaterialTheme.typography.bodyMedium)
-    }
+    InfoRow(label, value)
+
 }
 
 @Composable
@@ -692,11 +764,12 @@ private fun formatDuration(seconds: Long): String = when {
 @Composable
 private fun formatStorage(status: BeaconRuntimeStatus): String {
     val used = status.storageUsedBytes ?: return stringResource(R.string.beacon_unknown)
-    val capacity = status.storageCapacityBytes ?: return "${used / 1_048_576} MB"
+    val capacity = status.storageCapacityBytes ?: return "${used / 1_048_576} MiB"
     if (capacity <= 0L) return stringResource(R.string.beacon_unknown)
     return String.format(Locale.getDefault(), "%.0f%%", used.toDouble() / capacity * 100.0)
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun BeaconHomeCard(state: BeaconState, onOpen: () -> Unit, modifier: Modifier = Modifier) {
     if (state !is BeaconState.Connected && state !is BeaconState.Recording &&
@@ -710,39 +783,23 @@ fun BeaconHomeCard(state: BeaconState, onOpen: () -> Unit, modifier: Modifier = 
         is BeaconState.DishyUnavailable, is BeaconState.StorageWarning -> HealthTone.CAUTION
         else -> HealthTone.GOOD
     }
-    val colors = healthColors(tone)
-    val label = when {
-        state is BeaconState.Syncing -> stringResource(R.string.beacon_online_syncing)
-        (runtime?.pendingRecords ?: 0L) > 0L -> "Aguardando sincronização"
-        state is BeaconState.DishyUnavailable -> stringResource(R.string.beacon_online_dishy_unavailable)
-        state is BeaconState.Recording -> stringResource(R.string.beacon_online_recording)
-        state is BeaconState.Connected -> stringResource(R.string.beacon_online_ready)
-        state is BeaconState.StorageWarning -> stringResource(
-            if (state.status.storageHealthy) R.string.beacon_storage_warning else R.string.beacon_storage_error
-        )
-        state is BeaconState.BeaconOffline -> stringResource(R.string.beacon_offline)
-        state is BeaconState.DiscoveringLan -> "Procurando Beacon na rede local…"
-        state is BeaconState.Error -> "Erro temporário · toque para revisar"
-        else -> stringResource(R.string.beacon_pending)
-    }
-    Surface(onClick = hapticClick(action = onOpen), modifier = modifier.fillMaxWidth().expressiveReveal("beacon-home", 45),
-        shape = DashDesign.hero, color = colors.container, contentColor = colors.foreground) {
-        Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically,
+    val colors = homeStatusColors(tone)
+    val label = stringResource(beaconHomeLabel(state))
+    Surface(onClick = hapticClick(action = onOpen), modifier = modifier.fillMaxWidth().expressiveReveal("beacon-home", 45).semantics(mergeDescendants = true) {},
+        shape = DashDesign.section, color = colors.container, contentColor = colors.foreground) {
+        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             if (state is BeaconState.BeaconOffline || state is BeaconState.Error)
-                Icon(Icons.Rounded.CloudOff, null, Modifier.size(24.dp))
-            else BeaconActivityIndicator(state is BeaconState.Syncing,
-                animate = state is BeaconState.Recording || state is BeaconState.Connected ||
-                    state is BeaconState.Syncing || state is BeaconState.StorageWarning ||
-                    state is BeaconState.DiscoveringLan)
-            Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(OrbitSymbols.CloudOff, null, Modifier.size(24.dp))
+            else BeaconActivityIndicator(state is BeaconState.Syncing)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(3.dp), itemVerticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.beacon_title), style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.weight(1f))
+                        modifier = Modifier.orbitSharedBounds("beacon-title"))
                     runtime?.pendingRecords?.takeIf { it > 0L }?.let {
                         Surface(shape = DashDesign.pill, color = colors.foreground.copy(alpha = .12f)) {
-                            Text("$it pendentes", Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            Text(androidx.compose.ui.res.stringResource(R.string.editorial_pending_count, it), Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                                 style = MaterialTheme.typography.labelSmall)
                         }
                     }
@@ -750,15 +807,74 @@ fun BeaconHomeCard(state: BeaconState, onOpen: () -> Unit, modifier: Modifier = 
                 Text(label, style = MaterialTheme.typography.labelLarge,
                     color = colors.foreground.copy(alpha = .86f))
                 runtime?.lastSampleAtMillis?.let {
-                    Text("${stringResource(R.string.beacon_last_sample)}: ${relativeTime(it)}",
+                    Text(stringResource(R.string.rich_sample, relativeTime(it)),
                         style = MaterialTheme.typography.bodySmall, color = colors.foreground.copy(alpha = .76f))
                 }
-                runtime?.lastSyncAtMillis?.let {
-                    Text("${stringResource(R.string.beacon_last_sync)}: ${relativeTime(it)}",
-                        style = MaterialTheme.typography.bodySmall, color = colors.foreground.copy(alpha = .76f))
-                }
+
             }
-            Icon(Icons.Rounded.Memory, null)
+            Icon(OrbitSymbols.KeyboardArrowRight, null, Modifier.size(18.dp))
         }
     }
+}
+
+
+@Composable
+private fun BeaconManagementControls(repository: BeaconRepository, state: BeaconState, showReset: Boolean = true) {
+    val device = state.runtimeStatusOrNull()?.device ?: when (state) {
+        is BeaconState.Error -> state.device
+        is BeaconState.BeaconOffline -> state.device
+        else -> null
+    }
+    if (device?.implementation == "android") {
+        if (state is BeaconState.Error && state.code == BeaconErrorCode.HISTORY_TIME_UNAVAILABLE)
+            Text(stringResource(R.string.beacon_android_clock_help), color = MaterialTheme.colorScheme.error)
+        return
+    }
+    val management by repository.management.collectAsState()
+    val preview by repository.discardPreview.collectAsState()
+    var confirmReset by rememberSaveable { mutableStateOf(false) }
+    var resetText by rememberSaveable { mutableStateOf("") }
+    val connected = state.runtimeStatusOrNull() != null || state is BeaconState.Error || state is BeaconState.BeaconOffline
+    BeaconDataCard(stringResource(R.string.beacon_management_title)) {
+        if (showReset) {
+            Text(stringResource(R.string.beacon_factory_reset_body), style = MaterialTheme.typography.bodyMedium)
+            OutlinedButton(onClick = hapticClick { resetText = ""; confirmReset = true },
+                enabled = connected && !management.busy, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.beacon_factory_reset_title), color = MaterialTheme.colorScheme.error)
+            }
+        }
+        if (state is BeaconState.Error && state.code == BeaconErrorCode.HISTORY_TIME_UNAVAILABLE) {
+            Text(stringResource(R.string.beacon_discard_body), style = MaterialTheme.typography.bodySmall)
+            OutlinedButton(onClick = hapticClick { repository.previewUnrecoverableHistory() }, enabled = !management.busy) {
+                Text(stringResource(R.string.beacon_discard_title))
+            }
+        }
+        if (management.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+        if (management.failed) Text(stringResource(R.string.beacon_management_failed), color = MaterialTheme.colorScheme.error)
+        if (management.resetAccepted) Text(stringResource(R.string.beacon_reset_accepted))
+        management.discarded?.let { Text(stringResource(R.string.beacon_discard_done, it)) }
+    }
+    if (confirmReset) AlertDialog(
+        onDismissRequest = { if (!management.busy) confirmReset = false },
+        title = { Text(stringResource(R.string.beacon_factory_reset_title)) },
+        text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(stringResource(R.string.beacon_factory_reset_warning))
+            OutlinedTextField(value = resetText, onValueChange = { resetText = it }, singleLine = true,
+                label = { Text(stringResource(R.string.beacon_reset_type)) })
+        } },
+        confirmButton = { TextButton(enabled = resetText == "RESET" && !management.busy,
+            onClick = hapticClick(DashFeedback.CONFIRM) { confirmReset = false; repository.requestFactoryReset() }) {
+            Text(stringResource(R.string.beacon_factory_reset_action), color = MaterialTheme.colorScheme.error)
+        } },
+        dismissButton = { TextButton(onClick = hapticClick { confirmReset = false }) { Text(stringResource(R.string.beacon_not_now)) } }
+    )
+    preview?.let { selected -> AlertDialog(
+        onDismissRequest = repository::dismissDiscardPreview,
+        title = { Text(stringResource(R.string.beacon_discard_title)) },
+        text = { Text(stringResource(R.string.beacon_discard_confirmation, selected.recordCount, selected.throughSequence)) },
+        confirmButton = { TextButton(enabled = !management.busy, onClick = hapticClick(DashFeedback.CONFIRM) {
+            repository.discardUnrecoverableHistory(selected)
+        }) { Text(stringResource(R.string.beacon_discard_action), color = MaterialTheme.colorScheme.error) } },
+        dismissButton = { TextButton(onClick = repository::dismissDiscardPreview) { Text(stringResource(R.string.beacon_not_now)) } }
+    ) }
 }

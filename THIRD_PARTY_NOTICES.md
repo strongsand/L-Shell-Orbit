@@ -39,15 +39,43 @@ Additional small annotation artifacts resolved transitively, including Checker F
 ## External data and certificates
 
 - **CelesTrak orbital elements** are downloaded at runtime for the optional AR satellite view. CelesTrak's usage policy and data terms apply: https://celestrak.org/usage-policy.php
+- **Jonathan McDowell** (https://planet4589.org) is credited for the Starlink identity/family facts used in `app/src/main/assets/starlink_generation_catalog.json`. Sources: https://planet4589.org/space/con/star/starindex.html and https://planet4589.org/space/con/star/stats.html. The constellation data page declares CC-BY without stating a version: https://planet4589.org/space/con/star/log.html. The transformed identity subset retains source links, review date and attribution; derivation and refresh tooling are documented in `docs/SATELLITE-GENERATION-CATALOG.md`. Generation coverage remains explicitly incomplete. Public CelesTrak OMM records in `app/src/test/resources/ar/` exercise parsing and identity resolution; CelesTrak data terms apply.
+
+- **JSON-java 20240303** is used only by JVM tests to exercise Android-compatible JSON parsing; it is not added to the APK. Upstream declares Public Domain: https://github.com/stleary/JSON-java/blob/20240303/LICENSE.
 
 L-Shell Orbit does not bundle a private or additional CA certificate. HTTPS connections, including CelesTrak, use the Android system trust store and normal hostname/certificate validation.
 
 ## References and project assets
 
+- **Material Symbols Rounded** by Google, Apache License 2.0. Selected official
+  24dp / weight-400 / grade-0 / fill-0 vectors replace the former generic icons
+  in Orbit Compose UI, widgets and notifications. No font or runtime icon download
+  is bundled. Source revision `10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7`:
+  https://github.com/google/material-design-icons/tree/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7
+  Local adaptations: Compose ImageVector conversion, Android tint/uniform scale
+  and retained RTL mirroring. Semantic aliases and source checksums are recorded
+  in `tools/material-symbols.json` and `tools/material-symbols-sources.json`.
+  The unmodified upstream Apache license and local provenance notice are shipped
+  in `app/src/main/assets/licenses/material-symbols-LICENSE.txt` and
+  `material-symbols-NOTICE.txt`. There is no separate upstream NOTICE at this
+  revision. Catalog: https://fonts.google.com/icons . This attribution does not
+  imply Google endorsement. Project-owned brand/launcher vectors remain GPL.
+
 - **starlink-grpc-tools** by `sparky8512` was used as a community reference for interacting with the observable local Starlink gRPC service. The project is released under The Unlicense: https://github.com/sparky8512/starlink-grpc-tools. This attribution does not assert that its source code was incorporated directly into L-Shell Orbit.
 - L-Shell Orbit has used the MIT-licensed Dishylink project as an implementation reference. Dishylink code or branding must not be copied without retaining its copyright and license notice.
-- `app/src/main/res/raw/group_3_source.svg` is the editable source for the custom L-Shell Orbit icon supplied by the project owner and is distributed with the project under `GPL-3.0-or-later`.
+- The custom L-Shell Orbit icon supplied by the project owner remains distributed under `GPL-3.0-or-later` in the derived Android vectors `app/src/main/res/drawable/ic_dish_antenna.xml`, `app/src/main/res/drawable/ic_dish_antenna_launcher.xml` and `app/src/main/res/drawable/ic_dish_antenna_launcher_monochrome.xml`. The original editable SVG is no longer included in this source tree; its removal does not change the attribution or license of the distributed derivatives.
 
 ## Protocol interoperability definitions
 
-`app/src/main/proto/device.proto` contains the minimum subset of definitions used by L-Shell Orbit. According to the maintainer-provided project history, it was synthesized during development from the observable local service interface and community open-source references, including `starlink-grpc-tools`; it was not downloaded as an official SpaceX schema. The current project copy and file header support the 2026-09-20 creation date, but the full original VCS history was not available for independent verification. See `docs/DEVICE_PROTO_PROVENANCE.md` for the factual record and remaining review item.
+`dishyCore/src/main/proto/device.proto` contains the minimum subset of definitions used by L-Shell Orbit. According to the maintainer-provided project history, it was synthesized during development from the observable local service interface and community open-source references, including `starlink-grpc-tools`; it was not downloaded as an official SpaceX schema. The current project copy and file header support the 2026-09-20 creation date, but the full original VCS history was not available for independent verification. See `docs/DEVICE_PROTO_PROVENANCE.md` for the factual record and remaining review item.
+
+
+## Local QR pairing
+
+- ZXing core (3.5.3 in the host; 3.4.1 through the scanner dependency in Orbit), Apache License 2.0, Copyright ZXing authors.
+  https://github.com/zxing/zxing/blob/master/LICENSE
+- ZXing Android Embedded 4.3.0 (com.journeyapps:zxing-android-embedded), Apache License 2.0.
+  Copyright Journey Mobile, Inc. and contributors.
+  https://github.com/journeyapps/zxing-android-embedded/blob/master/COPYING
+  Used locally for the optional Android Beacon pairing camera; no external scanner
+  application or Google Play Services is required.

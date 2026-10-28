@@ -11,9 +11,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
 
-data class SpeedTestResult(val downloadMbps: Float, val uploadMbps: Float, val latencyMs: Float? = null)
+data class SpeedTestResult(val downloadMbps: Float, val uploadMbps: Float, val latencyMs: Float? = null,
+    // Availability metadata for notification presentation; existing calculations are unchanged.
+    val downloadMeasured: Boolean = true, val uploadMeasured: Boolean = true)
 
-/** Tests run only after a tap. Firmware may not support either local RPC. */
+/** Runs after an explicit tap or opt-in automation admission. Firmware may not support either local RPC. */
 object SpeedTestClient {
     suspend fun dish(): SpeedTestResult = withContext(Dispatchers.IO) {
         val channel = OkHttpChannelBuilder.forAddress("192.168.100.1", 9200).usePlaintext().build()
@@ -36,7 +38,7 @@ object SpeedTestClient {
         }
     }
 
-    suspend fun router(): SpeedTestResult = withContext(Dispatchers.IO) {
+    suspend fun router(onActivity: (SpeedTestActivity) -> Unit = {}): SpeedTestResult = withContext(Dispatchers.IO) {
         val channel = OkHttpChannelBuilder.forAddress("192.168.1.1", 9000).usePlaintext().build()
         try {
             val stub = DeviceGrpcKt.DeviceCoroutineStub(channel)
@@ -46,6 +48,7 @@ object SpeedTestClient {
                 ).build()
             )
             check(started.hasStartSpeedtest()) { "O roteador não oferece este teste nesta versão." }
+            val activity = SpeedTestActivityDetector()
             repeat(30) {
                 delay(1_000)
                 val response = stub.withDeadlineAfter(5, TimeUnit.SECONDS).handle(
@@ -53,10 +56,14 @@ object SpeedTestClient {
                 )
                 check(response.hasGetSpeedtestStatus()) { "O roteador não retornou o andamento do teste." }
                 val status = response.getSpeedtestStatus.status
+                onActivity(activity.observe(status.id, status.running,
+                    status.down.throughputsMbpsList, status.up.throughputsMbpsList))
                 if (!status.running && (status.down.throughputsMbpsCount > 0 || status.up.throughputsMbpsCount > 0)) {
                     return@withContext SpeedTestResult(
                         downloadMbps = status.down.throughputsMbpsList.finiteAverage(),
-                        uploadMbps = status.up.throughputsMbpsList.finiteAverage()
+                        uploadMbps = status.up.throughputsMbpsList.finiteAverage(),
+                        downloadMeasured = status.down.throughputsMbpsList.any { it.isFinite() && it >= 0f },
+                        uploadMeasured = status.up.throughputsMbpsList.any { it.isFinite() && it >= 0f }
                     )
                 }
             }

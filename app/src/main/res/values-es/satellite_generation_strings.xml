@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="satellite_generation_all">Todas las generaciones</string>
+    <string name="satellite_generation_unknown">No identificada</string>
+    <string name="satellite_generation_v1">V1</string>
+    <string name="satellite_generation_v1_5">V1.5</string>
+    <string name="satellite_generation_v2">V2 Mini</string>
+    <string name="satellite_generation_d2c">V2 Mini Direct-to-Cell</string>
+    <string name="satellite_generation_v3">V3</string>
+    <string name="satellite_generation_note">La generación solo se muestra cuando el catálogo permite una identificación verificable. Sin esa evidencia, aparece como No identificada.</string>
+    <string name="satellite_marker_overview">Satélites en AR: %1$d. La leyenda de generaciones está en el filtro.</string>
+    <string name="satellite_marker_description">%1$s, %2$s. NORAD %3$s. Azimut %4$d grados, elevación %5$d grados.</string>
+    <string name="satellite_catalog_credit_name">Jonathan McDowell</string>
+    <string name="satellite_catalog_credit_use">Catálogo de identidades y familias Starlink (CC-BY)</string>
+</resources>

@@ -1,0 +1,29 @@
+{
+  "info": {
+    "beacon_id": "external-power-fixture",
+    "protocol_version": 1,
+    "capabilities": [
+      "electrical_simulation_v1"
+    ]
+  },
+  "status": {
+    "boot_id": 7,
+    "beacon_uptime_ms": 1000,
+    "electrical": {
+      "schema_version": 1,
+      "source": "simulator",
+      "simulated": true,
+      "circuit": "battery_bus",
+      "circuit_index": 0,
+      "validity": "valid",
+      "energy_basis": "net_since_sensor_start",
+      "timestamp_ms": null,
+      "capture_uptime_ms": 900,
+      "boot_id": 7,
+      "voltage_v": 24,
+      "current_a": 2,
+      "power_w": 48,
+      "energy_wh": 12.5
+    }
+  }
+}

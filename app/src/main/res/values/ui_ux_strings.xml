@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ux_outages_loading">Calculando quedas…</string>
+    <string name="ux_outages_loading_detail">Lendo o histórico local deste período.</string>
+    <string name="ux_outages_error">Não foi possível calcular as quedas.</string>
+    <string name="ux_power_loading">Lendo as medições de potência…</string>
+    <string name="ux_clear_search">Limpar busca</string>
+    <string name="ux_search_empty_detail">Tente outro nome ou limpe a busca.</string>
+    <string name="ux_history_empty_detail">Os eventos aparecerão aqui conforme a antena for monitorada.</string>
+    <string name="ux_sessions_empty_detail">Inicie uma sessão para guardar uma observação do tráfego.</string>
+    <string name="ux_tests_empty_detail">Execute um teste para registrar o primeiro resultado.</string>
+</resources>

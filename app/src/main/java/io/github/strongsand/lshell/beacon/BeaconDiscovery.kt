@@ -48,7 +48,8 @@ class AndroidNsdBeaconDiscovery(context: Context) : BeaconDiscovery {
                             value.toString(StandardCharsets.UTF_8)
                         }
                         val host = info.host?.hostAddress ?: return
-                        val id = attributes["id"]?.takeIf { it.isNotBlank() }
+                        val identity = io.github.strongsand.lshell.beaconprotocol.BeaconProtocol.discovery(attributes)
+                        val id = identity.first?.takeIf { it.isNotBlank() }
                             ?: "${info.serviceName}@$host:${info.port}"
                         trySend(Result.success(BeaconDevice(
                             id = id,
@@ -57,7 +58,8 @@ class AndroidNsdBeaconDiscovery(context: Context) : BeaconDiscovery {
                             port = info.port,
                             firmwareVersion = attributes["fw"] ?: attributes["firmware"] ?: attributes["version"],
                             status = attributes["status"],
-                            protocolVersion = attributes["proto"]?.toIntOrNull()
+                            protocolVersion = (attributes["proto"] ?: attributes["protocol"])?.toIntOrNull(),
+                            implementation = if (identity.second) "android" else null
                         )))
                     }
                 })

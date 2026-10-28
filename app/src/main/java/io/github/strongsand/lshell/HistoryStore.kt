@@ -1,4 +1,6 @@
 package io.github.strongsand.lshell
+import io.github.strongsand.lshell.core.network.grpc.terminalHistorySize
+import io.github.strongsand.lshell.core.network.grpc.terminalHistoryValue
 
 import android.content.ContentValues
 import android.content.Context
@@ -29,35 +31,18 @@ data class HistoryEntry(
     val beaconSequence: Long? = null
 )
 
-data class HistoryMinuteGroup(
-    val minuteStartMillis: Long,
-    val sampleCount: Int,
-    val averageDownloadMbps: Float?,
-    val minimumDownloadMbps: Float?,
-    val maximumDownloadMbps: Float?,
-    val averageUploadMbps: Float?,
-    val minimumUploadMbps: Float?,
-    val maximumUploadMbps: Float?,
-    val averageLatencyMs: Float?,
-    val minimumLatencyMs: Float?,
-    val maximumLatencyMs: Float?,
-    val averageDropPercent: Float?,
-    val beaconSamples: Int,
-    val localSamples: Int
-) {
-    val predominantSource: BeaconSampleSource
-        get() = if (beaconSamples >= localSamples) BeaconSampleSource.BEACON else BeaconSampleSource.LOCAL_PHONE
-    val hasMixedSources: Boolean get() = beaconSamples > 0 && localSamples > 0
-}
-
 /** One local row per background poll plus state/alert events; never stores identifiers or location. */
-class HistoryStore(context: Context) : SQLiteOpenHelper(context, "dish_history.db", null, 6) {
+class HistoryStore(context: Context) : SQLiteOpenHelper(context, "dish_history.db", null, BackupDatabaseSchema.VERSION),
+    io.github.strongsand.lshell.beacon.BeaconHistorySink {
+    init { BackupGate.ensureRecovered(context) }
     private var writesSinceTrim = 0
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL("CREATE TABLE history (id INTEGER PRIMARY KEY AUTOINCREMENT, time_ms INTEGER NOT NULL, kind TEXT NOT NULL, label TEXT NOT NULL, download REAL, upload REAL, latency REAL, drop_rate REAL, obstruction REAL, source_counter INTEGER, source_boot INTEGER, uptime_seconds INTEGER, ethernet_mbps INTEGER, dish_state TEXT, active_alerts TEXT, power_watts REAL, signal REAL, source TEXT NOT NULL DEFAULT 'LOCAL_PHONE', beacon_id TEXT, beacon_sequence INTEGER)")
         db.execSQL("CREATE INDEX history_time ON history(time_ms)")
         db.execSQL("CREATE UNIQUE INDEX history_source ON history(source_boot, source_counter) WHERE kind = 'terminal_history'")
         db.execSQL("CREATE UNIQUE INDEX history_beacon_source ON history(beacon_id, beacon_sequence) WHERE source = 'BEACON'")
+        ObservabilitySchema.statements.forEach(db::execSQL)
+        db.execSQL(BackupDatabaseSchema.RECEIPT_SQL)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
@@ -82,6 +67,8 @@ class HistoryStore(context: Context) : SQLiteOpenHelper(context, "dish_history.d
             db.execSQL("CREATE UNIQUE INDEX history_beacon_source ON history(beacon_id, beacon_sequence) WHERE source = 'BEACON'")
         }
         if (oldVersion < 6) db.execSQL("ALTER TABLE history ADD COLUMN signal REAL")
+        if (oldVersion < 7) ObservabilitySchema.statements.forEach(db::execSQL)
+        if (oldVersion < 8) db.execSQL(BackupDatabaseSchema.RECEIPT_SQL)
     }
 
     fun addReading(snapshot: DishySnapshot) = insert(HistoryEntry(
@@ -106,22 +93,24 @@ class HistoryStore(context: Context) : SQLiteOpenHelper(context, "dish_history.d
      * Imports missing Beacon rows into the same history used by reports and charts. Sequence IDs
      * make retries idempotent; a nearby valid phone/terminal row wins to avoid double samples.
      */
-    fun importBeaconSamples(samples: List<BeaconSample>): Int {
+    override fun importBeaconSamples(samples: List<BeaconSample>): Int {
         if (samples.isEmpty()) return 0
+        val ordered = samples.filter { sample ->
+            sample.beaconId.isNotBlank() && sample.sequence >= 0L && sample.timestampMillis > 0L &&
+                listOfNotNull(sample.downloadMbps, sample.uploadMbps, sample.latencyMs,
+                    sample.dropPercent, sample.obstructionPercent, sample.powerWatts, sample.signal).all { it.isFinite() }
+        }.sortedBy { it.sequence }
+        if (ordered.isEmpty()) return 0
         val db = writableDatabase
         var inserted = 0
         db.beginTransaction()
         try {
-            samples.sortedBy { it.sequence }.forEach { sample ->
-                if (sample.beaconId.isBlank() || sample.sequence < 0L || sample.timestampMillis <= 0L) return@forEach
-                val finiteMetrics = listOfNotNull(sample.downloadMbps, sample.uploadMbps, sample.latencyMs,
-                    sample.dropPercent, sample.obstructionPercent, sample.powerWatts, sample.signal).all { it.isFinite() }
-                if (!finiteMetrics) return@forEach
-                val overlap = db.rawQuery(
-                    "SELECT 1 FROM history WHERE source = 'LOCAL_PHONE' AND kind IN ('reading','terminal_history') AND time_ms BETWEEN ? AND ? LIMIT 1",
-                    arrayOf((sample.timestampMillis - 500L).toString(), (sample.timestampMillis + 500L).toString())
-                ).use { it.moveToFirst() }
-                if (overlap) return@forEach
+            val bounds = historyOverlapBounds(ordered.minOf { it.timestampMillis }, ordered.maxOf { it.timestampMillis })
+            // This transaction cannot change the opposite-source candidate set: new rows are beacon_history.
+            val phoneTimes = overlapTimestamps(db,
+                "source = 'LOCAL_PHONE' AND kind IN ('reading','terminal_history')", bounds)
+            ordered.forEach { sample ->
+                if (phoneTimes.overlaps(sample.timestampMillis)) return@forEach
                 val values = ContentValues().apply {
                     put("time_ms", sample.timestampMillis)
                     put("kind", "beacon_history")
@@ -150,15 +139,14 @@ class HistoryStore(context: Context) : SQLiteOpenHelper(context, "dish_history.d
         return inserted
     }
 
-    fun latestBeaconSequence(beaconId: String): Long = readableDatabase.rawQuery(
+    override fun latestBeaconSequence(beaconId: String): Long = readableDatabase.rawQuery(
         "SELECT MAX(beacon_sequence) FROM history WHERE source = 'BEACON' AND beacon_id = ?",
         arrayOf(beaconId)
     ).use { cursor -> if (cursor.moveToFirst() && !cursor.isNull(0)) cursor.getLong(0) else -1L }
 
     /** The terminal's 1 Hz circular buffer; `current` points past its newest sample. */
     fun importTerminalHistory(data: DishyGrpcClient.HistoryReading, afterCounter: Long, boot: Long): Int {
-        val size = listOf(data.downloadMbps.size, data.uploadMbps.size,
-            data.latencyMs.size, data.dropPercent.size).minOrNull() ?: 0
+        val size = terminalHistorySize(data)
         if (size == 0 || data.current <= 0L) return 0
         val first = maxOf(0L, data.current - size, afterCounter + 1)
         val nowSecond = System.currentTimeMillis() / 1_000L
@@ -166,31 +154,29 @@ class HistoryStore(context: Context) : SQLiteOpenHelper(context, "dish_history.d
         var inserted = 0
         db.beginTransaction()
         try {
+            val firstTimestamp = (nowSecond - (data.current - 1L - first)) * 1_000L
+            val lastTimestamp = nowSecond * 1_000L
+            // Inserts remain LOCAL_PHONE; the BEACON overlap set is unchanged within this transaction.
+            val beaconTimes by lazy(LazyThreadSafetyMode.NONE) {
+                overlapTimestamps(db, "source = 'BEACON'", historyOverlapBounds(firstTimestamp, lastTimestamp))
+            }
             for (counter in first until data.current) {
-                val index = (counter % size).toInt()
-                val down = data.downloadMbps[index]
-                val up = data.uploadMbps[index]
-                val latency = data.latencyMs[index]
-                val drop = data.dropPercent[index]
-                val power = data.powerWatts.takeIf { it.isNotEmpty() }
-                    ?.let { it[(counter % it.size).toInt()] }
-                    ?.takeIf { it.isFinite() && it > 0f }
-                if (!listOf(down, up, latency, drop).all { it.isFinite() }) continue
+                val down = terminalHistoryValue(data.downloadMbps, data.current, counter)?.takeIf { it >= 0f }
+                val up = terminalHistoryValue(data.uploadMbps, data.current, counter)?.takeIf { it >= 0f }
+                val latency = terminalHistoryValue(data.latencyMs, data.current, counter)?.takeIf { it > 0f }
+                val drop = terminalHistoryValue(data.dropPercent, data.current, counter)?.takeIf { it in 0f..100f }
+                val power = terminalHistoryValue(data.powerWatts, data.current, counter)?.takeIf { it > 0f }
+                if (down == null && up == null && latency == null && drop == null && power == null) continue
                 val timestamp = (nowSecond - (data.current - 1L - counter)) * 1_000L
-                val alreadyCoveredByBeacon = db.rawQuery(
-                    "SELECT 1 FROM history WHERE source = 'BEACON' AND time_ms BETWEEN ? AND ? LIMIT 1",
-                    arrayOf((timestamp - 500L).toString(), (timestamp + 500L).toString())
-                ).use { it.moveToFirst() }
-                if (alreadyCoveredByBeacon) continue
+                if (beaconTimes.overlaps(timestamp)) continue
                 val values = ContentValues().apply {
                     put("time_ms", timestamp)
                     put("kind", "terminal_history")
                     put("label", "Histórico da antena")
-                    put("download", down.coerceAtLeast(0f))
-                    put("upload", up.coerceAtLeast(0f))
-                    put("latency", latency.coerceAtLeast(0f))
-                    put("drop_rate", drop.coerceIn(0f, 100f))
-                    put("obstruction", 0f)
+                    down?.let { put("download", it) }
+                    up?.let { put("upload", it) }
+                    latency?.let { put("latency", it) }
+                    drop?.let { put("drop_rate", it) }
                     put("source_counter", counter)
                     put("source_boot", boot)
                     power?.let { put("power_watts", it) }
@@ -202,6 +188,12 @@ class HistoryStore(context: Context) : SQLiteOpenHelper(context, "dish_history.d
         } finally { db.endTransaction() }
         return inserted
     }
+
+    private fun overlapTimestamps(db: SQLiteDatabase, selection: String, bounds: LongRange): HistoryTimestampIndex =
+        db.rawQuery("SELECT time_ms FROM history WHERE $selection AND time_ms BETWEEN ? AND ? ORDER BY time_ms ASC",
+            arrayOf(bounds.first.toString(), bounds.last.toString())).use { cursor ->
+            HistoryTimestampIndex(LongArray(cursor.count) { cursor.moveToNext(); cursor.getLong(0) })
+        }
 
     private fun insert(entry: HistoryEntry) {
         val values = ContentValues().apply {
@@ -252,7 +244,7 @@ class HistoryStore(context: Context) : SQLiteOpenHelper(context, "dish_history.d
             )
             writableDatabase.execSQL("DELETE FROM history WHERE time_ms < ?",
                 arrayOf(now - 30L * 24 * 60 * 60 * 1000))
-            writableDatabase.execSQL("DELETE FROM history WHERE id NOT IN (SELECT id FROM history ORDER BY id DESC LIMIT 500000)")
+            writableDatabase.execSQL("DELETE FROM history WHERE id < (SELECT id FROM history ORDER BY id DESC LIMIT 1 OFFSET 499999)")
         }
     }
 
@@ -264,93 +256,15 @@ class HistoryStore(context: Context) : SQLiteOpenHelper(context, "dish_history.d
         return entries
     }
 
-    /** Compact, read-only projection used by the History timeline. Stored samples are untouched. */
-    fun recentMinuteGroups(
-        limit: Int = 180,
-        source: BeaconSampleSource? = null
-    ): List<HistoryMinuteGroup> {
-        val sourceWhere = if (source == null) "" else " AND source = ?"
-        val args = if (source == null) emptyArray() else arrayOf(source.name)
-        val sql = """
-            SELECT (time_ms / 60000) * 60000 AS minute_start,
-                   COUNT(*) AS sample_count,
-                   AVG(download), MIN(download), MAX(download),
-                   AVG(upload), MIN(upload), MAX(upload),
-                   AVG(latency), MIN(latency), MAX(latency),
-                   AVG(drop_rate),
-                   SUM(CASE WHEN source = 'BEACON' THEN 1 ELSE 0 END) AS beacon_count,
-                   SUM(CASE WHEN source = 'LOCAL_PHONE' THEN 1 ELSE 0 END) AS local_count
-              FROM history
-             WHERE kind IN ('reading', 'terminal_history', 'beacon_history')$sourceWhere
-             GROUP BY minute_start
-             ORDER BY minute_start DESC
-             LIMIT ${limit.coerceIn(1, 10000)}
-        """.trimIndent()
-        return readableDatabase.rawQuery(sql, args).use { cursor ->
-            buildList {
-                while (cursor.moveToNext()) add(HistoryMinuteGroup(
-                    minuteStartMillis = cursor.getLong(0),
-                    sampleCount = cursor.getInt(1),
-                    averageDownloadMbps = cursor.floatOrNull(2),
-                    minimumDownloadMbps = cursor.floatOrNull(3),
-                    maximumDownloadMbps = cursor.floatOrNull(4),
-                    averageUploadMbps = cursor.floatOrNull(5),
-                    minimumUploadMbps = cursor.floatOrNull(6),
-                    maximumUploadMbps = cursor.floatOrNull(7),
-                    averageLatencyMs = cursor.floatOrNull(8),
-                    minimumLatencyMs = cursor.floatOrNull(9),
-                    maximumLatencyMs = cursor.floatOrNull(10),
-                    averageDropPercent = cursor.floatOrNull(11),
-                    beaconSamples = cursor.getInt(12),
-                    localSamples = cursor.getInt(13)
-                ))
-            }
-        }
-    }
+    /** Read-only, day-bounded occurrences; routine telemetry never fills this result. */
+    fun eventsBetween(start: Long, end: Long): List<HistoryEntry> = readableDatabase.query(
+        "history", null, "kind = 'event' AND time_ms >= ? AND time_ms < ?",
+        arrayOf(start.toString(), end.toString()), null, null, "time_ms DESC, id DESC"
+    ).use { it.readHistoryEntries() }
 
-    fun entriesInMinute(
-        minuteStartMillis: Long,
-        source: BeaconSampleSource? = null
-    ): List<HistoryEntry> {
-        val selection = buildString {
-            append("time_ms >= ? AND time_ms < ? AND kind IN ('reading','terminal_history','beacon_history')")
-            if (source != null) append(" AND source = ?")
-        }
-        val args = mutableListOf(
-            minuteStartMillis.toString(),
-            (minuteStartMillis + 60_000L).toString()
-        ).apply { source?.let { add(it.name) } }.toTypedArray()
-        return readableDatabase.query(
-            "history", null, selection, args, null, null, "time_ms DESC, id DESC"
-        ).use { it.readHistoryEntries() }
-    }
-
-    fun recentEvents(
-        sinceMillis: Long = 0L,
-        limit: Int = 180,
-        source: BeaconSampleSource? = null
-    ): List<HistoryEntry> {
-        val selection = buildString {
-            append("kind = 'event' AND time_ms >= ?")
-            if (source != null) append(" AND source = ?")
-        }
-        val args = mutableListOf(sinceMillis.toString()).apply {
-            source?.let { add(it.name) }
-        }.toTypedArray()
-        return readableDatabase.query(
-            "history", null, selection, args, null, null, "time_ms DESC, id DESC",
-            limit.coerceIn(1, 1000).toString()
-        ).use { it.readHistoryEntries() }
-    }
-
-    fun between(start: Long, end: Long): List<HistoryEntry> {
-        val entries = mutableListOf<HistoryEntry>()
+    fun between(start: Long, end: Long): List<HistoryEntry> =
         readableDatabase.query("history", null, "time_ms >= ? AND time_ms < ?",
-            arrayOf(start.toString(), end.toString()), null, null, "time_ms ASC, id ASC").use { cursor ->
-            entries += cursor.readHistoryEntries()
-        }
-        return entries
-    }
+            arrayOf(start.toString(), end.toString()), null, null, "time_ms ASC, id ASC").use { it.readHistoryEntries() }
 
     private fun android.database.Cursor.readHistoryEntries(): List<HistoryEntry> {
         val entries = mutableListOf<HistoryEntry>()
@@ -392,9 +306,6 @@ class HistoryStore(context: Context) : SQLiteOpenHelper(context, "dish_history.d
         }
         return entries
     }
-
-    private fun android.database.Cursor.floatOrNull(index: Int): Float? =
-        if (isNull(index)) null else getFloat(index).takeIf { it.isFinite() }
 
     private fun android.database.Cursor.metricOrMissing(index: Int): Float =
         storedMetricValue(isNull(index), if (isNull(index)) 0f else getFloat(index))

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="session_channel">Gravações de tráfego</string>
+    <string name="session_waiting">Aguardando dados da antena • sem leitura recente</string>
+    <string name="session_storage_error">Não foi possível salvar as leituras</string>
+    <string name="session_open">Ver gravação</string>
+    <string name="session_unpin">Retirar destaque</string>
+    <string name="session_recover">A coleta foi interrompida. Retome a gravação para continuar.</string>
+    <string name="session_retry">Retomar gravação</string>
+    <string name="session_background">Continua gravando fora do app com uma notificação.</string>
+    <string name="session_interrupted">Gravação interrompida • pode haver intervalos sem dados</string>
+    <string name="session_notification_title">Notificações de gravação</string>
+    <string name="session_notification_help">Permita as notificações e o canal Gravações de tráfego para acompanhar e encerrar a coleta fora do app. Nenhuma gravação foi iniciada.</string>
+    <string name="session_notification_settings">Abrir ajustes de notificações</string>
+    <string name="session_failure">A coleta foi interrompida. Toque para revisar a gravação.</string>
+</resources>

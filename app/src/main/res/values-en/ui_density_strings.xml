@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="density_longest">Longest interruption</string>
+    <string name="density_latest">Latest interruption</string>
+    <string name="density_test_active">Test in progress</string>
+    <string name="density_round">Round %1$d of %2$d</string>
+    <string name="density_rounds_done">%1$d/%2$d rounds completed</string>
+    <string name="density_last_test">Latest result · Mbps</string>
+    <string name="density_start_test">Start test</string>
+    <string name="density_report_summary">Coverage %1$s%% · %2$s confidence</string>
+    <string name="density_availability">Availability %1$s%%</string>
+    <string name="density_loading">Preparing summary…</string>
+    <string name="density_open_reports">Open reports</string>
+</resources>

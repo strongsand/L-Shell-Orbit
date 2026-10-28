@@ -15,8 +15,8 @@ import java.util.concurrent.TimeUnit
 
 data class RouterClientInfo(
     val name: String,
-    val role: String,
-    val interfaceName: String,
+    val role: RouterClientRole,
+    val interfaceKind: RouterClientInterface,
     val ipv4: String,
     val ipv6: List<String>,
     val mac: String,
@@ -25,7 +25,12 @@ data class RouterClientInfo(
     val connectedSeconds: Long,
     val receivedBytes: Long,
     val sentBytes: Long,
-    val active: Boolean
+    val active: Boolean,
+    val receivedBytesAvailable: Boolean = true,
+    val sentBytesAvailable: Boolean = true,
+    /** Wire value, without inferring which access point serves this client. */
+    val reportedRole: Int = 0,
+    val reportedInterface: Int = 0
 )
 
 data class RouterNetworkInfo(
@@ -44,17 +49,18 @@ data class RouterInfo(
     val manufacturedSoftware: String,
     val uptimeSeconds: Long,
     val bootCount: Int,
-    val bootReason: String,
-    val bootCounts: List<Pair<String, Int>>,
+    val bootReason: RouterBootCause,
+    val bootCounts: List<Pair<RouterBootCause, Int>>,
     val wanIpv4: String,
     val wanIpv6: List<String>,
     val pingMs: Float?,
     val dishPingMs: Float?,
     val popPingMs: Float?,
-    val alerts: List<String>,
+    val alerts: List<RouterAlert>,
     val networks: List<RouterNetworkInfo>,
-    val clients: List<RouterClientInfo>
-)
+    val clients: List<RouterClientInfo>,
+    val poeInput: RouterPoeReading? = null
+) { val hasPendingUpdate: Boolean get() = RouterAlert.INSTALL_PENDING in alerts }
 
 class RouterGrpcClient(
     private val host: String = "192.168.1.1",
@@ -71,7 +77,7 @@ class RouterGrpcClient(
         finally { channel.shutdownNow() }
     }
 
-    suspend fun fetch(): Result<RouterInfo> = withContext(Dispatchers.IO) {
+    suspend fun fetch(includeDetails: Boolean = true): Result<RouterInfo> = withContext(Dispatchers.IO) {
         val channel = OkHttpChannelBuilder.forAddress(host, port).usePlaintext().build()
         try {
             val stub = DeviceGrpcKt.DeviceCoroutineStub(channel).withDeadlineAfter(4, TimeUnit.SECONDS)
@@ -82,14 +88,17 @@ class RouterGrpcClient(
                 return@withContext Result.failure(IllegalStateException("O roteador não retornou dados de estado."))
             }
             val status = response.wifiGetStatus
+            // Timestamp the status receipt, not the later clients/diagnostics requests.
+            val poeInput = if (io.github.strongsand.lshell.CandidatePublicationPolicy.POE_INPUT)
+                status.poeInputReading(android.os.SystemClock.elapsedRealtime()) else null
             // `wifi_get_status.clients` can be only a transient subset on some router builds.
             // Always ask the dedicated client endpoint too and merge both snapshots.
-            val detailedClients = runCatching {
+            val detailedClients = if (includeDetails) runCatching {
                 stub.handle(Request.newBuilder().setWifiGetClients(WifiGetClientsRequest.getDefaultInstance()).build())
                     .wifiGetClients.clientsList
-            }.getOrDefault(emptyList())
-            val clients = status.clientsList + detailedClients
-            val networks = runCatching {
+            }.getOrElse { if (it is CancellationException) throw it; emptyList() } else emptyList()
+            val clients = if (includeDetails) status.clientsList + detailedClients else emptyList()
+            val networks = if (includeDetails) runCatching {
                 stub.handle(Request.newBuilder().setGetDiagnostics(GetDiagnosticsRequest.getDefaultInstance()).build())
                     .wifiGetDiagnostics.networksList.map { network ->
                         RouterNetworkInfo(
@@ -101,7 +110,7 @@ class RouterGrpcClient(
                             wifi5Clients = network.clients5Ghz
                         )
                     }
-            }.getOrDefault(emptyList())
+            }.getOrElse { if (it is CancellationException) throw it; emptyList() } else emptyList()
             val info = status.deviceInfo
             val alerts = status.alerts
             Result.success(RouterInfo(
@@ -111,38 +120,16 @@ class RouterGrpcClient(
                 manufacturedSoftware = info.manufacturedVersion,
                 uptimeSeconds = status.deviceState.uptimeS,
                 bootCount = info.bootcount,
-                bootReason = when (info.boot.lastReason) {
-                    1 -> "Reinício após longo período"
-                    2 -> "Energia desligada/ligada"
-                    3 -> "Comando"
-                    4 -> "Atualização de software"
-                    5 -> "Atualização de configuração"
-                    else -> "Não informado"
-                },
-                bootCounts = info.boot.countByReasonList.map { entry ->
-                    val label = when (entry.key) {
-                        0 -> "Desconhecido"
-                        1 -> "Esquecido"
-                        2 -> "Energia"
-                        3 -> "Comando"
-                        4 -> "Software"
-                        5 -> "Configuração"
-                        else -> "Motivo ${entry.key}"
-                    }
-                    label to entry.value
-                },
+                bootReason = RouterBootCause(info.boot.lastReason),
+                bootCounts = info.boot.countByReasonList.map { RouterBootCause(it.key) to it.value },
                 wanIpv4 = status.ipv4WanAddress,
                 wanIpv6 = status.ipv6WanAddressesList,
                 pingMs = status.pingLatencyMs.takeIf { it.isFinite() && it > 0f },
                 dishPingMs = status.dishPingLatencyMs.takeIf { it.isFinite() && it > 0f },
                 popPingMs = status.popPingLatencyMs.takeIf { it.isFinite() && it > 0f },
-                alerts = buildList {
-                    if (alerts.thermalThrottle) add("Temperatura alta")
-                    if (alerts.installPending) add("Atualização pendente")
-                    if (alerts.lanEthSlowLink10 || alerts.lanEthSlowLink100) add("Ethernet lenta")
-                    if (alerts.wanEthPoorConnection) add("Conexão com a antena degradada")
-                },
+                alerts = alerts.toRouterAlerts(),
                 networks = networks,
+                poeInput = poeInput,
                 clients = clients.map(WifiClient::toRouterClientInfo)
                     .groupBy { it.mac.ifBlank { it.ipv4.ifBlank { it.name } } }
                     .map { (_, versions) ->
@@ -151,7 +138,9 @@ class RouterGrpcClient(
                         best.copy(
                             receivedBytes = versions.maxOf { it.receivedBytes },
                             sentBytes = versions.maxOf { it.sentBytes },
-                            active = versions.any { it.active }
+                            active = versions.any { it.active },
+                            receivedBytesAvailable = versions.any { it.receivedBytesAvailable },
+                            sentBytesAvailable = versions.any { it.sentBytesAvailable }
                         )
                     }
                     .sortedWith(compareByDescending<RouterClientInfo> { it.active }.thenBy { it.name })
@@ -166,10 +155,10 @@ class RouterGrpcClient(
     }
 }
 
-private fun WifiClient.toRouterClientInfo() = RouterClientInfo(
-    name = givenName.ifBlank { name.ifBlank { "Dispositivo sem nome" } },
-    role = when (role) { 1 -> "Cliente"; 2 -> "Repetidor"; 3 -> "Controlador"; else -> "Dispositivo" },
-    interfaceName = when (iface) { 1 -> "Ethernet"; 2 -> "Wi-Fi 2,4 GHz"; 3 -> "Wi-Fi 5 GHz"; 4 -> "Wi-Fi 5 GHz alto"; else -> "Interface não informada" },
+internal fun WifiClient.toRouterClientInfo() = RouterClientInfo(
+    name = givenName.ifBlank { name },
+    role = RouterClientRole.fromWire(role),
+    interfaceKind = RouterClientInterface.fromWire(iface),
     ipv4 = ipAddress,
     ipv6 = ipv6AddressesList,
     mac = macAddress,
@@ -178,5 +167,9 @@ private fun WifiClient.toRouterClientInfo() = RouterClientInfo(
     connectedSeconds = associatedTimeS.toLong().coerceAtLeast(0L),
     receivedBytes = rxStats.bytes.coerceAtLeast(0L),
     sentBytes = txStats.bytes.coerceAtLeast(0L),
-    active = active
+    active = active,
+    receivedBytesAvailable = hasRxStats() && rxStats.bytes >= 0,
+    sentBytesAvailable = hasTxStats() && txStats.bytes >= 0,
+    reportedRole = role,
+    reportedInterface = iface
 )

@@ -10,7 +10,7 @@
  - [v1.0 | 2026-09-20]: Configuração de permissões de rede, foreground service e usesCleartextTraffic="true".
  =========================================================================
 -->
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.CAMERA" />
@@ -27,6 +27,7 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
@@ -43,6 +44,7 @@
         android:usesCleartextTraffic="true"
         android:theme="@android:style/Theme.Material.NoActionBar">
 
+        <activity android:name=".BeaconQrCaptureActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity
             android:name="io.github.strongsand.lshell.MainActivity"
             android:exported="true"
@@ -53,12 +55,36 @@
             </intent-filter>
         </activity>
 
+        <service android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="connectedDevice" tools:node="merge" />
+
         <service
             android:name="io.github.strongsand.lshell.DishyMonitorService"
             android:exported="false"
             android:foregroundServiceType="connectedDevice" />
 
+        <service android:name="io.github.strongsand.lshell.ConnectionTestService"
+            android:exported="false" android:stopWithTask="false"
+            android:foregroundServiceType="connectedDevice" />
+
+        <service android:name="io.github.strongsand.lshell.TrafficSessionService"
+            android:exported="false" android:stopWithTask="false"
+            android:foregroundServiceType="connectedDevice" />
+
+        <service android:name="io.github.strongsand.lshell.BeaconSyncService"
+            android:exported="false" android:stopWithTask="false"
+            android:foregroundServiceType="connectedDevice" />
+
         <receiver android:name="io.github.strongsand.lshell.DailyReportReceiver" android:exported="false" />
+
+        <receiver android:name=".AutomaticTestRescheduleReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
 
         <receiver android:name="io.github.strongsand.lshell.ReportRescheduleReceiver" android:exported="false">
             <intent-filter>

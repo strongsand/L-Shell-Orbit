@@ -15,14 +15,11 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
@@ -70,6 +67,15 @@ object DashDesign {
 enum class HealthTone { GOOD, CAUTION, DANGER, UNKNOWN }
 data class HealthColors(val container: Color, val foreground: Color)
 
+/** Large panels stay neutral on OLED; accent roles remain available to small controls. */
+@Composable
+internal fun amoledCardColor(color: Color): Color =
+    if (LocalExperience.current.theme == OrbitTheme.AMOLED) MaterialTheme.colorScheme.surfaceContainerLow else color
+
+@Composable
+internal fun amoledCardContent(color: Color): Color =
+    if (LocalExperience.current.theme == OrbitTheme.AMOLED) MaterialTheme.colorScheme.onSurface else color
+
 /** Shared semantic roles for Dishy power cards and charts. */
 data class EnergyMetricColors(
     val container: Color,
@@ -80,15 +86,15 @@ data class EnergyMetricColors(
 
 @Composable
 fun energyMetricColors() = EnergyMetricColors(
-    container = MaterialTheme.colorScheme.tertiaryContainer,
-    onContainer = MaterialTheme.colorScheme.onTertiaryContainer,
+    container = amoledCardColor(MaterialTheme.colorScheme.tertiaryContainer),
+    onContainer = amoledCardContent(MaterialTheme.colorScheme.onTertiaryContainer),
     chartLine = MaterialTheme.colorScheme.tertiary,
     chartFill = MaterialTheme.colorScheme.tertiaryContainer
 )
 
 @Composable
 fun healthColors(tone: HealthTone): HealthColors {
-    val dark = isSystemInDarkTheme()
+    val dark = LocalOrbitDark.current
     return when (tone) {
         HealthTone.GOOD -> if (dark) HealthColors(Color(0xFF153B2B), Color(0xFFA4EBBC))
             else HealthColors(Color(0xFFD8F3E0), Color(0xFF175333))
@@ -102,17 +108,17 @@ fun healthColors(tone: HealthTone): HealthColors {
 @Composable
 fun HealthChip(label: String, tone: HealthTone, modifier: Modifier = Modifier) {
     val colors = healthColors(tone)
-    val container by animateColorAsState(colors.container, tween(DashDesign.motionMillis), label = "health container")
-    val foreground by animateColorAsState(colors.foreground, tween(DashDesign.motionMillis), label = "health foreground")
+    val container by animateColorAsState(colors.container, OrbitMotion.spec(OrbitMotionRole.STATE, LocalOrbitMotion.current), label = "health container")
+    val foreground by animateColorAsState(colors.foreground, OrbitMotion.spec(OrbitMotionRole.STATE, LocalOrbitMotion.current), label = "health foreground")
     Surface(modifier = modifier.animateContentSize(
-        spring(dampingRatio = 0.86f, stiffness = Spring.StiffnessMediumLow)),
+        OrbitMotion.spec(OrbitMotionRole.STATE, LocalOrbitMotion.current)),
         shape = DashDesign.pill, color = container, contentColor = foreground) {
         Row(Modifier.padding(horizontal = 10.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(5.dp)) {
             Icon(when (tone) {
-                HealthTone.GOOD -> Icons.Rounded.Check
-                HealthTone.CAUTION, HealthTone.DANGER -> Icons.Rounded.Warning
-                HealthTone.UNKNOWN -> Icons.Rounded.Info
+                HealthTone.GOOD -> OrbitSymbols.Check
+                HealthTone.CAUTION, HealthTone.DANGER -> OrbitSymbols.Warning
+                HealthTone.UNKNOWN -> OrbitSymbols.Info
             }, contentDescription = null, modifier = Modifier.size(15.dp))
             Text(label, style = MaterialTheme.typography.labelMedium)
         }
@@ -140,16 +146,11 @@ fun MetricValue(value: String, unit: String, color: Color = MaterialTheme.colorS
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val scale = LocalDensity.current.fontScale
         val size = (maxWidth.value / (value.length.coerceAtLeast(3) * 0.64f * scale)).coerceIn(18f, 42f)
-        Column(Modifier.animateContentSize(
-            spring(dampingRatio = 0.9f, stiffness = Spring.StiffnessMediumLow)),
-            verticalArrangement = Arrangement.spacedBy(1.dp)) {
-            AnimatedContent(targetState = value, transitionSpec = {
-                (fadeIn(tween(160)) + scaleIn(tween(200), initialScale = 0.94f)) togetherWith
-                    fadeOut(tween(90))
-            }, label = "metric value") { animatedValue ->
-                Text(animatedValue, color = color, style = MaterialTheme.typography.displaySmall.copy(
-                    fontSize = size.sp, lineHeight = (size + 4).sp, fontFeatureSettings = "tnum"))
-            }
+        Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+            // The received number is exact; only its drawing emphasis animates.
+            MetricDetailValueText(value, MaterialTheme.typography.displaySmall.copy(
+                fontSize = size.sp, lineHeight = (size + 4).sp, fontFeatureSettings = "tnum"),
+                color = color, modifier = Modifier.semantics { contentDescription = "$value $unit" })
             if (unit.isNotBlank()) Text(unit, style = MaterialTheme.typography.labelLarge, color = color.copy(alpha = 0.82f))
         }
     }
@@ -158,6 +159,7 @@ fun MetricValue(value: String, unit: String, color: Color = MaterialTheme.colorS
 fun splitMetric(value: String): Pair<String, String> {
     val cleaned = value.trim()
     return when {
+        cleaned.endsWith(" W") -> cleaned.removeSuffix(" W") to "W"
         cleaned.endsWith(" Mbps") -> cleaned.removeSuffix(" Mbps") to "Mbps"
         cleaned.endsWith(" ms") -> cleaned.removeSuffix(" ms") to "ms"
         cleaned.endsWith("%") -> cleaned.removeSuffix("%") to "%"

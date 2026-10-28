@@ -1,0 +1,18 @@
+<resources>
+    <plurals name="editorial_samples">
+        <item quantity="one">%1$d muestra</item>
+        <item quantity="other">%1$d muestras</item>
+    </plurals>
+    <plurals name="editorial_devices_found">
+        <item quantity="one">%1$d dispositivo encontrado</item>
+        <item quantity="other">%1$d dispositivos encontrados</item>
+    </plurals>
+    <plurals name="editorial_report_outages">
+        <item quantity="one">%1$d interrupción. Mayor duración: %2$s.</item>
+        <item quantity="other">%1$d interrupciones. Mayor duración: %2$s.</item>
+    </plurals>
+    <plurals name="editorial_retention_days">
+        <item quantity="one">%1$d día (depende del firmware)</item>
+        <item quantity="other">%1$d días (depende del firmware)</item>
+    </plurals>
+</resources>

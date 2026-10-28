@@ -1,11 +1,17 @@
-L-Shell Orbit é um aplicativo Android independente e não oficial para monitorar e diagnosticar localmente terminais e roteadores Starlink compatíveis.
+L-Shell Orbit é um aplicativo independente e não oficial para monitorar e diagnosticar terminais e roteadores Starlink compatíveis pela rede local.
 
-Ele mostra conexão, latência, tráfego, obstruções, alertas, histórico de energia e informações disponibilizadas pela interface local do equipamento. Também oferece relatórios locais, notificações, diagnósticos, ações compatíveis no equipamento, ferramentas de instalação e uma visualização opcional de satélites em realidade aumentada baseada em dados orbitais públicos.
+Acompanhe conexão, tráfego, latência, perda de pacotes, sinal, potência, obstruções e alertas conforme os dados disponibilizados pelo equipamento. Consulte o histórico e os relatórios diários, semanais e mensais, exporte informações e faça backup e restauração manual dos dados locais.
 
-O L-Shell Beacon é um complemento opcional com ESP32. Ele pode guardar o histórico local da Dishy enquanto o celular está ausente e sincronizá-lo de volta ao aplicativo na mesma rede.
+Em roteadores compatíveis, consulte também a tensão de entrada PoE reportada pelo equipamento, associada à antena atual. Não é uma medição de corrente nem da tensão de saída do cabo.
 
-O monitoramento principal não exige conta Starlink, Google Play Services, publicidade, analytics nem um serviço de nuvem do projeto. A disponibilidade de cada recurso depende do hardware, firmware e topologia da rede. O aplicativo se comunica com equipamentos compatíveis pela rede local; o catálogo opcional de satélites é baixado do CelesTrak por HTTPS.
+Organize os cards da tela inicial, explore os gráficos e acompanhe métricas por widgets e notificações. Execute testes de velocidade normal e extremo ou configure testes agendados e inteligentes. O Android controla a execução em segundo plano e pode adiar esses testes.
 
-A interface atual é principalmente em português do Brasil. O fluxo do L-Shell Beacon possui localização parcial em inglês e espanhol.
+O L-Shell Beacon é um coletor opcional que pode guardar o histórico da Dishy enquanto o celular está ausente e sincronizá-lo na mesma rede. O Power Monitor exibe leituras elétricas recebidas de uma fonte HTTP compatível; dados simulados são identificados e não se tornam medições reais. O monitoramento Starlink funciona sem sensor elétrico. Recursos do Beacon dependem de firmware compatível.
+
+A visualização opcional em realidade aumentada usa dados orbitais públicos do CelesTrak. Ela mostra posições previstas e não confirma qual satélite atende a antena.
+
+O monitoramento principal não exige conta Starlink ou Google Play Services. Não há publicidade, analytics nem serviço de nuvem do projeto. Telemetria e histórico ficam no dispositivo. A disponibilidade dos recursos depende do hardware, firmware e topologia da rede. O catálogo orbital opcional é baixado por HTTPS; testes de velocidade utilizam a conexão com a Internet.
+
+Textos em português, inglês e espanhol, widgets e modo AMOLED.
 
 L-Shell Orbit não é afiliado nem endossado pela Starlink ou SpaceX.

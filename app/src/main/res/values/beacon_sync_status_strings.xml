@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="beacon_pill_syncing">Beacon sincronizando</string>
+    <string name="beacon_pill_synced">Beacon sincronizado</string>
+    <string name="beacon_pill_sync_error">Erro na sincronização do Beacon</string>
+    <string name="beacon_pill_synced_accessible">Beacon sincronizado com sucesso</string>
+</resources>

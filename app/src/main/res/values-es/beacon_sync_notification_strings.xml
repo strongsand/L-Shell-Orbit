@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="beacon_sync_channel">Sincronización del Beacon</string>
+    <string name="beacon_sync_channel_description">Progreso y resultado de la sincronización manual del L-Shell Beacon.</string>
+    <string name="beacon_sync_notification_active">Sincronizando Beacon</string>
+    <string name="beacon_sync_notification_progress">Sincronizando Beacon · %1$s de %2$s registros confirmados</string>
+    <string name="beacon_sync_notification_success">Beacon sincronizado</string>
+    <string name="beacon_sync_notification_failure">Error al sincronizar el Beacon</string>
+    <string name="beacon_sync_notification_chip">Sinc.</string>
+</resources>

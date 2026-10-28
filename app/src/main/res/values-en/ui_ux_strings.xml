@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ux_outages_loading">Calculating outages…</string>
+    <string name="ux_outages_loading_detail">Reading local history for this period.</string>
+    <string name="ux_outages_error">Could not calculate outages.</string>
+    <string name="ux_power_loading">Reading power measurements…</string>
+    <string name="ux_clear_search">Clear search</string>
+    <string name="ux_search_empty_detail">Try another name or clear the search.</string>
+    <string name="ux_history_empty_detail">Events will appear here as the dish is monitored.</string>
+    <string name="ux_sessions_empty_detail">Start a session to save a traffic observation.</string>
+    <string name="ux_tests_empty_detail">Run a test to record the first result.</string>
+</resources>

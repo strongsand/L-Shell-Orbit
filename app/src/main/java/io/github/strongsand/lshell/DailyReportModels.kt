@@ -89,6 +89,10 @@ internal const val REPORT_CHART_BUCKETS = 48
 object DailyReportGenerator {
     fun generate(context: Context, start: Long, end: Long): DailyReport {
         val entries = HistoryStore(context).use { it.between(start, end) }
+        return generate(entries, start, end)
+    }
+
+    internal fun generate(entries: List<HistoryEntry>, start: Long, end: Long): DailyReport {
         val samples = entries.filter { it.kind == "reading" || it.kind == "terminal_history" || it.kind == "beacon_history" }
             .distinctBy { it.timestamp / 1_000L }
         val stateReadings = entries.filter { it.kind == "reading" ||
@@ -119,15 +123,17 @@ object DailyReportGenerator {
             val peak = period.maxBy { it.dropPercent }
             ReportMoment(peak.timestamp, "Perda elevada de pacotes", "${one(peak.dropPercent)}%")
         }
-        val alerts = events.filter { it.label.startsWith("Alerta:") }.map { alert ->
-            val title = alert.label.removePrefix("Alerta: ")
-            val resolved = events.firstOrNull { candidate ->
-                candidate.timestamp >= alert.timestamp && candidate.label == "Alerta resolvido: $title"
+        val alerts = events.map { it to HistoryEventCodec.parse(it.label) }
+            .filter { it.second.type == CanonicalHistoryEventType.ALERT_RAISED }.map { (alert, parsed) ->
+                val resolved = events.firstOrNull { candidate ->
+                    val resolution = HistoryEventCodec.parse(candidate.label)
+                    candidate.timestamp >= alert.timestamp &&
+                        resolution.type == CanonicalHistoryEventType.ALERT_RESOLVED && resolution.alertKey == parsed.alertKey
+                }
+                ReportMoment(alert.timestamp, parsed.payload, resolved?.let {
+                    "Resolvido após ${durationText(it.timestamp - alert.timestamp)}"
+                } ?: "Sem resolução registrada")
             }
-            ReportMoment(alert.timestamp, title, resolved?.let {
-                "Resolvido após ${durationText(it.timestamp - alert.timestamp)}"
-            } ?: "Sem resolução registrada")
-        }
         val hardware = hardwareEvents(stateReadings)
         val timeline = buildList {
             interruptions.forEach {
@@ -137,7 +143,7 @@ object DailyReportGenerator {
             addAll(alerts)
             addAll(hardware)
             addAll(lossMoments)
-            events.filter { it.label.startsWith("Teste Extremo") }.forEach {
+            events.filter { HistoryEventCodec.parse(it.label).type == CanonicalHistoryEventType.EXTREME_TEST }.forEach {
                 add(ReportMoment(it.timestamp, "Teste Extremo", it.label.substringAfter(": ", "Concluído")))
             }
             down?.let { add(ReportMoment(it.maximumAt, "Maior tráfego de download observado", "${one(it.maximum)} Mbps")) }
@@ -186,10 +192,9 @@ object DailyReportGenerator {
     private fun interruptions(events: List<HistoryEntry>, reportEnd: Long): List<ReportInterruption> {
         val result = mutableListOf<ReportInterruption>()
         events.forEachIndexed { index, event ->
-            if (!event.label.contains("conexão com a antena perdida", ignoreCase = true)) return@forEachIndexed
+            if (HistoryEventCodec.parse(event.label).type != CanonicalHistoryEventType.CONNECTION_LOST) return@forEachIndexed
             val recovery = events.drop(index + 1).firstOrNull {
-                it.label.contains("restabelecida", ignoreCase = true) ||
-                    it.label.contains("restaurada", ignoreCase = true)
+                HistoryEventCodec.parse(it.label).type == CanonicalHistoryEventType.CONNECTION_RESTORED
             }
             result += ReportInterruption(event.timestamp, recovery?.timestamp ?: reportEnd,
                 "Conexão perdida", recovery != null)
@@ -293,12 +298,13 @@ private fun durationText(ms: Long): String = when {
         else -> "${ms / 3_600_000L} h ${ms / 60_000L % 60L} min"
 }
 
-class DailyReportStore internal constructor(private val directory: File) {
-    constructor(context: Context) : this(File(context.filesDir, "daily_reports"))
+class DailyReportStore internal constructor(private val directory: File, private val context: Context? = null) {
+    constructor(context: Context) : this(File(context.filesDir, "daily_reports"), context.applicationContext)
 
-    init { directory.mkdirs() }
+    init { context?.let(BackupGate::ensureRecovered); directory.mkdirs() }
 
-    fun save(report: DailyReport) {
+    fun save(report: DailyReport) = synchronized(BackupGate.monitor) {
+        if (frozenFile(report.end).exists()) return@synchronized
         val destination = File(directory, "report_${report.end}.json")
         val temporary = File(directory, "report_${report.end}.tmp")
         temporary.writeText(report.toJson().toString())
@@ -307,6 +313,10 @@ class DailyReportStore internal constructor(private val directory: File) {
             temporary.delete()
         }
         staleFile(report.end).delete()
+        context?.let { app ->
+            runCatching { ReportArchiveSchedule.enqueue(app, report.end) }
+                .onFailure { ReportArchivePreferences(app).failed() }
+        }
     }
 
     fun get(end: Long): DailyReport? = runCatching {
@@ -320,23 +330,24 @@ class DailyReportStore internal constructor(private val directory: File) {
     }.orEmpty().mapNotNull { runCatching { reportFromJson(JSONObject(it.readText())) }.getOrNull() }
         .sortedByDescending { it.end }
 
-    fun markStaleForRange(start: Long, endExclusive: Long) {
-        if (endExclusive <= start) return
+    fun markStaleForRange(start: Long, endExclusive: Long) = synchronized(BackupGate.monitor) {
+        if (endExclusive <= start) return@synchronized
         affectedReportEnds(all(), start, endExclusive)
-            .forEach { staleFile(it).writeText("beacon_history") }
+            .filterNot { frozenFile(it).exists() }.forEach { staleFile(it).writeText("beacon_history") }
     }
 
     fun isStale(report: DailyReport): Boolean =
-        report.formatVersion < CURRENT_REPORT_FORMAT || staleFile(report.end).exists()
+        !frozenFile(report.end).exists() && (report.formatVersion < CURRENT_REPORT_FORMAT || staleFile(report.end).exists())
 
     fun refreshIfStale(end: Long, generator: (start: Long, end: Long) -> DailyReport): DailyReport? {
         val existing = get(end) ?: return null
+        if (frozenFile(end).exists()) return existing
         val refreshed = refreshReportIfStale(existing, isStale(existing), generator)
         if (refreshed !== existing) save(refreshed)
         return refreshed
     }
 
-    fun prune(keepHistory: Boolean, retentionDays: Int?) {
+    fun prune(keepHistory: Boolean, retentionDays: Int?) = synchronized(BackupGate.monitor) {
         val reports = all()
         if (!keepHistory) reports.drop(1).forEach { delete(it.end) }
         else if (retentionDays != null) {
@@ -348,8 +359,10 @@ class DailyReportStore internal constructor(private val directory: File) {
     private fun delete(end: Long) {
         File(directory, "report_$end.json").delete()
         staleFile(end).delete()
+        frozenFile(end).delete()
     }
 
+    private fun frozenFile(end: Long) = File(directory, "report_$end.snapshot")
     private fun staleFile(end: Long) = File(directory, "report_$end.stale")
 }
 
@@ -366,7 +379,7 @@ internal fun refreshReportIfStale(
 ): DailyReport = if (stale || report.formatVersion < CURRENT_REPORT_FORMAT)
     generator(report.start, report.end) else report
 
-private fun DailyReport.toJson() = JSONObject().apply {
+internal fun DailyReport.toJson() = JSONObject().apply {
     put("formatVersion", formatVersion)
     put("start", start); put("end", end); put("created", createdAt); put("summary", summary)
     put("monitored", monitoredMs); put("online", onlineMs); put("offline", offlineMs)
@@ -403,7 +416,7 @@ private fun chartToJson(values: List<ReportChartBucket>) = JSONArray().apply {
     }) }
 }
 
-private fun reportFromJson(json: JSONObject) = DailyReport(
+internal fun reportFromJson(json: JSONObject) = DailyReport(
     json.getLong("start"), json.getLong("end"), json.getLong("created"), json.getString("summary"),
     json.getLong("monitored"), json.getLong("online"), json.getLong("offline"),
     json.optDouble("availability").takeUnless { it.isNaN() }?.toFloat(), json.getInt("samples"),

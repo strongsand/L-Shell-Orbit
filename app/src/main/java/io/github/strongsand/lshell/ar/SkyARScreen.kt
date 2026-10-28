@@ -1,12 +1,15 @@
 package io.github.strongsand.lshell.ar
 
+import io.github.strongsand.lshell.OrbitSymbols
+
 import android.app.Activity
 import android.content.ContextWrapper
 import android.os.SystemClock
+import android.view.Surface
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.material.icons.rounded.FullscreenExit
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.IntSize
@@ -45,20 +48,34 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import io.github.strongsand.lshell.R
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
@@ -81,17 +98,18 @@ sealed interface FaseCalibracao {
 @Composable
 fun SkyARScreen(snapshot: DishySnapshot, hudVisible: Boolean, onToggleHud: () -> Unit, bottomInset: Dp, onExit: () -> Unit) {
     val context = LocalContext.current
-    // A dark tonal HUD maintains contrast over daylight camera images, in either app theme.
+    // Inherit the app palette, including dynamic color and AMOLED preferences.
     val colors = arColorScheme()
+    val darkTheme = io.github.strongsand.lshell.LocalOrbitDark.current
     val window = context.arActivity()?.window
-    DisposableEffect(window) {
+    DisposableEffect(window, darkTheme) {
         val controller = window?.let { WindowCompat.getInsetsController(it, it.decorView) }
         val oldStatus = controller?.isAppearanceLightStatusBars
         val oldNavigation = controller?.isAppearanceLightNavigationBars
         val oldBehavior = controller?.systemBarsBehavior
         controller?.apply {
-            isAppearanceLightStatusBars = false
-            isAppearanceLightNavigationBars = false
+            isAppearanceLightStatusBars = !darkTheme
+            isAppearanceLightNavigationBars = !darkTheme
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
         onDispose {
@@ -126,16 +144,28 @@ private tailrec fun Context.arActivity(): Activity? = when (this) {
 @Composable
 private fun SkyARContent(snapshot: DishySnapshot, hudVisible: Boolean, onToggleHud: () -> Unit, bottomInset: Dp, onExit: () -> Unit) {
     val context = LocalContext.current
+    val displayView = LocalView.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    val lifecycleState by lifecycleOwner.lifecycle.currentStateFlow.collectAsState()
+    val arActive = lifecycleState.isAtLeast(Lifecycle.State.STARTED)
     val colorScheme = MaterialTheme.colorScheme
+    val darkTheme = io.github.strongsand.lshell.LocalOrbitDark.current
+    val satellitePainter = rememberVectorPainter(OrbitSymbols.SatelliteAlt)
+    val generationColors = remember(colorScheme) { SatelliteGeneration.entries.associateWith { it.visualColor(colorScheme) } }
+    val generationTints = remember(generationColors) { generationColors.mapValues { ColorFilter.tint(it.value) } }
     val haptics = rememberDashHaptics()
     var viewport by remember { mutableStateOf(IntSize.Zero) }
-    var cameraError by remember { mutableStateOf<String?>(null) }
+    var cameraErrorText by remember { mutableStateOf<ArUiText?>(null) }
+    val cameraError = cameraErrorText?.resolve { id, args -> stringResource(id, *args) }
 
     val corMonetPrimaria = colorScheme.primary
     val corMonetTerciaria = colorScheme.tertiary
     val corMonetContainer = colorScheme.surfaceContainer
     val corMonetTexto = colorScheme.onSurface
+    // The AR canvas alternates between camera imagery and a black ground fade.
+    // Pick the lighter theme content token instead of assuming a surface background.
+    val compassInk = if (colorScheme.onSurface.luminance() >= colorScheme.surface.luminance())
+        colorScheme.onSurface else colorScheme.surface
 
     var temPermissoes by remember {
         mutableStateOf(
@@ -158,7 +188,11 @@ private fun SkyARContent(snapshot: DishySnapshot, hudVisible: Boolean, onToggleH
     }
 
     var localizacaoUsuario by remember { mutableStateOf<Location?>(null) }
-    var statusGps by remember { mutableStateOf("Buscando GPS...") }
+    var latestGpsFix by remember { mutableStateOf<Location?>(null) }
+    var gpsProviderEnabled by remember { mutableStateOf(false) }
+    val gpsQuality = rememberArGpsQuality(latestGpsFix, temPermissoes && gpsProviderEnabled)
+    var statusGpsText by remember { mutableStateOf(ArUiText(R.string.editorial_gps_search)) }
+    val statusGps = statusGpsText.resolve { id, args -> stringResource(id, *args) }
     var faseCalibracao by remember { mutableStateOf<FaseCalibracao>(FaseCalibracao.Desativada) }
 
     LaunchedEffect(faseCalibracao is FaseCalibracao.Concluida) {
@@ -183,10 +217,11 @@ private fun SkyARContent(snapshot: DishySnapshot, hudVisible: Boolean, onToggleH
 
         val locationListener = object : LocationListener {
             override fun onLocationChanged(loc: Location) {
+                if (loc.provider == LocationManager.GPS_PROVIDER) latestGpsFix = loc
                 val atual = localizacaoUsuario
                 if (atual == null || loc.provider == LocationManager.GPS_PROVIDER || loc.accuracy <= atual.accuracy) {
                     localizacaoUsuario = loc
-                    statusGps = if (loc.hasAccuracy()) "GPS Conectado (${loc.accuracy.toInt()}m)" else "GPS Conectado"
+                    statusGpsText = if (loc.hasAccuracy()) ArUiText(R.string.editorial_gps_accuracy, listOf(loc.accuracy.toInt())) else ArUiText(R.string.editorial_gps_available)
                 }
 
                 when (val fase = faseCalibracao) {
@@ -217,18 +252,26 @@ private fun SkyARContent(snapshot: DishySnapshot, hudVisible: Boolean, onToggleH
                     else -> {}
                 }
             }
-            override fun onProviderEnabled(provider: String) {}
+            override fun onProviderEnabled(provider: String) {
+                if (provider == LocationManager.GPS_PROVIDER) gpsProviderEnabled = true
+            }
             override fun onProviderDisabled(provider: String) {
-                if (provider == LocationManager.GPS_PROVIDER) statusGps = "GPS Desativado"
+                if (provider == LocationManager.GPS_PROVIDER) {
+                    gpsProviderEnabled = false
+                    latestGpsFix = null
+                    statusGpsText = ArUiText(R.string.editorial_gps_disabled)
+                }
             }
         }
 
         try {
-            val ultima = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
-                ?: locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+            gpsProviderEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
+            latestGpsFix = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+            val ultima = latestGpsFix ?: locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
             ultima?.let {
                 localizacaoUsuario = it
-                statusGps = "Posição Inicial Obtida (${it.accuracy.toInt()}m)"
+                statusGpsText = if (it.hasAccuracy()) ArUiText(R.string.editorial_initial_accuracy, listOf(it.accuracy.toInt()))
+                    else ArUiText(R.string.editorial_initial_location)
             }
 
             locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000L, 1f, locationListener)
@@ -240,7 +283,8 @@ private fun SkyARContent(snapshot: DishySnapshot, hudVisible: Boolean, onToggleH
         onDispose { runCatching { locationManager.removeUpdates(locationListener) } }
     }
 
-    var tipoSensor by remember { mutableStateOf("Detectando...") }
+    var tipoSensorText by remember { mutableStateOf(ArUiText(R.string.editorial_sensor_search)) }
+    val tipoSensor = tipoSensorText.resolve { id, args -> stringResource(id, *args) }
 
     val temBussolaFisica = remember {
         val sm = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
@@ -259,16 +303,56 @@ private fun SkyARContent(snapshot: DishySnapshot, hudVisible: Boolean, onToggleH
     val sensorManager = remember { context.getSystemService(Context.SENSOR_SERVICE) as SensorManager }
     val satelitesReais = remember { mutableStateListOf<SateliteRA>() }
     val astrosReais = remember { mutableStateListOf<AstroObjeto>() }
-    var statusSatelites by remember { mutableStateOf("Aguardando satélites...") }
+    var statusSatelitesText by remember { mutableStateOf(ArUiText(R.string.editorial_satellite_loading)) }
+    val statusSatelites = statusSatelitesText.resolve { id, args -> stringResource(id, *args) }
     var catalogoTLE by remember { mutableStateOf<List<TLE>>(emptyList()) }
     var catalogRetry by remember { mutableIntStateOf(0) }
     var maxDistanceKm by rememberSaveable {
         mutableIntStateOf(MonitorPreferences.arMaxDistanceKm(context))
     }
+    var showNames by rememberSaveable { mutableStateOf(true) }
+    var showTrails by rememberSaveable { mutableStateOf(false) }
+    var reduceEffects by rememberSaveable { mutableStateOf(false) }
+    val spatialEffects = io.github.strongsand.lshell.LocalOrbitMotion.current && !reduceEffects
+    var selectedOrbitKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var linkEstimate by remember { mutableStateOf(ArLinkEstimate(ArCandidateStatus.NO_LOCATION)) }
+    var estimateDishId by remember { mutableStateOf("") }
+    var orbitFrameTimeMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    val latestSnapshot by rememberUpdatedState(snapshot)
+    val latestObserver by rememberUpdatedState(localizacaoUsuario)
+    val locationAllowed by rememberUpdatedState(temPermissoes)
+    val currentLinkInput = remember(snapshot, localizacaoUsuario, temPermissoes, orbitFrameTimeMs, arActive) {
+        arLinkInputs(snapshot, localizacaoUsuario, temPermissoes)
+    }
+    val effectiveEstimate = if (!io.github.strongsand.lshell.CandidatePublicationPolicy.ESTIMATED_AR_LINK)
+        ArLinkEstimate(ArCandidateStatus.NO_LIVE_DISH)
+        else ArLinkCandidatePolicy.inputStatus(currentLinkInput)?.let { ArLinkEstimate(it) }
+        ?: if (estimateDishId == snapshot.deviceInfo.id && arActive) linkEstimate
+        else ArLinkEstimate(ArCandidateStatus.NO_LIVE_DISH)
 
     val satelitesEscaneados = remember { mutableStateSetOf<String>() }
     val animacoesDescoberta = remember { mutableStateMapOf<String, Long>() }
+    var overlayEnabled by rememberSaveable { mutableStateOf(false) }
+    var overlayProjection by remember { mutableStateOf<DishyMapProjection?>(null) }
+    var overlayCells by remember { mutableStateOf<List<DishyOverlayCell>>(emptyList()) }
+    var overlayLoading by remember { mutableStateOf(false) }
+    LaunchedEffect(overlayEnabled) {
+        overlayProjection = null; overlayCells = emptyList()
+        if (overlayEnabled) {
+            overlayLoading = true
+            val client = io.github.strongsand.lshell.core.network.grpc.DishyGrpcClient()
+            try {
+                val map = client.fetchObstructionMap().getOrNull()
+                withContext(Dispatchers.Default) {
+                    val projection = map?.let(DishyMapProjection::from)
+                    projection to projection?.cells().orEmpty()
+                }.let { (projection, cells) -> overlayProjection = projection; overlayCells = cells }
+            } finally { client.close(); overlayLoading = false }
+        }
+    }
     var onlyDishView by rememberSaveable { mutableStateOf(false) }
+    var generationFilter by rememberSaveable { mutableStateOf<SatelliteGeneration?>(null) }
+    val generationLabels = SatelliteGeneration.entries.associateWith { generationLabel(it) }
     val dishAzimuth = snapshot.deviceInfo.boresightAzimuthDeg
     val dishElevation = snapshot.deviceInfo.boresightElevationDeg
     val dishOrientationAvailable = snapshot.isOnline && snapshot.deviceInfo.id.isNotBlank() &&
@@ -276,58 +360,97 @@ private fun SkyARContent(snapshot: DishySnapshot, hudVisible: Boolean, onToggleH
     LaunchedEffect(dishOrientationAvailable) {
         if (!dishOrientationAvailable) onlyDishView = false
     }
-    val displayedSatellites by remember(onlyDishView, dishAzimuth, dishElevation) {
+    val displayedSatellites by remember(onlyDishView, dishAzimuth, dishElevation, generationFilter, maxDistanceKm) {
         derivedStateOf {
-            if (onlyDishView) satelitesReais.filter {
-                isWithinDishView(it.azimute, it.elevacao, dishAzimuth, dishElevation)
-            } else satelitesReais.toList()
+            satelitesReais.filter {
+                it.classification.matchesGenerationFilter(generationFilter) &&
+                    (maxDistanceKm == 0 || it.rangeKm?.let { range -> range <= maxDistanceKm } == true) &&
+                    (!onlyDishView || isWithinDishView(it.azimute, it.elevacao, dishAzimuth, dishElevation))
+            }
         }
     }
     LaunchedEffect(catalogRetry) {
-        statusSatelites = "Baixando catálogo Starlink..."
+        statusSatelitesText = ArUiText(R.string.editorial_satellite_downloading)
         val tles = StarlinkOrbitTracker.carregarTLEs(context)
         catalogoTLE = tles
-        statusSatelites = if (tles.isNotEmpty()) "${tles.size} satélites carregados" else "Catálogo indisponível: ${StarlinkOrbitTracker.lastDownloadError}. Toque em atualizar"
+        statusSatelitesText = if (tles.isNotEmpty()) ArUiText(R.string.editorial_satellite_count, listOf(tles.size)) else ArUiText(R.string.editorial_catalog_error)
     }
 
-    LaunchedEffect(catalogoTLE, localizacaoUsuario, maxDistanceKm) {
-        val loc = localizacaoUsuario ?: return@LaunchedEffect
+    LaunchedEffect(catalogoTLE, lifecycleOwner) {
         if (catalogoTLE.isEmpty()) return@LaunchedEffect
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            var lastForecastAt = 0L
+            var forecasts = emptyMap<String, ArCandidateForecast>()
+            var previousKey: String? = null
+            var previousInput: ArLinkInputs? = null
+            var previousDishId: String? = null
+            var previousObserver: Location? = null
+            while (true) {
+                val loc = latestObserver
+                if (loc == null) {
+                    linkEstimate = ArLinkEstimate(ArCandidateStatus.NO_LOCATION)
+                    kotlinx.coroutines.delay(1000L)
+                    continue
+                }
+                val sample = latestSnapshot
+                val input = arLinkInputs(sample, loc, locationAllowed)
+                val nowMs = System.currentTimeMillis()
+                val elapsedMs = SystemClock.elapsedRealtime()
+                val inputChanged = previousDishId != sample.deviceInfo.id || previousInput?.let {
+                    it.liveDish != input.liveDish || ArLinkCandidatePolicy.inputStatus(it) != ArLinkCandidatePolicy.inputStatus(input) ||
+                        (if (it.dishAzimuth != null && it.dishElevation != null && input.dishAzimuth != null && input.dishElevation != null)
+                            angularSeparationDegrees(it.dishAzimuth, it.dishElevation, input.dishAzimuth, input.dishElevation) > 2f
+                        else it.dishAzimuth != input.dishAzimuth || it.dishElevation != input.dishElevation)
+                } != false || previousObserver?.distanceTo(loc)?.let { it > 100f } != false
+                val (visiveis, astros, estimate) = withContext(Dispatchers.Default) {
+                    val visible = StarlinkOrbitTracker.calcularSatellitesVisiveis(
+                        tles = catalogoTLE,
+                        obsLat = loc.latitude,
+                        obsLon = loc.longitude,
+                        obsAltM = loc.altitude,
+                        // Dishylink's live sky pass keeps satellites just above the horizon.
+                        minElevacao = 2f,
+                        apenasFovAntena = false,
+                        nowMs = nowMs
+                    )
+                    // Rank the full visible sky, NEVER a generation/distance/camera-filtered subset.
+                    if (io.github.strongsand.lshell.CandidatePublicationPolicy.ESTIMATED_AR_LINK &&
+                        (inputChanged || elapsedMs - lastForecastAt >= ArLinkCandidatePolicy.ESTIMATE_INTERVAL_MS)) {
+                        val shortlist = ArLinkCandidatePolicy.rank(visible, input, nowMs).take(ArLinkCandidatePolicy.MAX_FORECASTS)
+                        forecasts = StarlinkOrbitTracker.candidateForecasts(catalogoTLE, shortlist.map { it.satellite },
+                            loc.latitude, loc.longitude, loc.altitude, nowMs)
+                        lastForecastAt = elapsedMs
+                    }
+                    val result = if (io.github.strongsand.lshell.CandidatePublicationPolicy.ESTIMATED_AR_LINK)
+                        ArLinkCandidatePolicy.estimate(visible, input, nowMs, forecasts, previousKey.takeUnless { inputChanged })
+                        else ArLinkEstimate(ArCandidateStatus.NO_LIVE_DISH)
+                    Triple(visible, StarlinkOrbitTracker.calcularAstroPosicoes(loc.latitude, loc.longitude), result)
+                }
+                previousKey = estimate.candidates.firstOrNull()?.satellite?.orbitKey
+                previousInput = input; previousDishId = sample.deviceInfo.id; previousObserver = loc
+                linkEstimate = estimate; estimateDishId = sample.deviceInfo.id; orbitFrameTimeMs = nowMs
+                satelitesReais.clear()
+                satelitesReais.addAll(visiveis)
 
-        while (true) {
-            val (visiveis, astros) = withContext(Dispatchers.Default) {
-                StarlinkOrbitTracker.calcularSatellitesVisiveis(
-                    tles = catalogoTLE,
-                    obsLat = loc.latitude,
-                    obsLon = loc.longitude,
-                    obsAltM = loc.altitude,
-                    // Dishylink's live sky pass keeps satellites just above the horizon.
-                    minElevacao = 2f,
-                    apenasFovAntena = false,
-                    distanciaMaximaKm = maxDistanceKm.takeIf { it > 0 }?.toFloat()
-                ) to StarlinkOrbitTracker.calcularAstroPosicoes(loc.latitude, loc.longitude)
+                val totalFov = visiveis.size
+                statusSatelitesText = ArUiText(R.string.editorial_satellites_sky, listOf(totalFov))
+
+                astrosReais.clear()
+                astrosReais.addAll(astros)
+
+                kotlinx.coroutines.delay(1000L)
             }
-            satelitesReais.clear()
-            satelitesReais.addAll(visiveis)
-
-            val totalFov = visiveis.size
-            statusSatelites = "$totalFov no céu"
-
-            astrosReais.clear()
-            astrosReais.addAll(astros)
-
-            kotlinx.coroutines.delay(1000L)
         }
     }
 
-    DisposableEffect(Unit) {
+    DisposableEffect(sensorManager, displayView) {
         val rotationSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
             ?: sensorManager.getDefaultSensor(Sensor.TYPE_GAME_ROTATION_VECTOR)
 
-        tipoSensor = when (rotationSensor?.type) {
-            Sensor.TYPE_ROTATION_VECTOR -> "Bússola + Giro"
-            Sensor.TYPE_GAME_ROTATION_VECTOR -> "Giroscópio 3D"
-            else -> "Sem sensor de orientação"
+        tipoSensorText = when (rotationSensor?.type) {
+            Sensor.TYPE_ROTATION_VECTOR -> ArUiText(R.string.editorial_sensor_compass)
+            Sensor.TYPE_GAME_ROTATION_VECTOR -> ArUiText(R.string.editorial_sensor_gyro)
+            else -> ArUiText(R.string.editorial_sensor_none)
         }
 
         val listener = object : SensorEventListener {
@@ -336,20 +459,10 @@ private fun SkyARContent(snapshot: DishySnapshot, hudVisible: Boolean, onToggleH
             override fun onSensorChanged(event: SensorEvent) {
                 SensorManager.getRotationMatrixFromVector(rotMatrix, event.values)
 
-                val vx = -rotMatrix.get(2)
-                val vy = -rotMatrix.get(5)
-                val vz = -rotMatrix.get(8)
-
-                val elDeg = Math.toDegrees(asin(vz.coerceIn(-1f, 1f)).toDouble()).toFloat()
-
-                var azDeg = Math.toDegrees(atan2(vx.toDouble(), vy.toDouble())).toFloat()
-                if (azDeg < 0) azDeg += 360f
-
-                val rollDeg = Math.toDegrees(atan2(rotMatrix.get(6).toDouble(), rotMatrix.get(7).toDouble())).toFloat()
-
-                rawSensorAzimute = azDeg
-                cameraElevacao = elDeg
-                cameraRoll = rollDeg
+                val pose = arCameraPose(rotMatrix, displayView.display?.rotation ?: Surface.ROTATION_0, cameraRoll)
+                rawSensorAzimute = pose.azimuth
+                cameraElevacao = pose.elevation
+                cameraRoll = pose.roll
             }
 
             override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
@@ -386,13 +499,19 @@ private fun SkyARContent(snapshot: DishySnapshot, hudVisible: Boolean, onToggleH
         val az = ((sat.azimute - cameraAzimute + 540f) % 360f) - 180f
         abs(az) <= 60f / 1.4f && abs(sat.elevacao - cameraElevacao) <= fovVerticalForScan / 1.4f
     }.map { it.nome }
-    LaunchedEffect(visibleNames, catalogRetry) {
+    LaunchedEffect(visibleNames, catalogRetry, spatialEffects) {
+        if (!spatialEffects) {
+            satelitesEscaneados.addAll(visibleNames)
+            animacoesDescoberta.clear()
+            return@LaunchedEffect
+        }
         val now = SystemClock.uptimeMillis()
         val newlyDiscovered = visibleNames.filter { it !in satelitesEscaneados && it !in animacoesDescoberta }
         if (newlyDiscovered.isNotEmpty()) haptics.perform(DashFeedback.TAP)
         newlyDiscovered.forEach { animacoesDescoberta[it] = now }
     }
-    LaunchedEffect(animacoesDescoberta.isNotEmpty()) {
+    LaunchedEffect(animacoesDescoberta.isNotEmpty(), spatialEffects) {
+        if (!spatialEffects) return@LaunchedEffect
         while (animacoesDescoberta.isNotEmpty()) {
             withFrameNanos {
                 val now = SystemClock.uptimeMillis()
@@ -439,11 +558,12 @@ private fun SkyARContent(snapshot: DishySnapshot, hudVisible: Boolean, onToggleH
                         cameraProviderFuture.addListener({
                             if (!cameraBinding.active) return@addListener
                             val cameraProvider = runCatching { cameraProviderFuture.get() }.getOrElse {
-                                cameraError = it.message ?: "Não foi possível iniciar a câmera."
+                                cameraErrorText = ArUiText(R.string.ui_ar_camera_start_error, diagnostic = it.message)
                                 return@addListener
                             }
                             cameraBinding.provider = cameraProvider
-                            val preview = Preview.Builder().also { builder ->
+                            val preview = Preview.Builder()
+                                .setTargetRotation(displayView.display?.rotation ?: Surface.ROTATION_0).also { builder ->
                                 Camera2Interop.Extender(builder).apply {
                                     setCaptureRequestOption(
                                         CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE,
@@ -465,9 +585,15 @@ private fun SkyARContent(snapshot: DishySnapshot, hudVisible: Boolean, onToggleH
                                     preview
                                 )
                             } catch (e: Exception) {
-                                cameraError = e.message ?: "Não foi possível abrir a câmera."
+                                cameraErrorText = ArUiText(R.string.ui_ar_camera_open_error, diagnostic = e.message)
                             }
                         }, ContextCompat.getMainExecutor(ctx))
+                    }
+                },
+                update = { previewView ->
+                    val rotation = previewView.display?.rotation ?: Surface.ROTATION_0
+                    cameraBinding.preview?.let { preview ->
+                        if (preview.targetRotation != rotation) preview.targetRotation = rotation
                     }
                 },
                 modifier = Modifier.fillMaxSize()
@@ -476,8 +602,30 @@ private fun SkyARContent(snapshot: DishySnapshot, hudVisible: Boolean, onToggleH
 
         // 3. CAMADA DE REALIDADE AUMENTADA (SCANNER DO CÉU + MIRA 6-SIDED COOKIE + DIAMONDS)
         val textMeasurer = rememberTextMeasurer()
+        val focusRadius = with(LocalDensity.current) { 140.dp.toPx() }
+        // At most one focus label. Reuse the identity for accessible text outside drawing.
+        val focusedSatellite = remember(displayedSatellites, viewport, cameraAzimute, cameraElevacao, focusRadius) {
+            if (viewport.width <= 0 || viewport.height <= 0) null else {
+                fun distance(sat: SateliteRA): Float {
+                    val az = ((sat.azimute - cameraAzimute + 540f) % 360f) - 180f
+                    return hypot(az / 60f * viewport.width, (sat.elevacao - cameraElevacao) / 60f * viewport.width)
+                }
+                displayedSatellites.minByOrNull(::distance)?.takeIf { distance(it) < focusRadius }
+            }
+        }
+        val sunTemplate = stringResource(R.string.ui_ar_sun)
+        val moonTemplate = stringResource(R.string.ui_ar_moon)
+        val pointSky = stringResource(R.string.ar_point_sky)
+        val canvasLocale = LocalConfiguration.current.locales[0]
+        val markerDescription = focusedSatellite?.let { sat ->
+            stringResource(R.string.satellite_marker_description, sat.nome,
+                generationLabels.getValue(sat.classification.generation),
+                sat.catalogNumber ?: generationLabels.getValue(SatelliteGeneration.UNKNOWN),
+                sat.azimute.toInt(), sat.elevacao.toInt())
+        } ?: stringResource(R.string.satellite_marker_overview, displayedSatellites.size)
+        val displayedKeys = remember(displayedSatellites) { displayedSatellites.map { it.orbitKey }.toSet() }
 
-        Canvas(modifier = Modifier.fillMaxSize()) {
+        Canvas(modifier = Modifier.fillMaxSize().semantics { contentDescription = markerDescription }) {
             val w = size.width
             val h = size.height
             if (w <= 0f || h <= 0f) return@Canvas
@@ -491,14 +639,34 @@ private fun SkyARContent(snapshot: DishySnapshot, hudVisible: Boolean, onToggleH
             // Ground is a half-plane, rotated with the same pose as the cardinal markers.
             val horizon = projectHorizon(w, h, cameraElevacao, cameraRoll)
             val horizonOrigin = Offset(horizon.x, horizon.y)
-            val feather = 42.dp.toPx()
-            drawRect(Brush.linearGradient(
-                colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.52f)),
-                start = horizonOrigin,
-                end = horizonOrigin + Offset(horizon.normalX * feather, horizon.normalY * feather)))
+            // Fade across both sides of the existing projected horizon, including roll.
+            // Black at every stop avoids a tinted fringe; clamp keeps the ground opaque.
+            val transition = minOf(w, h) * if (darkTheme) 0.65f else 0.5f
+            val skyShare = if (darkTheme) 0.65f else 0.2f
+            val normal = Offset(horizon.normalX, horizon.normalY)
+            val stops = if (darkTheme) arrayOf(
+                0f to Color.Black.copy(alpha = 0f),
+                0.18f to Color.Black.copy(alpha = 0.04f),
+                0.38f to Color.Black.copy(alpha = 0.18f),
+                0.58f to Color.Black.copy(alpha = 0.46f),
+                0.76f to Color.Black.copy(alpha = 0.78f),
+                0.9f to Color.Black.copy(alpha = 0.96f),
+                1f to Color.Black
+            ) else arrayOf(
+                0f to Color.Black.copy(alpha = 0f),
+                0.2f to Color.Black.copy(alpha = 0.03f),
+                0.4f to Color.Black.copy(alpha = 0.15f),
+                0.6f to Color.Black.copy(alpha = 0.42f),
+                0.8f to Color.Black.copy(alpha = 0.8f),
+                1f to Color.Black
+            )
+            drawRect(Brush.linearGradient(*stops,
+                start = horizonOrigin - normal * (transition * skyShare),
+                end = horizonOrigin + normal * (transition * (1f - skyShare))))
             val span = hypot(w, h)
             val tangent = Offset(horizon.normalY * span, -horizon.normalX * span)
-            drawLine(corMonetPrimaria.copy(alpha = 0.8f), horizonOrigin - tangent, horizonOrigin + tangent, 1.5.dp.toPx())
+            drawLine(Color.Black.copy(alpha = 0.55f), horizonOrigin - tangent, horizonOrigin + tangent, 3.dp.toPx())
+            drawLine(compassInk.copy(alpha = 0.68f), horizonOrigin - tangent, horizonOrigin + tangent, 1.dp.toPx())
 
             // A) PONTOS CARDEAIS NA LINHA DO HORIZONTE
             val deltaElHorizonte = 0f - cameraElevacao
@@ -506,18 +674,18 @@ private fun SkyARContent(snapshot: DishySnapshot, hudVisible: Boolean, onToggleH
                 val horizonY = centroY - (deltaElHorizonte / fovVertical) * h
 
                 val pontosCardeais = listOf(
-                    Triple("N", 0f, Color(0xFFFF5252)),
-                    Triple("NE", 45f, corMonetTexto.copy(alpha = 0.8f)),
-                    Triple("L", 90f, corMonetPrimaria),
-                    Triple("SE", 135f, corMonetTexto.copy(alpha = 0.8f)),
-                    Triple("S", 180f, corMonetTerciaria),
-                    Triple("SO", 225f, corMonetTexto.copy(alpha = 0.8f)),
-                    Triple("O", 270f, corMonetPrimaria),
-                    Triple("NO", 315f, corMonetTexto.copy(alpha = 0.8f))
+                    context.getString(R.string.editorial_compass_0) to 0f,
+                    context.getString(R.string.editorial_compass_1) to 45f,
+                    context.getString(R.string.editorial_compass_2) to 90f,
+                    context.getString(R.string.editorial_compass_3) to 135f,
+                    context.getString(R.string.editorial_compass_4) to 180f,
+                    context.getString(R.string.editorial_compass_5) to 225f,
+                    context.getString(R.string.editorial_compass_6) to 270f,
+                    context.getString(R.string.editorial_compass_7) to 315f
                 )
 
                 rotate(degrees = -cameraRoll, pivot = Offset(centroX, centroY)) {
-                    for ((sigla, azPonto, corPonto) in pontosCardeais) {
+                    for ((sigla, azPonto) in pontosCardeais) {
                         var deltaAz = azPonto - cameraAzimute
                         while (deltaAz > 180f) deltaAz -= 360f
                         while (deltaAz < -180f) deltaAz += 360f
@@ -525,21 +693,20 @@ private fun SkyARContent(snapshot: DishySnapshot, hudVisible: Boolean, onToggleH
                         if (abs(deltaAz) <= fovHorizontal / 1.5f) {
                             val posX = centroX + (deltaAz / fovHorizontal) * w
 
-                            drawLine(
-                                color = corPonto,
-                                start = Offset(posX, horizonY - 6.dp.toPx()),
-                                end = Offset(posX, horizonY + 6.dp.toPx()),
-                                strokeWidth = 2.dp.toPx()
-                            )
+                            val tickStart = Offset(posX, horizonY - 6.dp.toPx())
+                            val tickEnd = Offset(posX, horizonY + 6.dp.toPx())
+                            drawLine(Color.Black.copy(alpha = 0.7f), tickStart, tickEnd, 4.dp.toPx())
+                            drawLine(compassInk.copy(alpha = 0.9f), tickStart, tickEnd, 2.dp.toPx())
 
                             if (posX >= 0f && posX <= w && horizonY >= 0f && horizonY <= h) drawText(
                                 textMeasurer = textMeasurer,
                                 text = sigla,
                                 topLeft = Offset((posX - 8.dp.toPx()).coerceIn(0f, (w - 1f).coerceAtLeast(0f)), (horizonY - 26.dp.toPx()).coerceIn(0f, (h - 1f).coerceAtLeast(0f))),
                                 style = TextStyle(
-                                    color = corPonto,
+                                    color = compassInk,
                                     fontSize = if (sigla.length == 1) 14.sp else 10.sp,
-                                    fontWeight = FontWeight.Bold
+                                    fontWeight = FontWeight.Bold,
+                                    shadow = Shadow(Color.Black.copy(alpha = 0.9f), Offset.Zero, 4.dp.toPx())
                                 )
                             )
                         }
@@ -565,13 +732,13 @@ private fun SkyARContent(snapshot: DishySnapshot, hudVisible: Boolean, onToggleH
 
                             if (posX + 24.dp.toPx() < w && posY >= 0f && posY < h) drawText(
                                 textMeasurer = textMeasurer,
-                                text = "☀️ Sol (${astro.elevacao.toInt()}°)",
+                                text = String.format(canvasLocale, sunTemplate, astro.elevacao.toInt()),
                                 topLeft = Offset(posX + 24.dp.toPx(), (posY - 10.dp.toPx()).coerceIn(0f, h - 1f)),
                                 style = TextStyle(
                                     color = corMonetTerciaria,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
-                                    background = Color(0x99161A22)
+                                    background = colorScheme.surfaceContainer.copy(alpha = 0.96f)
                                 )
                             )
                         } else {
@@ -581,13 +748,13 @@ private fun SkyARContent(snapshot: DishySnapshot, hudVisible: Boolean, onToggleH
 
                             if (posX + 14.dp.toPx() < w && posY >= 0f && posY < h) drawText(
                                 textMeasurer = textMeasurer,
-                                text = "🌙 Lua (${astro.elevacao.toInt()}°)",
+                                text = String.format(canvasLocale, moonTemplate, astro.elevacao.toInt()),
                                 topLeft = Offset(posX + 14.dp.toPx(), (posY - 10.dp.toPx()).coerceIn(0f, h - 1f)),
                                 style = TextStyle(
-                                    color = Color(0xFFE0E6ED),
+                                    color = colorScheme.onSurface,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold,
-                                    background = Color(0x99161A22)
+                                    background = colorScheme.surfaceContainer.copy(alpha = 0.96f)
                                 )
                             )
                         }
@@ -621,6 +788,22 @@ private fun SkyARContent(snapshot: DishySnapshot, hudVisible: Boolean, onToggleH
 
             // D) SCANNER DO CÉU E SATÉLITES DESCOBERTOS
             rotate(degrees = -cameraRoll, pivot = Offset(centroX, centroY)) {
+                if (overlayEnabled) overlayCells.forEach { cell ->
+                    val da = ((cell.azimuth - cameraAzimute + 540f) % 360f) - 180f
+                    val de = cell.elevation - cameraElevacao
+                    if (abs(da) <= fovHorizontal / 1.4f && abs(de) <= fovVertical / 1.4f) {
+                        val point = Offset(centroX + da / fovHorizontal * w, centroY - de / fovVertical * h)
+                        val color = when (cell.region) {
+                            DishySkyRegion.CLEAR -> colorScheme.secondary
+                            DishySkyRegion.PARTIAL -> colorScheme.tertiary
+                            else -> colorScheme.error
+                        }
+                        val r = (w / 180f).coerceIn(3.dp.toPx(), 8.dp.toPx())
+                        drawCircle(color.copy(alpha = .22f), r, point)
+                        if (cell.region == DishySkyRegion.OBSTRUCTED)
+                            drawLine(color.copy(alpha = .65f), point - Offset(r / 2, r / 2), point + Offset(r / 2, r / 2), 1.dp.toPx())
+                    }
+                }
                 displayedSatellites.forEach { sat ->
                     var deltaAz = sat.azimute - cameraAzimute
                     while (deltaAz > 180f) deltaAz -= 360f
@@ -631,7 +814,7 @@ private fun SkyARContent(snapshot: DishySnapshot, hudVisible: Boolean, onToggleH
                         val posX = centroX + (deltaAz / fovHorizontal) * w
                         val posY = centroY - (deltaEl / fovVertical) * h
 
-                        if (!satelitesEscaneados.contains(sat.nome)) {
+                        if (spatialEffects && !satelitesEscaneados.contains(sat.nome)) {
                             val tInicio = animacoesDescoberta[sat.nome] ?: nowMs
                             val progressoScan = ((nowMs - tInicio) / 500f).coerceIn(0f, 1f)
 
@@ -646,41 +829,48 @@ private fun SkyARContent(snapshot: DishySnapshot, hudVisible: Boolean, onToggleH
                                 strokeWidth = 1.8.dp.toPx()
                             )
 
-                            drawCircle(
-                                color = corMonetPrimaria,
-                                radius = 5.dp.toPx(),
-                                center = posParticula
-                            )
-                            drawCircle(
-                                color = Color.White,
-                                radius = 2.5.dp.toPx(),
-                                center = posParticula
-                            )
+                            val iconSize = 18.dp.toPx()
+                            translate(posParticula.x - iconSize / 2f, posParticula.y - iconSize / 2f) {
+                                scale(0.75f, pivot = Offset.Zero) {
+                                    with(satellitePainter) { draw(Size(24.dp.toPx(), 24.dp.toPx()),
+                                        colorFilter = generationTints.getValue(sat.classification.generation)) }
+                                }
+                            }
 
                         }
 
-                        if (satelitesEscaneados.contains(sat.nome)) {
+                        if (!spatialEffects || satelitesEscaneados.contains(sat.nome)) {
                             val distCentro = hypot(posX - centroX, posY - centroY)
-                            val emFoco = distCentro < 140.dp.toPx() || sat.conectado
-                            val corSatSolida = if (sat.conectado) corMonetTerciaria else corMonetPrimaria
-                            val raioSat = if (emFoco) 9.dp.toPx() else 6.dp.toPx()
-                            drawCircle(color = corSatSolida.copy(alpha = 0.24f), radius = raioSat * 1.8f, center = Offset(posX, posY))
-                            drawCircle(color = corSatSolida, radius = raioSat, center = Offset(posX, posY))
-                            drawCircle(color = colorScheme.onPrimary, radius = 2.dp.toPx(), center = Offset(posX, posY))
+                            val emFoco = sat === focusedSatellite && distCentro < focusRadius
+                            val region = overlayProjection?.takeIf { overlayEnabled }?.region(sat.azimute, sat.elevacao)
+                            val regionAlpha = if (region == DishySkyRegion.OUTSIDE || region == DishySkyRegion.UNMAPPED) .42f else 1f
+                            val iconSize = (if (emFoco) 24.dp else 18.dp).toPx()
+                            if (region == DishySkyRegion.CLEAR || region == DishySkyRegion.PARTIAL)
+                                drawCircle(colorScheme.secondary.copy(alpha = .5f), iconSize * .85f, Offset(posX, posY), style = Stroke(1.dp.toPx()))
+                            drawCircle(color = colorScheme.surfaceContainer.copy(alpha = 0.88f),
+                                radius = iconSize * 0.65f, center = Offset(posX, posY))
+                            translate(posX - iconSize / 2f, posY - iconSize / 2f) {
+                                // Keep VectorPainter's raster cache at one size, even for small markers.
+                                scale(if (emFoco) 1f else 0.75f, pivot = Offset.Zero) {
+                                    with(satellitePainter) { draw(Size(24.dp.toPx(), 24.dp.toPx()), alpha = regionAlpha,
+                                        colorFilter = generationTints.getValue(sat.classification.generation)) }
+                                }
+                            }
 
-                            if (emFoco) {
-                                val label = "${sat.nome} (${sat.elevacao.toInt()}°)"
-                                if (posX + 14.dp.toPx() < w && posY >= 0f && posY < h) drawText(
-                                    textMeasurer = textMeasurer,
-                                    text = label,
-                                    topLeft = Offset(posX + 14.dp.toPx(), (posY - 10.dp.toPx()).coerceIn(0f, h - 1f)),
-                                    style = TextStyle(
-                                        color = Color.White,
+                            if (emFoco && showNames) {
+                                val label = "${sat.nome} · ${generationLabels.getValue(sat.classification.generation)} (${sat.elevacao.toInt()}°)"
+                                val labelX = posX + 18.dp.toPx()
+                                if (labelX < w && posY >= 0f && posY < h) {
+                                    val layout = textMeasurer.measure(label, style = TextStyle(
+                                        color = colorScheme.onSurface,
                                         fontSize = 12.sp,
                                         fontWeight = if (sat.conectado) FontWeight.Bold else FontWeight.Medium,
-                                        background = Color(0xCC161A22)
-                                    )
-                                )
+                                        background = colorScheme.surfaceContainer.copy(alpha = 0.94f)
+                                    ), maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                        constraints = androidx.compose.ui.unit.Constraints(maxWidth = (w - labelX).toInt().coerceAtLeast(1)))
+                                    drawText(layout, topLeft = Offset(labelX,
+                                        (posY - 10.dp.toPx()).coerceIn(0f, (h - layout.size.height).coerceAtLeast(0f))))
+                                }
                             }
                         }
                     }
@@ -697,7 +887,7 @@ private fun SkyARContent(snapshot: DishySnapshot, hudVisible: Boolean, onToggleH
                     drawPath(path = pathSeta, color = corMonetPrimaria)
                 }
 
-                val textoAviso = "Aponte para o céu"
+                val textoAviso = pointSky
                 drawText(
                     textMeasurer = textMeasurer,
                     text = textoAviso,
@@ -706,23 +896,41 @@ private fun SkyARContent(snapshot: DishySnapshot, hudVisible: Boolean, onToggleH
                         color = corMonetTexto,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        background = Color(0xCC161A22)
+                        background = colorScheme.surfaceContainer.copy(alpha = 0.96f)
                     )
                 )
             }
         }
 
-        AnimatedVisibility(hudVisible, enter = fadeIn(tween(DashDesign.motionMillis)),
+        if (io.github.strongsand.lshell.CandidatePublicationPolicy.ESTIMATED_AR_LINK)
+            ArCandidateOverlay(effectiveEstimate, displayedKeys, cameraAzimute, cameraElevacao, cameraRoll,
+                showNames, showTrails, reduceEffects, arActive)
+        ArSatelliteTapLayer(displayedSatellites, cameraAzimute, cameraElevacao, cameraRoll,
+            onSelect = { selectedOrbitKey = it })
+        val selectedSatellite = satelitesReais.firstOrNull { it.orbitKey == selectedOrbitKey }
+        LaunchedEffect(selectedOrbitKey, selectedSatellite == null) {
+            if (selectedSatellite == null) selectedOrbitKey = null
+        }
+        if (selectedSatellite != null) ArSatelliteDetails(selectedSatellite,
+            effectiveEstimate.candidates.firstOrNull { it.satellite.orbitKey == selectedOrbitKey },
+            onDismiss = { selectedOrbitKey = null })
+
+        AnimatedVisibility(hudVisible, modifier = Modifier.fillMaxSize(), enter = fadeIn(tween(DashDesign.motionMillis)),
             exit = fadeOut(tween(DashDesign.motionMillis))) {
             ArHud(
                 azimuth = cameraAzimute.toInt(), elevation = cameraElevacao.toInt(),
                 satelliteStatus = if (onlyDishView && catalogoTLE.isNotEmpty())
-                    "${displayedSatellites.size} no campo estimado da antena" else statusSatelites,
+                    context.getString(R.string.editorial_satellites_field, displayedSatellites.size) else statusSatelites,
                 gpsStatus = statusGps, sensor = tipoSensor,
-                hasLocation = localizacaoUsuario != null, hasCompass = temBussolaFisica,
+                gpsQuality = gpsQuality, hasCompass = temBussolaFisica,
                 catalogReady = catalogoTLE.isNotEmpty(), phase = faseCalibracao,
+                overlayEnabled = overlayEnabled,
+                overlayStatus = stringResource(if (!overlayEnabled) R.string.overlay_off else if (overlayLoading) R.string.overlay_loading
+                    else if (overlayProjection != null) R.string.overlay_approximate else R.string.overlay_unavailable),
+                onToggleOverlay = { overlayEnabled = !overlayEnabled },
                 onlyDishView = onlyDishView, dishOrientationAvailable = dishOrientationAvailable,
                 onToggleDishView = { onlyDishView = !onlyDishView },
+                generationFilter = generationFilter, onGenerationSelected = { generationFilter = it },
                 maxDistanceKm = maxDistanceKm,
                 onDistanceSelected = { distance ->
                     maxDistanceKm = distance
@@ -731,25 +939,37 @@ private fun SkyARContent(snapshot: DishySnapshot, hudVisible: Boolean, onToggleH
                 bottomInset = bottomInset, onExit = onExit, onHide = onToggleHud,
                 onRefresh = { satelitesEscaneados.clear(); animacoesDescoberta.clear(); catalogRetry++ },
                 onCalibrate = { faseCalibracao = FaseCalibracao.AguardandoGps },
-                onCancelCalibration = { faseCalibracao = FaseCalibracao.Desativada; amostrasRumo.clear(); pontoInicialGps = null }
+                onCancelCalibration = { faseCalibracao = FaseCalibracao.Desativada; amostrasRumo.clear(); pontoInicialGps = null },
+                visualControls = { ArVisualControls(showNames, showTrails, reduceEffects,
+                    onNames = { showNames = !showNames }, onTrails = { showTrails = !showTrails },
+                    onReduced = { reduceEffects = !reduceEffects }) },
+                onInspectFocused = focusedSatellite?.let { sat -> { selectedOrbitKey = sat.orbitKey } },
+                inspectFocusedLabel = focusedSatellite?.let { stringResource(R.string.ar_link_inspect, it.nome) }
             )
         }
         AnimatedVisibility(!hudVisible,
             modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(12.dp),
             enter = fadeIn(tween(DashDesign.motionMillis)), exit = fadeOut(tween(DashDesign.motionMillis))) {
-            ArIconButton(Icons.Rounded.FullscreenExit, "Mostrar interface da AR", onToggleHud,
+            ArIconButton(OrbitSymbols.FullscreenExit, androidx.compose.ui.res.stringResource(R.string.editorial_show_ar), onToggleHud,
                 feedback = DashFeedback.TOGGLE_ON)
+        }
+        if (hudVisible && io.github.strongsand.lshell.LocalExperience.current.technical && catalogoTLE.isEmpty()) {
+            StarlinkOrbitTracker.lastDownloadError?.let { detail ->
+                Text(detail.resolve { id, args -> stringResource(id, *args) }, Modifier.align(Alignment.BottomCenter).padding(16.dp), style = MaterialTheme.typography.bodySmall)
+            }
         }
         if (hudVisible && (!temPermissoes || cameraError != null)) {
             Surface(Modifier.align(Alignment.Center).padding(24.dp), shape = DashDesign.section,
                 color = colorScheme.surfaceContainer) {
                 Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(if (!temPermissoes) "Câmera e localização" else "Câmera indisponível", style = MaterialTheme.typography.titleLarge)
-                    Text(if (!temPermissoes) "Permita o acesso para mostrar o céu na sua localização."
-                        else cameraError.orEmpty(), style = MaterialTheme.typography.bodyMedium)
+                    Text(if (!temPermissoes) androidx.compose.ui.res.stringResource(R.string.editorial_camera_location) else androidx.compose.ui.res.stringResource(R.string.editorial_camera_unavailable), style = MaterialTheme.typography.titleLarge)
+                    Text(if (!temPermissoes) androidx.compose.ui.res.stringResource(R.string.editorial_ar_permission_note)
+                        else stringResource(R.string.editorial_camera_error), style = MaterialTheme.typography.bodyMedium)
+                    if (io.github.strongsand.lshell.LocalExperience.current.technical && cameraError != null)
+                        Text(cameraError.orEmpty(), style = MaterialTheme.typography.bodySmall)
                     if (!temPermissoes) Button(onClick = hapticClick {
                         launcher.launch(arrayOf(Manifest.permission.CAMERA, Manifest.permission.ACCESS_FINE_LOCATION))
-                    }) { Text("Permitir acesso") }
+                    }) { Text(androidx.compose.ui.res.stringResource(R.string.editorial_allow_access)) }
                 }
             }
         }
@@ -759,6 +979,17 @@ private fun SkyARContent(snapshot: DishySnapshot, hudVisible: Boolean, onToggleH
 // =========================================================================
 // FUNÇÕES DE FORMAS (PATH BUILDERS)
 // =========================================================================
+
+private fun arLinkInputs(snapshot: DishySnapshot, location: Location?, permissions: Boolean): ArLinkInputs {
+    val validLocation = location?.takeIf { permissions && it.latitude in -90.0..90.0 && it.longitude in -180.0..180.0 }
+    val ageMs = validLocation?.takeIf { it.elapsedRealtimeNanos > 0L }?.let {
+        (SystemClock.elapsedRealtimeNanos() - it.elapsedRealtimeNanos) / 1_000_000L
+    } ?: -1L
+    return ArLinkInputs(snapshot.isOnline && !snapshot.isFromCache && snapshot.deviceInfo.id.isNotBlank() &&
+        snapshot.state == io.github.strongsand.lshell.core.model.DishState.CONNECTED,
+        System.currentTimeMillis() - snapshot.timestamp, snapshot.deviceInfo.boresightAzimuthDeg,
+        snapshot.deviceInfo.boresightElevationDeg, ageMs, validLocation?.takeIf { it.hasAccuracy() }?.accuracy)
+}
 
 fun criarPathSetaNormal(cx: Float, cy: Float, tamanho: Float): Path {
     val path = Path()
@@ -771,59 +1002,7 @@ fun criarPathSetaNormal(cx: Float, cy: Float, tamanho: Float): Path {
     return path
 }
 
-fun criarPathCookie(cx: Float, cy: Float, r: Float, numLados: Int, rotGraus: Float = 0f): Path {
-    val path = Path()
-    val steps = numLados * 8
-    val amp = 0.16f
-    for (i in 0 until steps) {
-        val theta = (2.0 * PI * i / steps)
-        val raioAtual = r * (1.0f + amp * cos(numLados * theta)).toFloat()
-        val angTotal = theta + Math.toRadians(rotGraus.toDouble())
-        val x = cx + raioAtual * cos(angTotal).toFloat()
-        val y = cy + raioAtual * sin(angTotal).toFloat()
-        if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
-    }
-    path.close()
-    return path
-}
-
-fun criarPathDiamond(cx: Float, cy: Float, r: Float): Path {
-    val path = Path()
-    path.moveTo(cx, cy - r)
-    path.cubicTo(cx + r * 0.45f, cy - r * 0.45f, cx + r * 0.55f, cy - r * 0.35f, cx + r, cy)
-    path.cubicTo(cx + r * 0.55f, cy + r * 0.35f, cx + r * 0.45f, cy + r * 0.45f, cx, cy + r)
-    path.cubicTo(cx - r * 0.45f, cy + r * 0.45f, cx - r * 0.55f, cy + r * 0.35f, cx - r, cy)
-    path.cubicTo(cx - r * 0.55f, cy - r * 0.35f, cx - r * 0.45f, cy - r * 0.45f, cx, cy - r)
-    path.close()
-    return path
-}
-
-fun criarPathVerySunny(cx: Float, cy: Float, r: Float, rotGraus: Float = 0f): Path {
-    val path = Path()
-    val numRaios = 8
-    val steps = 64
-    for (i in 0 until steps) {
-        val theta = (2.0 * PI * i / steps)
-        val raioAtual = r * (0.86f + 0.18f * cos(numRaios * theta)).toFloat()
-        val angTotal = theta + Math.toRadians(rotGraus.toDouble())
-        val x = cx + raioAtual * cos(angTotal).toFloat()
-        val y = cy + raioAtual * sin(angTotal).toFloat()
-        if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
-    }
-    path.close()
-    return path
-}
-
 fun normalizarGraus(v: Float): Float = ((v % 360f) + 360f) % 360f
-
-fun calcularRumoGeodesico(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Float {
-    val p1 = Math.toRadians(lat1)
-    val p2 = Math.toRadians(lat2)
-    val dL = Math.toRadians(lon2 - lon1)
-    val y = sin(dL) * cos(p2)
-    val x = cos(p1) * sin(p2) - sin(p1) * cos(dL)
-    return normalizarGraus(Math.toDegrees(atan2(y, x)).toFloat())
-}
 
 fun calcularMediaAngular(angulos: List<Float>): Float {
     var sinSum = 0.0

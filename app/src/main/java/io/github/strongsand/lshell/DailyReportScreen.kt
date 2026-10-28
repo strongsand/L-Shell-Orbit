@@ -1,10 +1,23 @@
 package io.github.strongsand.lshell
 
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -16,13 +29,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.Assessment
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.CloudOff
-import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -31,15 +42,22 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -55,21 +73,23 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.text.DateFormat
-import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.max
 
+@OptIn(androidx.compose.animation.ExperimentalSharedTransitionApi::class)
 @Composable
 fun DailyReportsScreen(modifier: Modifier = Modifier, initialEnd: Long? = null, onBack: () -> Unit) {
     val context = LocalContext.current
     var reports by remember { mutableStateOf<List<DailyReport>>(emptyList()) }
-    var selectedEnd by remember(initialEnd) { mutableStateOf(initialEnd) }
+    var selectedEnd by rememberSaveable(initialEnd) { mutableStateOf(initialEnd) }
     var loading by remember { mutableStateOf(true) }
-    LaunchedEffect(selectedEnd) {
-        loading = true
-        reports = withContext(Dispatchers.IO) {
+    var failed by remember { mutableStateOf(false) }
+    var retry by remember { mutableIntStateOf(0) }
+    LaunchedEffect(selectedEnd, retry) {
+        loading = true; failed = false
+        val result = readUiList { withContext(Dispatchers.IO) {
             val store = DailyReportStore(context)
             selectedEnd?.let { end ->
                 store.refreshIfStale(end) { start, reportEnd ->
@@ -77,12 +97,35 @@ fun DailyReportsScreen(modifier: Modifier = Modifier, initialEnd: Long? = null, 
                 }
             }
             store.all()
-        }
+        } }
+        result.fold(onSuccess = { reports = it }, onFailure = { failed = true })
         loading = false
     }
+    val motion = LocalOrbitMotion.current
     val selected = reports.firstOrNull { it.end == selectedEnd }
-    if (loading && selectedEnd != null) {
-        ReportEmpty("Atualizando relatório com os dados disponíveis…")
+    androidx.activity.compose.BackHandler(selectedEnd != null) { selectedEnd = null }
+    if (failed || !loading && selectedEnd != null && selected == null) {
+        Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = hapticClick { if (selectedEnd != null) selectedEnd = null else onBack() }) {
+                    Icon(OrbitSymbols.ArrowBack, stringResource(R.string.health_back))
+                }
+                Text(stringResource(R.string.health_unavailable), Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
+            }
+            Text(stringResource(R.string.health_load_error))
+            TextButton(onClick = hapticClick { loading = true; failed = false; retry++ }) { Text(stringResource(R.string.health_retry)) }
+        }
+        return
+    }
+    androidx.compose.animation.AnimatedContent(selected, contentKey = { it?.end },
+        transitionSpec = {
+            if (motion) fadeIn(tween(160)) togetherWith fadeOut(tween(80))
+            else (EnterTransition.None togetherWith ExitTransition.None).using(SizeTransform { _, _ -> snap() })
+        }, label = "report detail") { selected ->
+        androidx.compose.runtime.CompositionLocalProvider(LocalOrbitVisibility provides this) {
+    if (loading && selectedEnd != null && selected == null) {
+        ReportEmpty(androidx.compose.ui.res.stringResource(R.string.editorial_report_updating), loading = true)
     } else if (selectedEnd != null && selected != null) {
         DailyReportDetail(selected, reports.getOrNull(reports.indexOf(selected) + 1), modifier) {
             selectedEnd = null
@@ -93,24 +136,24 @@ fun DailyReportsScreen(modifier: Modifier = Modifier, initialEnd: Long? = null, 
             item {
                 Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = hapticClick(action = onBack)) {
-                        Icon(Icons.Rounded.ArrowBack, contentDescription = "Voltar")
+                        Icon(OrbitSymbols.ArrowBack, contentDescription = androidx.compose.ui.res.stringResource(R.string.editorial_back))
                     }
-                    Column {
-                        Text("Relatórios", style = MaterialTheme.typography.headlineLarge)
-                        Text("A história da sua conexão, salva localmente",
+                    Column(Modifier.weight(1f)) {
+                        Text(androidx.compose.ui.res.stringResource(R.string.function_reports), style = MaterialTheme.typography.headlineLarge)
+                        Text(androidx.compose.ui.res.stringResource(R.string.editorial_report_subtitle),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
-            if (loading) item { ReportEmpty("Carregando relatórios…") }
+            if (loading) item { ReportEmpty(androidx.compose.ui.res.stringResource(R.string.editorial_report_loading), loading = true) }
             else if (reports.isEmpty()) item {
-                ReportEmpty("O primeiro relatório aparecerá depois do horário configurado. Mantenha o monitoramento ativo para obter um período mais completo.")
+                ReportEmpty(androidx.compose.ui.res.stringResource(R.string.editorial_report_first))
             }
             items(reports, key = { it.end }) { report ->
                 val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
                 Surface(onClick = hapticClick { selectedEnd = report.end }, interactionSource = interaction,
-                    modifier = Modifier.fillMaxWidth().pressMotion(interaction), shape = DashDesign.section,
+                    modifier = Modifier.fillMaxWidth().orbitSharedBounds("report:${report.end}").pressMotion(interaction), shape = DashDesign.section,
                     color = MaterialTheme.colorScheme.surfaceContainerLow) {
                     Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -118,16 +161,16 @@ fun DailyReportsScreen(modifier: Modifier = Modifier, initialEnd: Long? = null, 
                             Surface(shape = DashDesign.cookie,
                                 color = if (report.interruptions.isEmpty()) MaterialTheme.colorScheme.primaryContainer
                                 else MaterialTheme.colorScheme.tertiaryContainer) {
-                                Icon(if (report.interruptions.isEmpty()) Icons.Rounded.CheckCircle else Icons.Rounded.CloudOff,
+                                Icon(if (report.interruptions.isEmpty()) OrbitSymbols.CheckCircle else OrbitSymbols.CloudOff,
                                     null, Modifier.padding(13.dp))
                             }
                         }
                         Column(Modifier.weight(1f)) {
                             Text(day(report.end), style = MaterialTheme.typography.titleLarge)
-                            Text(report.summary, style = MaterialTheme.typography.bodyMedium,
+                            Text(telemetryLabel(report.summary), style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(report.availabilityPercent?.let { "${number(it, 2)}% disponível" }
-                                ?: "Disponibilidade indisponível", style = MaterialTheme.typography.labelLarge)
+                            Text(report.availabilityPercent?.let { androidx.compose.ui.res.stringResource(R.string.editorial_availability, number(it, 2)) }
+                                ?: androidx.compose.ui.res.stringResource(R.string.editorial_availability_none), style = MaterialTheme.typography.labelLarge)
                         }
                     }
                 }
@@ -135,155 +178,219 @@ fun DailyReportsScreen(modifier: Modifier = Modifier, initialEnd: Long? = null, 
             item { Spacer(Modifier.height(16.dp)) }
         }
     }
+        }
+    }
+
 }
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun DailyReportDetail(report: DailyReport, previous: DailyReport?, modifier: Modifier, onBack: () -> Unit) {
+    val outages = remember(report) { DailyInterruptionUi.from(report) }
+    var outagesExpanded by rememberSaveable(report.start, report.end) { mutableStateOf(false) }
+    var selectedOutage by rememberSaveable(report.start, report.end) { mutableStateOf<Int?>(null) }
+    val shownExpanded = outagesExpanded
+
     LazyColumn(modifier.fillMaxSize().padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
-            IconButton(onClick = hapticClick(action = onBack), modifier = Modifier.padding(top = 6.dp)) {
-                Icon(Icons.Rounded.ArrowBack, contentDescription = "Voltar aos relatórios")
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = hapticClick(action = onBack), modifier = Modifier.padding(top = 6.dp)) {
+                    Icon(OrbitSymbols.ArrowBack, contentDescription = stringResource(R.string.editorial_back_reports))
+                }
+                Spacer(Modifier.weight(1f))
+                ReportExportAction(report)
             }
-            Surface(Modifier.fillMaxWidth(), shape = DashDesign.hero,
-                color = MaterialTheme.colorScheme.primaryContainer) {
+            Surface(Modifier.fillMaxWidth().orbitSharedBounds("report:${report.end}"), shape = DashDesign.hero,
+                color = amoledCardColor(MaterialTheme.colorScheme.primaryContainer)) {
                 Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Icon(Icons.Rounded.Assessment, null, Modifier.size(42.dp),
+                    Icon(OrbitSymbols.Assessment, null, Modifier.size(42.dp),
                         tint = MaterialTheme.colorScheme.onPrimaryContainer)
-                    Text("Sua Starlink hoje", style = MaterialTheme.typography.headlineMedium)
-                    Text(report.summary, style = MaterialTheme.typography.titleMedium)
+                    Text(androidx.compose.ui.res.stringResource(R.string.editorial_report_title), style = MaterialTheme.typography.headlineMedium)
+                    Text(telemetryLabel(report.summary), style = MaterialTheme.typography.titleMedium)
                     Text("${dateTime(report.start)} → ${dateTime(report.end)}",
                         style = MaterialTheme.typography.bodySmall)
                     if (report.createdAt - report.end > 15 * 60_000L)
-                        Text("Gerado com ${duration(report.createdAt - report.end)} de atraso",
+                        Text(stringResource(R.string.reports_generated_late, healthDuration(report.createdAt - report.end)),
                             style = MaterialTheme.typography.labelMedium)
                     report.availabilityPercent?.let {
                         Text("${number(it, 2)}%", style = MaterialTheme.typography.displayMedium,
                             fontWeight = FontWeight.Bold)
-                        Text("disponibilidade aproximada no período monitorado")
+                        Text(androidx.compose.ui.res.stringResource(R.string.editorial_availability_note))
                     }
                 }
             }
         }
         item {
-            ReportSection("Resumo do período") {
-                MetricRow("Tempo monitorado", duration(report.monitoredMs), "Online", duration(report.onlineMs))
-                MetricRow("Offline detectado", duration(report.offlineMs), "Falhas", report.interruptions.size.toString())
-                MetricRow("Alertas", report.alerts.size.toString(), "Amostras", report.sampleCount.toString())
+            ReportSection(androidx.compose.ui.res.stringResource(R.string.editorial_report_summary)) {
+                MetricRow(androidx.compose.ui.res.stringResource(R.string.editorial_monitored_time), duration(report.monitoredMs), androidx.compose.ui.res.stringResource(R.string.report_access_available), duration(report.onlineMs))
+                MetricRow(androidx.compose.ui.res.stringResource(R.string.editorial_offline_time), duration(report.offlineMs), androidx.compose.ui.res.stringResource(R.string.editorial_outages), report.interruptions.size.toString())
+                MetricRow(stringResource(R.string.editorial_alerts), report.alerts.size.toString(), stringResource(R.string.report_samples), report.sampleCount.toString())
+                outages.longest?.let { longest ->
+                    Text(stringResource(R.string.reports_longest_at, healthDuration(longest.durationMs), time(longest.start)), style = MaterialTheme.typography.titleMedium)
+                }
                 if (report.monitoredMs < report.end - report.start)
-                    Text("Existem lacunas sem monitoramento. Elas não foram classificadas como tempo offline.",
+                    Text(androidx.compose.ui.res.stringResource(R.string.editorial_report_gap_note),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         if (previous != null) item { ComparisonCard(report, previous) }
-        item {
-            ReportSection("Falhas de conexão") {
-                if (report.interruptions.isEmpty()) Text("Nenhuma interrupção registrada.")
-                report.interruptions.forEach { interruption ->
-                    MetricRow(time(interruption.start), interruption.reason,
-                        if (interruption.resolved) "Recuperada" else "Sem recuperação registrada",
-                        duration(interruption.durationMs))
-                }
-                report.interruptions.maxByOrNull { it.durationMs }?.let {
-                    Text("Maior interrupção: ${duration(it.durationMs)}",
-                        style = MaterialTheme.typography.labelLarge)
+        item("outages") {
+            if (outages.count == 0) ReportSection(stringResource(R.string.reports_access_interruptions)) {
+                Text(stringResource(R.string.reports_no_interruptions))
+            } else ReportDisclosure(stringResource(R.string.reports_access_interruptions), "daily:${report.start}:${report.end}:outages",
+                icon = OrbitSymbols.CloudOff, expanded = shownExpanded, onExpandedChange = { outagesExpanded = it }, summary = {
+                    ReportSummaryGrid(listOf(
+                        { ReportSummaryMetric(stringResource(R.string.editorial_outages), outages.count.toString()) },
+                        { ReportSummaryMetric(stringResource(R.string.editorial_offline_time), healthDuration(outages.offlineMs)) },
+                        { ReportSummaryMetric(stringResource(R.string.density_longest), outages.longest?.let { healthDuration(it.durationMs) } ?: "—") },
+                        { ReportSummaryMetric(stringResource(R.string.density_latest), outages.rows.lastOrNull()?.let { time(it.start) } ?: "—") }
+                    ), minimumWidthDp = 280f)
+                })
+        }
+        if (shownExpanded) itemsIndexed(outages.rows, key = { index, row -> "outage:${row.start}:${row.end}:$index" }) { index, row ->
+            val clock = java.time.Instant.ofEpochMilli(row.start).atZone(java.time.ZoneId.systemDefault())
+            val spoken = stringResource(R.string.reports_outage_spoken, clock.hour, clock.minute, reportSpokenDuration(row.durationMs))
+            Surface(onClick = hapticClick { selectedOutage = index }, shape = DashDesign.pill,
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).semantics { contentDescription = spoken }) {
+                Row(Modifier.padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Icon(OrbitSymbols.Schedule, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
+                    FlowRow(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(time(row.start), style = MaterialTheme.typography.labelLarge)
+                        Text(healthDuration(row.durationMs), style = MaterialTheme.typography.titleSmall)
+                    }
+                    Icon(OrbitSymbols.KeyboardArrowRight, null)
                 }
             }
         }
         item {
-            ReportSection("Tráfego observado") {
-                Text("Estes números representam uso instantâneo da conexão, não a capacidade medida por um teste de velocidade.",
+            ReportSection(androidx.compose.ui.res.stringResource(R.string.report_observed_traffic)) {
+                Text(androidx.compose.ui.res.stringResource(R.string.report_traffic_note),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
-                MetricStats("Download durante tráfego ativo", report.trafficDownload, "Mbps")
-                MetricStats("Upload durante tráfego ativo", report.trafficUpload, "Mbps")
-                ReportChart(report.trafficChart, "Tráfego de download")
+                MetricStats(androidx.compose.ui.res.stringResource(R.string.report_active_download), report.trafficDownload, "Mbps")
+                MetricStats(androidx.compose.ui.res.stringResource(R.string.report_active_upload), report.trafficUpload, "Mbps")
+                ReportChart(report.trafficChart, androidx.compose.ui.res.stringResource(R.string.report_download_traffic), unit = "Mbps")
             }
         }
         item {
-            ReportSection("Latência") {
-                MetricStats("Latência POP", report.latency, "ms", showP95 = true)
-                Text("Tempo amostrado acima de 100 ms: ${duration(report.latencyAbove100Ms)}")
-                ReportChart(report.latencyChart, "Latência")
+            ReportSection(androidx.compose.ui.res.stringResource(R.string.traffic_latency)) {
+                MetricStats(androidx.compose.ui.res.stringResource(R.string.editorial_pop_latency), report.latency, "ms", showP95 = true)
+                Text(androidx.compose.ui.res.stringResource(R.string.report_high_latency_time, duration(report.latencyAbove100Ms)))
+                ReportChart(report.latencyChart, androidx.compose.ui.res.stringResource(R.string.traffic_latency), unit = "ms")
             }
         }
         item {
-            ReportSection("Perda de pacotes") {
-                MetricStats("Perda", report.packetLoss, "%")
-                MetricRow("Períodos com perda elevada", report.packetLossPeriods.toString(),
-                    "Tempo acumulado", duration(report.packetLossDurationMs))
-                ReportChart(report.lossChart, "Perda de pacotes")
+            ReportSection(androidx.compose.ui.res.stringResource(R.string.traffic_loss)) {
+                MetricStats(androidx.compose.ui.res.stringResource(R.string.traffic_loss), report.packetLoss, "%")
+                MetricRow(androidx.compose.ui.res.stringResource(R.string.report_loss_periods), report.packetLossPeriods.toString(),
+                    androidx.compose.ui.res.stringResource(R.string.report_total_time), duration(report.packetLossDurationMs))
+                ReportChart(report.lossChart, androidx.compose.ui.res.stringResource(R.string.traffic_loss), unit = "%")
                 EventTimelineGraph(report.timeline.filter { it.title == "Perda elevada de pacotes" },
-                    report.start, report.end, "Ocorrências de perda elevada")
+                    report.start, report.end, androidx.compose.ui.res.stringResource(R.string.report_loss_events))
             }
         }
         item {
-            ReportSection("Campo de visão") {
-                MetricStats("Obstrução", report.obstruction, "%")
+            ReportSection(androidx.compose.ui.res.stringResource(R.string.report_fov)) {
+                MetricStats(androidx.compose.ui.res.stringResource(R.string.editorial_obstruction), report.obstruction, "%")
                 if (report.obstruction?.maximum?.let { it < 1f } == true)
-                    Text("A visada permaneceu excelente nas leituras disponíveis.")
-                ReportChart(report.obstructionChart, "Obstrução")
+                    Text(androidx.compose.ui.res.stringResource(R.string.report_clear_view))
+                ReportChart(report.obstructionChart, androidx.compose.ui.res.stringResource(R.string.editorial_obstruction), unit = "%")
             }
         }
         item {
-            ReportSection("Rede e hardware") {
-                if (report.hardwareEvents.isEmpty()) Text("Nenhuma reinicialização ou mudança de Ethernet detectada.")
-                report.hardwareEvents.forEach { Text("${time(it.timestamp)} — ${it.title} ${it.detail}") }
-                Text("A temperatura aparece pelos alertas do terminal. A potência aparece quando o firmware fornece amostras de powerIn.",
+            ReportDisclosure(stringResource(R.string.report_hardware), "daily:${report.end}:hardware", summary = {
+                Text(stringResource(R.string.reports_event_count, report.hardwareEvents.size), style = MaterialTheme.typography.labelLarge)
+            }) {
+                if (report.hardwareEvents.isEmpty()) Text(androidx.compose.ui.res.stringResource(R.string.report_no_hardware_events))
+                report.hardwareEvents.forEach { Text("${time(it.timestamp)} — ${telemetryLabel(it.title)} ${telemetryLabel(it.detail)}") }
+                Text(androidx.compose.ui.res.stringResource(R.string.report_temperature_power_note),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        item {
-            ReportSection("Alertas do período") {
-                if (report.alerts.isEmpty()) Text("Nenhum alerta registrado.")
+        if (report.alerts.isNotEmpty()) item {
+            ReportDisclosure(stringResource(R.string.report_alerts), "daily:${report.end}:alerts", summary = {
+                Text(stringResource(R.string.reports_event_count, report.alerts.size), style = MaterialTheme.typography.labelLarge)
+            }) {
+                if (report.alerts.isEmpty()) Text(androidx.compose.ui.res.stringResource(R.string.report_no_alerts))
                 else {
-                    EventTimelineGraph(report.alerts, report.start, report.end, "Distribuição dos alertas")
+                    EventTimelineGraph(report.alerts, report.start, report.end, androidx.compose.ui.res.stringResource(R.string.report_alert_distribution))
                     EventBreakdown(report.alerts)
                 }
             }
         }
-        item {
-            ReportSection("Linha do tempo") {
-                if (report.timeline.isEmpty()) Text("Nenhum acontecimento relevante registrado.")
+        if (report.timeline.isNotEmpty()) item {
+            ReportDisclosure(stringResource(R.string.function_timeline), "daily:${report.end}:timeline", summary = {
+                Text(stringResource(R.string.reports_event_count, report.timeline.size), style = MaterialTheme.typography.labelLarge)
+            }) {
+                if (report.timeline.isEmpty()) Text(androidx.compose.ui.res.stringResource(R.string.report_no_events))
                 else {
-                    EventTimelineGraph(report.timeline, report.start, report.end, "Eventos ao longo do período")
-                    Text("Destaques", style = MaterialTheme.typography.titleMedium)
+                    EventTimelineGraph(report.timeline, report.start, report.end, androidx.compose.ui.res.stringResource(R.string.report_events_period))
+                    Text(androidx.compose.ui.res.stringResource(R.string.report_highlights), style = MaterialTheme.typography.titleMedium)
                     report.timeline.sortedWith(compareByDescending<ReportMoment> {
                         eventPriority(it.title)
                     }.thenByDescending { it.timestamp }).take(3).forEach { moment ->
-                        MetricRow(time(moment.timestamp), moment.title, "Detalhe",
-                            moment.detail.ifBlank { "Registrado" })
+                        MetricRow(time(moment.timestamp), telemetryLabel(moment.title), androidx.compose.ui.res.stringResource(R.string.editorial_details),
+                            telemetryLabel(moment.detail).ifBlank { androidx.compose.ui.res.stringResource(R.string.report_recorded) })
                     }
                 }
             }
         }
         item { Spacer(Modifier.height(24.dp)) }
     }
+    selectedOutage?.let { index -> outages.rows.getOrNull(index)?.let { row ->
+        androidx.compose.material3.AlertDialog(onDismissRequest = { selectedOutage = null },
+            title = { Text(stringResource(R.string.reports_access_interruptions)) },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(stringResource(R.string.health_ui_labeled_value, stringResource(R.string.reports_start), dateTime(row.start)))
+                    Text(stringResource(R.string.health_ui_labeled_value, stringResource(if (row.resolved) R.string.reports_end else R.string.reports_observed_until), dateTime(row.end)))
+                    Text(healthDuration(row.durationMs))
+                    Text(telemetryLabel(row.reason))
+                    Text(stringResource(if (row.resolved) R.string.editorial_restored else R.string.report_no_recovery))
+                }
+            }, confirmButton = { androidx.compose.material3.TextButton(onClick = hapticClick { selectedOutage = null }) { Text(stringResource(R.string.traffic_back)) } })
+    } }
+
 }
 
 @Composable
 private fun ComparisonCard(current: DailyReport, previous: DailyReport) {
-    ReportSection("Comparação com o relatório anterior") {
-        ComparisonRow("Disponibilidade", current.availabilityPercent, previous.availabilityPercent, "%")
-        ComparisonRow("Latência média", current.latency?.average, previous.latency?.average, " ms", lowerIsBetter = true)
-        MetricRow("Interrupções", current.interruptions.size.toString(), "Anterior", previous.interruptions.size.toString())
+    ReportSection(androidx.compose.ui.res.stringResource(R.string.report_comparison)) {
+        ComparisonRow(androidx.compose.ui.res.stringResource(R.string.report_availability), current.availabilityPercent, previous.availabilityPercent, "%")
+        ComparisonRow(androidx.compose.ui.res.stringResource(R.string.editorial_mean_latency), current.latency?.average, previous.latency?.average, " ms", lowerIsBetter = true)
+        MetricRow(androidx.compose.ui.res.stringResource(R.string.editorial_outages), current.interruptions.size.toString(), androidx.compose.ui.res.stringResource(R.string.report_previous), previous.interruptions.size.toString())
     }
 }
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun ComparisonRow(label: String, current: Float?, previous: Float?, unit: String, lowerIsBetter: Boolean = false) {
     if (current == null || previous == null) {
-        Text("$label: comparação indisponível", style = MaterialTheme.typography.bodyMedium)
+        Text(androidx.compose.ui.res.stringResource(R.string.editorial_compare_none, label), style = MaterialTheme.typography.bodyMedium)
         return
     }
     val delta = current - previous
-    val arrow = if (delta > 0f) "↑" else if (delta < 0f) "↓" else "="
     val favorable = if (lowerIsBetter) delta <= 0f else delta >= 0f
-    Text("$label  ${number(current, 1)}$unit  $arrow ${number(kotlin.math.abs(delta), 1)}$unit",
-        color = if (favorable) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-        style = MaterialTheme.typography.titleMedium)
+    val changeDescription = when {
+        delta > 0f -> androidx.compose.ui.res.stringResource(R.string.editorial_increased, number(kotlin.math.abs(delta), 1) + unit)
+        delta < 0f -> androidx.compose.ui.res.stringResource(R.string.editorial_decreased, number(kotlin.math.abs(delta), 1) + unit)
+        else -> androidx.compose.ui.res.stringResource(R.string.editorial_unchanged)
+    }
+    val tint = if (favorable) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+    FlowRow(Modifier.clearAndSetSemantics { contentDescription = "$label, ${number(current, 1)}$unit. $changeDescription" },
+        horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text("$label  ${number(current, 1)}$unit", color = tint, style = MaterialTheme.typography.titleMedium)
+        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Icon(when { delta > 0f -> OrbitSymbols.TrendingUp; delta < 0f -> OrbitSymbols.TrendingDown; else -> OrbitSymbols.DragHandle },
+                null, Modifier.size(20.dp), tint = tint)
+            Text("${number(kotlin.math.abs(delta), 1)}$unit", color = tint, style = MaterialTheme.typography.titleMedium)
+        }
+    }
 }
 
 @Composable
@@ -300,11 +407,11 @@ private fun ReportSection(title: String, content: @Composable ColumnScope.() -> 
 @Composable
 private fun MetricStats(title: String, metric: ReportMetric?, unit: String, showP95: Boolean = false) {
     Text(title, style = MaterialTheme.typography.titleMedium)
-    if (metric == null) Text("Sem amostras disponíveis", color = MaterialTheme.colorScheme.onSurfaceVariant)
+    if (metric == null) Text(androidx.compose.ui.res.stringResource(R.string.report_no_samples), color = MaterialTheme.colorScheme.onSurfaceVariant)
     else {
-        MetricRow("Média", "${number(metric.average)} $unit", "Mediana", "${number(metric.median)} $unit")
-        MetricRow("Mínima", "${number(metric.minimum)} $unit às ${time(metric.minimumAt)}",
-            "Máxima", "${number(metric.maximum)} $unit às ${time(metric.maximumAt)}")
+        MetricRow(androidx.compose.ui.res.stringResource(R.string.traffic_mean), "${number(metric.average)} $unit", androidx.compose.ui.res.stringResource(R.string.traffic_median), "${number(metric.median)} $unit")
+        MetricRow(androidx.compose.ui.res.stringResource(R.string.report_minimum), androidx.compose.ui.res.stringResource(R.string.editorial_value_at, "${number(metric.minimum)} $unit", time(metric.minimumAt)),
+            androidx.compose.ui.res.stringResource(R.string.report_maximum), androidx.compose.ui.res.stringResource(R.string.editorial_value_at, "${number(metric.maximum)} $unit", time(metric.maximumAt)))
         if (showP95 && metric.count >= 20)
             Text("p95: ${number(metric.p95)} $unit", style = MaterialTheme.typography.labelLarge)
     }
@@ -337,111 +444,147 @@ private fun MetricCell(label: String, value: String, modifier: Modifier) {
 }
 
 @Composable
-private fun ReportChart(values: List<ReportChartBucket>, description: String) {
+internal fun ReportChart(values: List<ReportChartBucket>, description: String, showAnnotations: Boolean = true, unit: String = "", zone: String? = null) {
     val localLine = MaterialTheme.colorScheme.primary
-    val beaconLine = MaterialTheme.colorScheme.secondary
-    val mixedLine = MaterialTheme.colorScheme.tertiary
+    val beaconLine = MaterialTheme.colorScheme.tertiary
+    val mixedLine = MaterialTheme.colorScheme.secondary
     val grid = MaterialTheme.colorScheme.outlineVariant
     val background = MaterialTheme.colorScheme.surfaceContainerHigh
     val samples = remember(values) { reportChartSamples(values) }
     val scale = remember(values) { reportChartScale(values.map { it.value }) }
     val sampleCount = remember(samples) { samples.sumOf { it.size } }
     if (samples.isEmpty() || scale == null) {
-        Text("Gráfico indisponível por falta de amostras.", style = MaterialTheme.typography.bodySmall)
+        Text(androidx.compose.ui.res.stringResource(R.string.editorial_chart_empty), style = MaterialTheme.typography.bodySmall)
         return
     }
+    val coverageForVoice = remember(values) { reportChartCoverage(values) }
+    if (sampleCount < 3) {
+        Text(stringResource(R.string.health_ui_chart_few), style = MaterialTheme.typography.bodyMedium)
+        Text(stringResource(R.string.editorial_report_coverage, description, coverageForVoice.filled, coverageForVoice.total, number(coverageForVoice.percent)), style = MaterialTheme.typography.labelSmall)
+        samples.flatten().forEach { sample ->
+            Text(stringResource(R.string.health_ui_labeled_value, time(sample.bucket.start), number(sample.bucket.value!!)), style = MaterialTheme.typography.bodySmall)
+        }
+        return
+    }
+    val chartDescription = androidx.compose.ui.res.stringResource(R.string.editorial_report_coverage, description, coverageForVoice.filled, coverageForVoice.total, number(coverageForVoice.percent))
+    val start = values.first().start
+    val end = values.last().end
+    val series = remember(values) { reportInspectionSeries(values) }
+    val index = remember(series) { ChartSampleIndex(series) }
+    val byTime = remember(values) { values.associateBy { it.start } }
+    var probe by rememberSaveable(description, start, end) { mutableStateOf<Long?>(null) }
+    val selected = remember(index, probe) { probe?.let(index::containing) }
+    val bucket = selected?.let { byTime[it.time] }
+    val feedback = remember(description) { MetricInspectionFeedback() }
+    val haptics = rememberDashHaptics()
+    val pulse = rememberChartPulse(selected?.time)
+    val motion = LocalOrbitMotion.current
+    val gesture = remember { ChartDirectManipulation() }
+    val pixelDensity = androidx.compose.ui.platform.LocalDensity.current.density
+    var plotSize by remember { mutableStateOf(Size(1f, 1f)) }
+    val travelTarget = selected?.measurement?.let { m ->
+        index.segmentAt(selected.time)?.let { segment ->
+            val fraction = if (scale.constant) .5f else ((m.value.toFloat() - scale.minimum) / scale.range).coerceIn(0f, 1f)
+            ChartMotionTarget(selected.time, Offset(chartTimeFraction(selected.time, start, end), 1f - fraction), segment)
+        }
+    }
+    val travel = rememberChartTravel(travelTarget, gesture.active, Triple(description, start to end, scale), plotSize)
+    val gap = stringResource(R.string.metric_detail_gap)
+    val selectionText = if (bucket != null) trafficPeriodDate(bucket.start, bucket.end, zone) + " · " +
+        trafficTime(bucket.start, zone, true) + "–" + trafficTime(bucket.end, zone, true) + " · " +
+        trafficValue(bucket.value?.toDouble(), unit) + " · " + trafficOrigin(selected!!.measurement!!.origin)
+        else probe?.let { trafficTime(it, zone, true) + " · " + gap } ?: chartDescription
+    fun inspect(time: Long) {
+        probe = time.coerceIn(start, maxOf(start, end - 1))
+        if (feedback.sample(index.containing(probe!!)?.time, android.os.SystemClock.uptimeMillis())) haptics.perform(DashFeedback.DRAG_SNAP)
+    }
+    fun step(forward: Boolean): Boolean {
+        val point = index.adjacent(selected?.time ?: probe, forward) ?: return false
+        inspect(point.time); return true
+    }
+    fun close(): Boolean { probe = null; feedback.sample(null, android.os.SystemClock.uptimeMillis()); return true }
+    val latestSelect by androidx.compose.runtime.rememberUpdatedState<(Float) -> Unit>({ fraction ->
+        inspect(start + ((end - start) * fraction.toDouble()).toLong())
+    })
+    val inset = with(androidx.compose.ui.platform.LocalDensity.current) { 14.dp.toPx() }
     Surface(Modifier.fillMaxWidth(), shape = DashDesign.section, color = background) {
-        Canvas(Modifier.fillMaxWidth().height(132.dp).clip(DashDesign.section)) {
-            val horizontalInset = 14.dp.toPx().coerceAtMost(size.width / 4f)
-            val verticalInset = 14.dp.toPx().coerceAtMost(size.height / 4f)
-            val plotLeft = horizontalInset
-            val plotRight = (size.width - horizontalInset).coerceAtLeast(plotLeft)
-            val plotTop = verticalInset
-            val plotBottom = (size.height - verticalInset).coerceAtLeast(plotTop)
-            val plotWidth = (plotRight - plotLeft).coerceAtLeast(1f)
-            val plotHeight = (plotBottom - plotTop).coerceAtLeast(1f)
-            val lastIndex = values.lastIndex.coerceAtLeast(1)
-
-            fun point(sample: ReportChartSample): Offset {
-                val x = if (values.size <= 1) (plotLeft + plotRight) / 2f
-                else plotLeft + sample.index.toFloat() / lastIndex * plotWidth
-                val ratio = if (scale.constant) .5f
-                else ((sample.bucket.value!! - scale.minimum) / scale.range).coerceIn(0f, 1f)
-                return Offset(x, plotBottom - ratio * plotHeight)
-            }
-
-            fun color(origin: ReportBucketOrigin): Color = when (origin) {
-                ReportBucketOrigin.BEACON -> beaconLine
-                ReportBucketOrigin.MIXED -> mixedLine
-                else -> localLine
-            }
-
-            clipRect(0f, 0f, size.width, size.height) {
-                repeat(3) { index ->
-                    val y = plotTop + plotHeight * (index + 1) / 4f
-                    drawLine(grid.copy(alpha = .38f), Offset(plotLeft, y), Offset(plotRight, y),
-                        1.dp.toPx(), StrokeCap.Round)
+      Box {
+        val drawing = remember(values, samples, scale, localLine, beaconLine, mixedLine, grid, background) {
+            Modifier.fillMaxWidth().height(132.dp).clip(DashDesign.section).drawWithCache {
+                val margin = 14.dp.toPx().coerceAtMost(size.width / 4f)
+                val top = 14.dp.toPx().coerceAtMost(size.height / 4f)
+                val bottom = size.height - top
+                fun position(sample: ReportChartSample): Offset {
+                    val fraction = if (scale.constant) .5f else ((sample.bucket.value!! - scale.minimum) / scale.range).coerceIn(0f, 1f)
+                    return Offset(margin + chartTimeFraction(sample.bucket.start, start, end) * (size.width - margin * 2), bottom - fraction * (bottom - top))
                 }
-
+                fun tint(origin: ReportBucketOrigin) = when (origin) {
+                    ReportBucketOrigin.BEACON -> beaconLine; ReportBucketOrigin.MIXED -> mixedLine; else -> localLine
+                }
+                val areas = mutableListOf<Pair<Color, Path>>()
+                val lines = mutableMapOf<Color, Path>()
+                val dots = mutableListOf<Pair<Color, Offset>>()
                 samples.forEach { segment ->
-                    val points = segment.map(::point)
-                    if (points.size == 1) {
-                        val pointColor = color(segment.first().bucket.origin)
-                        drawCircle(pointColor.copy(alpha = .22f), 7.dp.toPx(), points.first())
-                        drawCircle(pointColor, 3.5.dp.toPx(), points.first())
-                        return@forEach
-                    }
-                    val segmentOrigin = when {
-                        segment.any { it.bucket.origin == ReportBucketOrigin.MIXED } -> ReportBucketOrigin.MIXED
-                        else -> segment.first().bucket.origin
-                    }
-                    val segmentColor = color(segmentOrigin)
-                    val area = Path().apply {
-                        moveTo(points.first().x, plotBottom)
-                        lineTo(points.first().x, points.first().y)
-                        points.drop(1).forEach { lineTo(it.x, it.y) }
-                        lineTo(points.last().x, plotBottom)
-                        close()
-                    }
-                    drawPath(area, Brush.verticalGradient(
-                        0f to segmentColor.copy(alpha = .14f),
-                        1f to Color.Transparent,
-                        startY = plotTop,
-                        endY = plotBottom
-                    ))
-                    points.zipWithNext().forEachIndexed { index, (from, to) ->
-                        val fromOrigin = segment[index].bucket.origin
-                        val toOrigin = segment[index + 1].bucket.origin
-                        val edgeOrigin = when {
-                            fromOrigin == ReportBucketOrigin.MIXED || toOrigin == ReportBucketOrigin.MIXED ->
-                                ReportBucketOrigin.MIXED
-                            fromOrigin == toOrigin -> fromOrigin
-                            else -> toOrigin
+                    val points = segment.map(::position)
+                    if (points.size == 1) dots += tint(segment.first().bucket.origin) to points.first()
+                    else {
+                        val color = tint(if (segment.any { it.bucket.origin == ReportBucketOrigin.MIXED }) ReportBucketOrigin.MIXED else segment.first().bucket.origin)
+                        areas += color to Path().apply {
+                            moveTo(points.first().x, bottom); points.forEach { lineTo(it.x, it.y) }
+                            lineTo(points.last().x, bottom); close()
                         }
-                        val edgeColor = color(edgeOrigin)
-                        drawLine(edgeColor.copy(alpha = .20f), from, to, 5.dp.toPx(), StrokeCap.Round)
-                        drawLine(edgeColor, from, to, 2.5.dp.toPx(), StrokeCap.Round)
+                        points.zipWithNext().forEachIndexed { i, (from, to) ->
+                            val a = segment[i].bucket.origin; val b = segment[i + 1].bucket.origin
+                            val edge = if (a == ReportBucketOrigin.MIXED || b == ReportBucketOrigin.MIXED) ReportBucketOrigin.MIXED else b
+                            lines.getOrPut(tint(edge)) { Path() }.apply { moveTo(from.x, from.y); lineTo(to.x, to.y) }
+                        }
+                        if (sampleCount <= 8) points.forEachIndexed { i, point -> dots += tint(segment[i].bucket.origin) to point }
                     }
-                    if (sampleCount <= 8) points.forEachIndexed { index, point ->
-                        val pointColor = color(segment[index].bucket.origin)
-                        drawCircle(background, 4.dp.toPx(), point)
-                        drawCircle(pointColor, 2.5.dp.toPx(), point)
-                    }
+                }
+                onDrawBehind {
+                    repeat(3) { i -> val y = top + (bottom - top) * (i + 1) / 4f
+                        drawLine(grid.copy(alpha = .32f), Offset(margin, y), Offset(size.width - margin, y), .5.dp.toPx()) }
+                    areas.forEach { (color, path) -> drawPath(path, Brush.verticalGradient(0f to color.copy(alpha = .10f), 1f to Color.Transparent, startY = top, endY = bottom)) }
+                    lines.forEach { (color, path) -> drawPath(path, color, style = Stroke(2.dp.toPx(), cap = StrokeCap.Round)) }
+                    dots.forEach { (color, point) -> drawCircle(color, 2.5.dp.toPx(), point) }
                 }
             }
         }
+        Box(drawing)
+        Canvas(Modifier.fillMaxWidth().height(132.dp).onSizeChanged { plotSize = Size((it.width / pixelDensity - 28f).coerceAtLeast(1f), (it.height / pixelDensity - 28f).coerceAtLeast(1f)) }.clip(DashDesign.section)
+            .chartInspectionAccess(chartDescription, selectionText, { if (probe == null) step(true) else true }, ::step, ::close)
+            .chartScrubbing(description, inset, gesture) { latestSelect(it) }) {
+            val x = inset + chartTimeFraction(selected?.time ?: probe ?: start, start, end) * (size.width - 2 * inset)
+            if (probe != null) drawLine(grid.copy(alpha = .7f), Offset(x, inset), Offset(x, size.height - inset), 1.dp.toPx())
+            selected?.measurement?.let { m ->
+                val fraction = if (scale.constant) .5f else ((m.value.toFloat() - scale.minimum) / scale.range).coerceIn(0f, 1f)
+                val tint = when (m.origin) { TrafficOrigin.BEACON -> beaconLine; TrafficOrigin.MIXED -> mixedLine; else -> localLine }
+                drawChartMarker(Offset(x, size.height - inset - fraction * (size.height - inset * 2)), tint, background,
+                    if (motion) pulse.value else 0f)
+                travelTarget?.let { drawChartTravel(travel.value, it.position, tint,
+                    inset, inset, size.width - 2 * inset, size.height - 2 * inset) }
+            }
+        }
+      }
     }
+    ChartInspectionPanel(probe != null) {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            MetricDetailValueText(selectionText, MaterialTheme.typography.bodyMedium)
+            androidx.compose.material3.TextButton(onClick = hapticClick { close() }) { Text(stringResource(R.string.traffic_close_inspection)) }
+        }
+    }
+    if (!showAnnotations) return
     val coverage = remember(values) { reportChartCoverage(values) }
-    Text("$description • ${coverage.filled}/${coverage.total} intervalos • ${number(coverage.percent)}% de cobertura",
+    Text(androidx.compose.ui.res.stringResource(R.string.editorial_report_coverage, description, coverage.filled, coverage.total, number(coverage.percent)),
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant)
     val origins = values.filter { it.value?.isFinite() == true }.map { it.origin }.toSet()
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-        if (ReportBucketOrigin.LOCAL in origins) ReportOriginLegend("Local", localLine)
+        if (ReportBucketOrigin.LOCAL in origins) ReportOriginLegend(androidx.compose.ui.res.stringResource(R.string.traffic_local), localLine)
         if (ReportBucketOrigin.BEACON in origins) ReportOriginLegend("L-Shell Beacon", beaconLine)
-        if (ReportBucketOrigin.MIXED in origins) ReportOriginLegend("Local + Beacon", mixedLine)
+        if (ReportBucketOrigin.MIXED in origins) ReportOriginLegend(androidx.compose.ui.res.stringResource(R.string.traffic_mixed), mixedLine)
     }
-    if (coverage.filled < coverage.total) Text("Lacunas indicam intervalos sem dados válidos.",
+    if (coverage.filled < coverage.total) Text(androidx.compose.ui.res.stringResource(R.string.editorial_chart_gaps),
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
@@ -505,8 +648,8 @@ private fun EventTimelineGraph(events: List<ReportMoment>, start: Long, end: Lon
             }
             val periodLabel = "${time(start)} — ${time(end)}"
             val countLabel = if (buckets.size < events.size)
-                "${events.size} ocorrências • ${buckets.size} grupos"
-            else "${events.size} ocorrência${if (events.size == 1) "" else "s"}"
+                androidx.compose.ui.res.stringResource(R.string.editorial_report_event_groups, events.size, buckets.size)
+            else androidx.compose.ui.res.stringResource(R.string.editorial_report_events, events.size)
             if (compactLabels) {
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(periodLabel, style = MaterialTheme.typography.labelSmall,
@@ -556,7 +699,7 @@ internal fun reportChartSamples(values: List<ReportChartBucket>): List<List<Repo
     val segments = mutableListOf<MutableList<ReportChartSample>>()
     values.forEachIndexed { index, bucket ->
         if (bucket.value?.isFinite() != true) return@forEachIndexed
-        if (index == 0 || values[index - 1].value?.isFinite() != true) segments.add(mutableListOf())
+        if (index == 0 || values[index - 1].value?.isFinite() != true || values[index - 1].end < bucket.start) segments.add(mutableListOf())
         segments.last() += ReportChartSample(index, bucket)
     }
     return segments
@@ -584,51 +727,43 @@ internal fun aggregateReportTimeline(
     }
 }
 
-private fun reportTimelineTone(event: ReportMoment): Int = when {
-    event.title.contains("perda", true) -> 3
-    event.title.contains("conexão", true) -> 2
-    event.title.contains("latência", true) -> 1
-    else -> 0
-}
+private fun reportTimelineTone(event: ReportMoment): Int = HistoryEventCodec.timelineTone(event.title)
 
 @Composable
 private fun EventBreakdown(events: List<ReportMoment>) {
-    val grouped = events.groupingBy { it.title }.eachCount().entries.sortedByDescending { it.value }
-    val maximum = grouped.maxOfOrNull { it.value }?.coerceAtLeast(1) ?: 1
+    val grouped = events.groupBy { HistoryEventCodec.parse(it.title).semanticKey }
+        .values.map { it.first().title to it.size }.sortedByDescending { it.second }
+    val maximum = grouped.maxOfOrNull { it.second }?.coerceAtLeast(1) ?: 1
     grouped.take(5).forEach { (title, count) ->
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(Modifier.fillMaxWidth()) {
-                Text(title, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                Text(telemetryLabel(title), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
                 Text(count.toString(), style = MaterialTheme.typography.labelLarge)
             }
             LinearProgressIndicator(progress = { count.toFloat() / maximum },
                 modifier = Modifier.fillMaxWidth().height(8.dp), trackColor = MaterialTheme.colorScheme.surfaceContainerHigh)
         }
     }
-    if (grouped.size > 5) Text("Mais ${grouped.size - 5} tipos agrupados no gráfico.",
+    if (grouped.size > 5) Text(androidx.compose.ui.res.pluralStringResource(
+        R.plurals.ui_more_event_types, grouped.size - 5, grouped.size - 5),
         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
-private fun eventPriority(title: String): Int = when {
-    title.contains("conexão perdida", true) -> 4
-    title.contains("alerta", true) -> 3
-    title.contains("perda", true) || title.contains("latência", true) -> 2
-    else -> 1
-}
+private fun eventPriority(title: String): Int = HistoryEventCodec.priority(title)
 
 @Composable
-private fun ReportEmpty(message: String) {
-    Surface(Modifier.fillMaxWidth(), shape = DashDesign.hero,
-        color = MaterialTheme.colorScheme.secondaryContainer) {
-        Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Icon(Icons.Rounded.Schedule, null, Modifier.size(42.dp))
-            Text(message, textAlign = TextAlign.Center)
+private fun ReportEmpty(message: String, loading: Boolean = false) {
+    Surface(Modifier.fillMaxWidth(), shape = DashDesign.section,
+        color = MaterialTheme.colorScheme.surfaceContainerLow) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(message, style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (loading) LinearProgressIndicator(Modifier.fillMaxWidth())
         }
     }
 }
 
-private fun day(value: Long) = SimpleDateFormat("dd 'de' MMMM", Locale.getDefault()).format(Date(value))
+private fun day(value: Long) = DateFormat.getDateInstance(DateFormat.MEDIUM, Locale.getDefault()).format(Date(value))
 private fun time(value: Long) = DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(value))
 private fun dateTime(value: Long) = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(value))
 private fun number(value: Float, decimals: Int = 1) = String.format(Locale.getDefault(), "%.${decimals}f", value)

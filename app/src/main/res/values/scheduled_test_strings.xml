@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="auto_custom">Personalizado</string>
+    <string name="auto_edit_time">Editar horário</string>
+    <string name="auto_remove_time">Remover horário</string>
+    <string name="auto_add_time">Adicionar horário</string>
+    <string name="auto_duplicate_time">Escolha um horário diferente dos outros.</string>
+    <string name="auto_android_delayed_time">Planejado para %1$s · Aguardando o sistema</string>
+    <string name="auto_slot_completed">Concluído</string>
+    <string name="auto_slot_not_executed">Não executado</string>
+    <string name="auto_slot_next">Próximo</string>
+    <string name="auto_slot_planned">Planejado</string>
+    <string name="auto_save_failed">Não foi possível salvar os horários. Tente novamente.</string>
+</resources>

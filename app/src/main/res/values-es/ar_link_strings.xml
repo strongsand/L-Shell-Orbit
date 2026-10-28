@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ar_link_title">Estimación del enlace</string>
+    <string name="ar_link_visible">En el cielo: %1$d · Mostrados: %2$d</string>
+    <string name="ar_link_candidate_name">%1$d. %2$s</string>
+    <string name="ar_link_filtered">oculto por los filtros</string>
+    <string name="ar_link_confidence_high">Confianza geométrica alta</string>
+    <string name="ar_link_confidence_medium">Confianza geométrica media</string>
+    <string name="ar_link_confidence_low">Confianza geométrica baja</string>
+    <string name="ar_link_no_live">Sin telemetría reciente de una antena conectada.</string>
+    <string name="ar_link_no_orientation">Orientación de la antena no disponible.</string>
+    <string name="ar_link_no_location">Esperando una ubicación reciente.</string>
+    <string name="ar_link_no_candidates">Sin candidatos con datos orbitales recientes en la región estimada.</string>
+    <string name="ar_link_disclaimer">Estimación por geometría. No confirma el satélite en uso.</string>
+    <string name="ar_link_names">Nombres</string>
+    <string name="ar_link_trails">Trayectorias previstas</string>
+    <string name="ar_link_reduce_effects">Reducir efectos</string>
+    <string name="ar_link_identity">NORAD: %1$s</string>
+    <string name="ar_link_unknown">no informado</string>
+    <string name="ar_link_angles">Acimut %1$d° · Elevación %2$d°</string>
+    <string name="ar_link_primary">Enlace probable</string>
+    <string name="ar_link_possible">Candidatos posibles</string>
+    <string name="ar_link_exit">Salida estimada de la región en unos %1$d s</string>
+    <string name="ar_link_exit_unknown">Tiempo de salida de la región no determinado.</string>
+    <string name="ar_link_geometry_note">La región es aproximada y usa la ubicación del teléfono. Úsalo cerca de la antena. La salida prevista no es una hora de handover; la brújula, la ubicación y las órbitas pueden tener errores.</string>
+    <string name="ar_link_inspect">Ver detalles de %1$s</string>
+</resources>

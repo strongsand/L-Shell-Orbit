@@ -2,33 +2,35 @@ package io.github.strongsand.lshell
 
 import android.content.Context
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import io.github.strongsand.lshell.core.model.DishySnapshot
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -52,15 +54,18 @@ data class ExtremeRun(
     val durationMs: Long,
     val estimatedBytes: Long,
     val powerWatts: Float? = null,
-    val failure: String? = null
+    val failure: String? = null,
+    val downloadMeasured: Boolean? = null,
+    val uploadMeasured: Boolean? = null
 )
 
 data class ExtremeSession(val id: Long, val requestedTests: Int, val startedAt: Long,
                           val endedAt: Long, val runs: List<ExtremeRun>)
 
-private class ExtremeSessionStore(context: Context) {
+internal class ExtremeSessionStore(context: Context) {
+    init { BackupGate.ensureRecovered(context) }
     private val directory = File(context.filesDir, "extreme_tests").apply { mkdirs() }
-    fun save(session: ExtremeSession) {
+    fun save(session: ExtremeSession) = synchronized(BackupGate.monitor) {
         val target = File(directory, "extreme_${session.id}.json")
         val temporary = File(directory, "extreme_${session.id}.tmp")
         temporary.writeText(session.toJson().toString())
@@ -74,139 +79,95 @@ private class ExtremeSessionStore(context: Context) {
 }
 
 @Composable
-fun ExtremeSpeedTestScreen(snapshot: DishySnapshot, modifier: Modifier = Modifier, onBack: () -> Unit) {
+fun ExtremeSpeedTestScreen(snapshot: DishySnapshot, modifier: Modifier = Modifier, requestedId: Long? = null, onBack: () -> Unit) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val haptics = rememberDashHaptics()
-    val currentSnapshot by rememberUpdatedState(snapshot)
+    val controller = remember(context) { ConnectionTestController.get(context) }
+    ConnectionTestFeedback(controller, ConnectionTestKind.EXTREME)
+    val execution by controller.state.collectAsState()
     var count by rememberSaveable { mutableIntStateOf(5) }
-    var running by remember { mutableStateOf(false) }
-    var confirm by remember { mutableStateOf(false) }
-    var progress by remember { mutableIntStateOf(0) }
-    var runs by remember { mutableStateOf<List<ExtremeRun>>(emptyList()) }
-    var error by remember { mutableStateOf<String?>(null) }
-    var completed by remember { mutableStateOf<ExtremeSession?>(null) }
-
-    fun start() {
-        running = true; progress = 0; runs = emptyList(); error = null; completed = null
-        scope.launch {
-            val started = System.currentTimeMillis()
-            try {
-                repeat(count) { index ->
-                    val runStarted = System.currentTimeMillis()
-                    val run = try {
-                        val result = SpeedTestClient.router()
-                        val elapsed = (System.currentTimeMillis() - runStarted).coerceAtLeast(1L)
-                        val after = currentSnapshot
-                        val averageMbps = (result.downloadMbps + result.uploadMbps).coerceAtLeast(0f)
-                        val estimatedBytes = (averageMbps * 1_000_000.0 / 8.0 * elapsed / 1_000.0).toLong()
-                        ExtremeRun(index + 1, runStarted, result.downloadMbps, result.uploadMbps,
-                            result.latencyMs ?: after.latency.popPingLatencyMs.takeIf { it > 0f },
-                            after.latency.popPingDropRate * 100f, after.obstruction.obstructionPercentage,
-                            after.state.name, after.alerts.getActiveAlertsList(), elapsed, estimatedBytes)
-                    } catch (e: CancellationException) { throw e }
-                    catch (e: Exception) {
-                        val after = currentSnapshot
-                        ExtremeRun(index + 1, runStarted, 0f, 0f,
-                            after.latency.popPingLatencyMs.takeIf { it > 0f },
-                            after.latency.popPingDropRate * 100f, after.obstruction.obstructionPercentage,
-                            after.state.name, after.alerts.getActiveAlertsList(),
-                            (System.currentTimeMillis() - runStarted).coerceAtLeast(1L), 0L,
-                            failure = e.message ?: "Teste sem resultado")
-                    }
-                    runs = runs + run
-                    withContext(Dispatchers.IO) {
-                        HistoryStore(context).use { it.addReading(currentSnapshot) }
-                    }
-                    progress = index + 1
-                    haptics.perform(DashFeedback.TAP)
-                    if (index < count - 1) delay(1_500L)
-                }
-                val session = ExtremeSession(started, count, started, System.currentTimeMillis(), runs)
-                withContext(Dispatchers.IO) {
-                    ExtremeSessionStore(context).save(session)
-                    HistoryStore(context).use { history ->
-                        val failed = runs.count { it.failure != null }
-                        val peakLoss = runs.maxOfOrNull { it.packetLossPercent } ?: 0f
-                        history.addEvent("Teste Extremo concluído: ${runs.size} testes" +
-                            (if (failed > 0) " · $failed sem resultado" else "") +
-                            (if (peakLoss >= 1f) " · perda máxima ${one(peakLoss)}%" else ""), session.endedAt)
-                    }
-                }
-                completed = session
-                haptics.perform(DashFeedback.CONFIRM)
-            } catch (e: CancellationException) { throw e }
-            catch (e: Exception) {
-                error = e.message ?: "Não foi possível concluir o Teste Extremo."
-                haptics.perform(DashFeedback.WARNING)
-            } finally { running = false }
-        }
+    // This destination follows an active run or an explicitly requested result,
+    // never an unrelated completed execution retained by the controller.
+    var selectedId by rememberSaveable(requestedId) {
+        mutableStateOf(ExtremeTestNavigation.followedId(execution, requestedId, null))
     }
+    LaunchedEffect(execution.id, execution.active, requestedId) {
+        selectedId = ExtremeTestNavigation.followedId(execution, requestedId, selectedId)
+    }
+    val own = execution.kind == ConnectionTestKind.EXTREME && (selectedId == null || selectedId == execution.id)
+    val running = execution.active
+    var confirm by remember { mutableStateOf(false) }
+    val error = when {
+        selectedId != null && execution.id != selectedId -> androidx.compose.ui.res.stringResource(R.string.test_result_unavailable)
+        !own && running -> androidx.compose.ui.res.stringResource(R.string.test_other_active)
+        own && execution.phase == ConnectionTestPhase.INTERRUPTED -> androidx.compose.ui.res.stringResource(R.string.test_interrupted_detail)
+        own -> execution.error
+        else -> null
+    }
+    val completed = execution.extreme.takeIf { ExtremeTestNavigation.showsResult(execution, selectedId) }
+    val startTest = rememberConnectionTestStart(ConnectionTestKind.EXTREME, count)
+    fun start() { selectedId = null; startTest() }
 
-    if (completed != null) ExtremeResultContent(completed!!, modifier, onBack)
-    else LazyColumn(modifier.fillMaxSize().padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        item { ExtremeHeader("Teste Extremo", onBack) }
-        item {
-            Surface(Modifier.fillMaxWidth(), shape = DashDesign.hero,
-                color = MaterialTheme.colorScheme.primaryContainer) {
-                Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Icon(Icons.Rounded.ElectricBolt, null, Modifier.size(42.dp),
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer)
-                    Text("Teste repetido de estabilidade", style = MaterialTheme.typography.headlineMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer)
-                    Text("Executa o mesmo teste do Teste Único várias vezes para comparar os resultados.",
-                        color = MaterialTheme.colorScheme.onPrimaryContainer)
-                }
-            }
-        }
-        item {
-            Surface(Modifier.fillMaxWidth(), shape = DashDesign.section,
-                color = MaterialTheme.colorScheme.surfaceContainerLow) {
-                Column(Modifier.padding(DashDesign.inset), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Quantidade de testes", style = MaterialTheme.typography.titleLarge)
-                    Text(count.toString(), style = MaterialTheme.typography.displaySmall,
-                        color = MaterialTheme.colorScheme.primary)
-                    Slider(value = count.toFloat(), onValueChange = hapticSliderValue(count) { count = it },
-                        valueRange = 5f..15f, steps = 9, enabled = !running)
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("5", style = MaterialTheme.typography.labelMedium)
-                        Text("15", style = MaterialTheme.typography.labelMedium)
+    val motion = LocalOrbitMotion.current
+    Crossfade(targetState = completed, animationSpec = tween(if (motion) 200 else 0),
+        label = "extreme execution to result") { shownResult ->
+        if (shownResult != null) ExtremeResultContent(shownResult, modifier, onBack)
+        else LazyColumn(modifier.fillMaxSize().padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            item { ExtremeHeader(androidx.compose.ui.res.stringResource(R.string.function_extreme), onBack) }
+            if (!(running && own)) item {
+                Surface(Modifier.fillMaxWidth(), shape = DashDesign.hero,
+                    color = amoledCardColor(MaterialTheme.colorScheme.primaryContainer)) {
+                    Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Icon(OrbitSymbols.ElectricBolt, null, Modifier.size(42.dp),
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                        Text(androidx.compose.ui.res.stringResource(R.string.test_repeat_title), style = MaterialTheme.typography.headlineMedium,
+                            color = amoledCardContent(MaterialTheme.colorScheme.onPrimaryContainer))
+                        Text(androidx.compose.ui.res.stringResource(R.string.editorial_repeat_test),
+                            color = amoledCardContent(MaterialTheme.colorScheme.onPrimaryContainer))
                     }
                 }
             }
-        }
-        if (running) item {
-            Surface(Modifier.fillMaxWidth().animateContentSize(), shape = DashDesign.section,
-                color = MaterialTheme.colorScheme.secondaryContainer) {
-                Column(Modifier.padding(DashDesign.inset), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Teste ${(progress + 1).coerceAtMost(count)} de $count", style = MaterialTheme.typography.titleLarge)
-                    LinearProgressIndicator(progress = { progress.toFloat() / count }, Modifier.fillMaxWidth())
-                    if (runs.isNotEmpty()) Text("Último: ${one(runs.last().downloadMbps)} Mbps ↓ · ${one(runs.last().uploadMbps)} Mbps ↑")
+            if (!(running && own)) item {
+                Surface(Modifier.fillMaxWidth(), shape = DashDesign.section,
+                    color = MaterialTheme.colorScheme.surfaceContainerLow) {
+                    Column(Modifier.padding(DashDesign.inset), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(androidx.compose.ui.res.stringResource(R.string.test_round_count), style = MaterialTheme.typography.titleLarge)
+                        TestValueText(count.toString(), style = MaterialTheme.typography.displaySmall,
+                            color = MaterialTheme.colorScheme.primary)
+                        Slider(value = count.toFloat(), onValueChange = hapticSliderValue(count) { count = it },
+                            valueRange = 5f..15f, steps = 9, enabled = !running)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("5", style = MaterialTheme.typography.labelMedium)
+                            Text("15", style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
                 }
             }
-        }
-        error?.let { message -> item {
-            Surface(Modifier.fillMaxWidth(), shape = DashDesign.section,
-                color = MaterialTheme.colorScheme.errorContainer) {
-                Text(message, Modifier.padding(18.dp), color = MaterialTheme.colorScheme.onErrorContainer)
+            if (running && own) item("active") {
+                TestActivityCard(execution, onStop = { controller.stop(execution.id) })
             }
-        } }
-        item {
-            val interaction = remember { MutableInteractionSource() }
-            Button(onClick = hapticClick(DashFeedback.SPECIAL) { confirm = true }, enabled = !running,
-                interactionSource = interaction, modifier = Modifier.fillMaxWidth().pressMotion(interaction, .97f)) {
-                Text("Iniciar Teste Extremo")
+            error?.let { message -> item {
+                Surface(Modifier.fillMaxWidth(), shape = DashDesign.section,
+                    color = amoledCardColor(MaterialTheme.colorScheme.errorContainer)) {
+                    Text(message, Modifier.padding(18.dp), color = MaterialTheme.colorScheme.onErrorContainer)
+                }
+            } }
+            if (!(running && own)) item {
+                val interaction = remember { MutableInteractionSource() }
+                Button(onClick = hapticClick(DashFeedback.SPECIAL) { confirm = true }, enabled = !running,
+                    interactionSource = interaction, modifier = Modifier.fillMaxWidth().pressMotion(interaction, .97f)) {
+                    Text(androidx.compose.ui.res.stringResource(R.string.test_start_extreme))
+                }
             }
+            item { Spacer(Modifier.height(20.dp)) }
         }
-        item { Spacer(Modifier.height(20.dp)) }
     }
     if (confirm) AlertDialog(onDismissRequest = { confirm = false },
-        icon = { Icon(Icons.Rounded.DataUsage, null) },
-        title = { Text("Teste Extremo") },
-        text = { Text("Este teste executará $count testes consecutivos e poderá consumir uma quantidade significativa de dados. O consumo final será identificado como estimado porque o teste não fornece contadores de bytes.") },
-        confirmButton = { TextButton(onClick = hapticClick(DashFeedback.CONFIRM) { confirm = false; start() }) { Text("Iniciar") } },
-        dismissButton = { TextButton(onClick = hapticClick { confirm = false }) { Text("Cancelar") } })
+        icon = { Icon(OrbitSymbols.DataUsage, null) },
+        title = { Text(androidx.compose.ui.res.stringResource(R.string.function_extreme)) },
+        text = { Text(androidx.compose.ui.res.stringResource(R.string.test_extreme_confirm, count)) },
+        confirmButton = { TextButton(onClick = hapticClick(DashFeedback.CONFIRM) { confirm = false; start() }) { Text(androidx.compose.ui.res.stringResource(R.string.editorial_start_test)) } },
+        dismissButton = { TextButton(onClick = hapticClick { confirm = false }) { Text(androidx.compose.ui.res.stringResource(R.string.test_cancel_action)) } })
 }
 
 @Composable
@@ -220,8 +181,8 @@ fun ExtremeTestHistoryScreen(modifier: Modifier = Modifier, onBack: () -> Unit) 
     if (selected != null) ExtremeResultContent(selected!!, modifier) { selected = null }
     else LazyColumn(modifier.fillMaxSize().padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        item { ExtremeHeader("Testes Extremos", onBack) }
-        if (sessions.isEmpty()) item { ExtremeEmpty("Nenhum Teste Extremo concluído.") }
+        item { ExtremeHeader(stringResource(R.string.ui_extreme_tests), onBack) }
+        if (sessions.isEmpty()) item { ExtremeEmpty(stringResource(R.string.ui_no_completed_extreme_tests)) }
         else items(sessions, key = { it.id }) { session ->
             val interaction = remember { MutableInteractionSource() }
             Surface(onClick = hapticClick { selected = session }, interactionSource = interaction,
@@ -229,15 +190,16 @@ fun ExtremeTestHistoryScreen(modifier: Modifier = Modifier, onBack: () -> Unit) 
                 color = MaterialTheme.colorScheme.surfaceContainerLow) {
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    ExpressiveIcon(Icons.Rounded.ElectricBolt, MaterialTheme.colorScheme.secondaryContainer,
+                    ExpressiveIcon(OrbitSymbols.ElectricBolt, MaterialTheme.colorScheme.secondaryContainer,
                         MaterialTheme.colorScheme.onSecondaryContainer)
                     Column(Modifier.weight(1f)) {
                         Text(DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(session.startedAt)),
                             style = MaterialTheme.typography.titleMedium)
-                        Text("${session.runs.size} testes · download médio ${one(session.runs.map { it.downloadMbps }.averageFloat())} Mbps",
+                        Text(pluralStringResource(R.plurals.ui_extreme_history_summary, session.runs.size, session.runs.size,
+                            one(session.runs.map { it.downloadMbps }.averageFloat())),
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    Icon(Icons.Rounded.ChevronRight, null)
+                    Icon(OrbitSymbols.ChevronRight, null)
                 }
             }
         }
@@ -248,46 +210,58 @@ fun ExtremeTestHistoryScreen(modifier: Modifier = Modifier, onBack: () -> Unit) 
 @Composable
 private fun ExtremeResultContent(session: ExtremeSession, modifier: Modifier, onBack: () -> Unit) {
     val stats = remember(session) { ExtremeStats.from(session) }
+    val resultState = remember(session) { ConnectionTestState(id = session.id,
+        kind = ConnectionTestKind.EXTREME, phase = ConnectionTestPhase.COMPLETED,
+        startedAt = session.startedAt, endedAt = session.endedAt, runs = session.runs, extreme = session,
+        total = session.requestedTests, completed = session.runs.size) }
+    val resultModel = remember(resultState) { ConnectionTestResultModel.from(resultState) }
     var selectedRun by rememberSaveable(session.id) { mutableIntStateOf(-1) }
     LazyColumn(modifier.fillMaxSize().padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        item { ExtremeHeader("Resultado do Teste Extremo", onBack) }
+        item { ExtremeHeader(androidx.compose.ui.res.stringResource(R.string.test_extreme_result), onBack) }
         item {
-            Surface(Modifier.fillMaxWidth(), shape = DashDesign.hero,
-                color = qualityColors(stats.quality).first,
-                contentColor = qualityColors(stats.quality).second) {
-                Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Rounded.Verified, null, Modifier.size(42.dp))
-                    Text(stats.quality, style = MaterialTheme.typography.headlineMedium)
-                    Text("${session.runs.size} testes concluídos")
-                }
-            }
+            val outcome = ConnectionTestExperience.outcome(resultState)
+            val fullyCompleted = session.runs.size == session.requestedTests
+            val description = stringResource(when {
+                outcome != TestOutcome.SUCCESS -> R.string.test_no_result
+                fullyCompleted -> R.string.test_done
+                else -> R.string.test_result_ready
+            })
+            val colors = qualityColors(stats.quality)
+            TestResultBanner(stringResource(R.string.function_extreme),
+                if (outcome == TestOutcome.SUCCESS) stringResource(resultModel.title) else description,
+                description + " · " + stringResource(R.string.test_rounds_done, session.runs.size, session.requestedTests),
+                outcome == TestOutcome.SUCCESS, colors.first, colors.second, icon = when (resultModel.statusIcon) {
+                    R.drawable.ic_test_result_check -> OrbitSymbols.CheckCircle
+                    R.drawable.ic_test_result_warning -> OrbitSymbols.Warning
+                    else -> OrbitSymbols.Info
+                })
         }
+        item { TestResultRates(resultModel.metrics, averages = true) }
+        item { TestResultFacts(resultModel.metrics, resultModel.durationSeconds?.let { durationText(it * 1000L) }, averages = true) }
         item {
-            ExtremeSection("Resumo") {
-                ExtremePair("Download médio", "${one(stats.downloadAverage)} Mbps", "Upload médio", "${one(stats.uploadAverage)} Mbps")
-                ExtremePair("Latência média", stats.latencyAverage?.let { "${one(it)} ms" } ?: "Não informada",
-                    "Packet loss médio", "${one(stats.lossAverage)}%")
-                ExtremePair("Download estimado", "≈ ${formatBytes(stats.downloadEstimatedBytes)}",
-                    "Upload estimado", "≈ ${formatBytes(stats.uploadEstimatedBytes)}")
-                ExtremePair("Total estimado", "≈ ${formatBytes(stats.estimatedBytes)}", "Duração", durationText(session.endedAt - session.startedAt))
-                Text("O consumo é estimado pelo throughput médio e pela duração de cada teste.",
+            ExtremeSection(stringResource(R.string.traffic_summary)) {
+                ExtremePair(stringResource(R.string.ui_estimated_download), "≈ ${formatBytes(stats.downloadEstimatedBytes)}",
+                    stringResource(R.string.ui_estimated_upload), "≈ ${formatBytes(stats.uploadEstimatedBytes)}")
+                ExtremePair(stringResource(R.string.ui_estimated_total), "≈ ${formatBytes(stats.estimatedBytes)}",
+                    stringResource(R.string.editorial_mean_loss), "${one(stats.lossAverage)}%")
+                Text(stringResource(R.string.ui_data_use_is_estimated_from_the_average_throughput_and_duration_of),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        item { ExtremeChart("Download por teste", session.runs.map { it.downloadMbps }, "Mbps", selectedRun) { selectedRun = it } }
-        item { ExtremeChart("Upload por teste", session.runs.map { it.uploadMbps }, "Mbps", selectedRun) { selectedRun = it } }
-        item { ExtremeChart("Latência por teste", session.runs.map { it.latencyMs ?: 0f }, "ms", selectedRun) { selectedRun = it } }
-        item { ExtremeChart("Packet loss por teste", session.runs.map { it.packetLossPercent }, "%", selectedRun) { selectedRun = it } }
+        item { ExtremeChart(stringResource(R.string.ui_download_per_test), session.runs.map { if (it.downloadMeasured == false) Float.NaN else it.downloadMbps }, "Mbps", session.runs.map { it.timestamp }, selectedRun) { selectedRun = it } }
+        item { ExtremeChart(stringResource(R.string.ui_upload_per_test), session.runs.map { if (it.uploadMeasured == false) Float.NaN else it.uploadMbps }, "Mbps", session.runs.map { it.timestamp }, selectedRun) { selectedRun = it } }
+        item { ExtremeChart(stringResource(R.string.ui_latency_per_test), session.runs.map { it.latencyMs ?: Float.NaN }, "ms", session.runs.map { it.timestamp }, selectedRun) { selectedRun = it } }
+        item { ExtremeChart(androidx.compose.ui.res.stringResource(R.string.editorial_loss_tests), session.runs.map { it.packetLossPercent }, "%", session.runs.map { it.timestamp }, selectedRun) { selectedRun = it } }
         item {
-            ExtremeSection("Estatísticas") {
-                ExtremePair("Download mediano", "${one(stats.downloadMedian)} Mbps", "Mínimo", "${one(stats.downloadMin)} Mbps")
-                ExtremePair("Máximo", "${one(stats.downloadMax)} Mbps", "Desvio padrão", "${one(stats.downloadStdDev)} Mbps")
-                ExtremePair("Upload mediano", "${one(stats.uploadMedian)} Mbps", "Upload mínimo", "${one(stats.uploadMin)} Mbps")
-                ExtremePair("Upload máximo", "${one(stats.uploadMax)} Mbps", "Variação download", "${one(stats.downloadRange)} Mbps")
-                stats.latencyP95?.let { ExtremePair("Latência p95", "${one(it)} ms",
-                    "Faixa de latência", "${one(stats.latencyMin ?: 0f)}–${one(stats.latencyMax ?: 0f)} ms") }
-                ExtremePair("Perda máxima", "${one(stats.lossMax)}%", "Testes com perda", stats.testsWithLoss.toString())
+            ExtremeSection(stringResource(R.string.ui_statistics)) {
+                ExtremePair(stringResource(R.string.health_download_median), "${one(stats.downloadMedian)} Mbps", stringResource(R.string.ui_minimum), "${one(stats.downloadMin)} Mbps")
+                ExtremePair(stringResource(R.string.ui_maximum), "${one(stats.downloadMax)} Mbps", stringResource(R.string.ui_standard_deviation), "${one(stats.downloadStdDev)} Mbps")
+                ExtremePair(stringResource(R.string.health_upload_median), "${one(stats.uploadMedian)} Mbps", stringResource(R.string.ui_minimum_upload), "${one(stats.uploadMin)} Mbps")
+                ExtremePair(stringResource(R.string.ui_maximum_upload), "${one(stats.uploadMax)} Mbps", stringResource(R.string.ui_download_range), "${one(stats.downloadRange)} Mbps")
+                stats.latencyP95?.let { ExtremePair(stringResource(R.string.ui_latency_p95), "${one(it)} ms",
+                    stringResource(R.string.ui_latency_range), "${one(stats.latencyMin ?: 0f)}–${one(stats.latencyMax ?: 0f)} ms") }
+                ExtremePair(stringResource(R.string.ui_peak_packet_loss), "${one(stats.lossMax)}%", stringResource(R.string.ui_tests_with_packet_loss), stats.testsWithLoss.toString())
             }
         }
         items(session.runs, key = { it.index }) { run ->
@@ -299,22 +273,23 @@ private fun ExtremeResultContent(session: ExtremeSession, modifier: Modifier, on
                 color = if (anomaly) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.surfaceContainerLow) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Teste ${run.index}", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(R.string.ui_test_number, run.index), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
                         Text("${one(run.downloadMbps)} Mbps", style = MaterialTheme.typography.titleMedium)
                     }
-                    if (anomaly) Text("Resultado significativamente abaixo dos demais.",
+                    if (anomaly) Text(stringResource(R.string.ui_result_significantly_below_the_others),
                         style = MaterialTheme.typography.bodySmall)
                     if (selectedRun == run.index - 1) {
-                        run.failure?.let { Text(it, color = MaterialTheme.colorScheme.error,
+                        run.failure?.let { Text(telemetryLabel(it), color = MaterialTheme.colorScheme.error,
                             style = MaterialTheme.typography.bodyMedium) }
-                        ExtremePair("Download", "${one(run.downloadMbps)} Mbps", "Upload", "${one(run.uploadMbps)} Mbps")
-                        ExtremePair("Latência", run.latencyMs?.let { "${one(it)} ms" } ?: "Não informada",
-                            "Packet loss", "${one(run.packetLossPercent)}%")
-                        ExtremePair("Obstrução", "${one(run.obstructionPercent)}%", "Duração", durationText(run.durationMs))
-                        InfoRow("Estado", run.dishState.replace('_', ' '))
-                        InfoRow("Horário", DateFormat.getTimeInstance(DateFormat.MEDIUM).format(Date(run.timestamp)))
-                        InfoRow("Consumo estimado", "≈ ${formatBytes(run.estimatedBytes)}")
-                        InfoRow("Potência", run.powerWatts?.let { "${one(it)} W" } ?: "Não fornecida")
+                        ExtremePair(stringResource(R.string.health_download), "${one(run.downloadMbps)} Mbps", stringResource(R.string.health_upload), "${one(run.uploadMbps)} Mbps")
+                        ExtremePair(stringResource(R.string.health_latency), run.latencyMs?.let { "${one(it)} ms" } ?: stringResource(R.string.ui_not_provided),
+                            androidx.compose.ui.res.stringResource(R.string.traffic_loss), "${one(run.packetLossPercent)}%")
+                        ExtremePair(stringResource(R.string.editorial_obstruction), "${one(run.obstructionPercent)}%", stringResource(R.string.ui_duration), durationText(run.durationMs))
+                        InfoRow(stringResource(R.string.ui_state), storedDishStateLabel(run.dishState))
+                        InfoRow(stringResource(R.string.settings_report_time), DateFormat.getTimeInstance(DateFormat.MEDIUM).format(Date(run.timestamp)))
+                        InfoRow(stringResource(R.string.ui_estimated_data_use), "≈ ${formatBytes(run.estimatedBytes)}")
+                        InfoRow(stringResource(R.string.editorial_power), run.powerWatts?.let { "${one(it)} W" } ?: stringResource(R.string.ui_not_provided_2),
+                            missing = run.powerWatts == null)
                     }
                 }
             }
@@ -323,13 +298,13 @@ private fun ExtremeResultContent(session: ExtremeSession, modifier: Modifier, on
     }
 }
 
-private data class ExtremeStats(
+internal data class ExtremeStats(
     val downloadAverage: Float, val downloadMedian: Float, val downloadMin: Float, val downloadMax: Float,
     val downloadRange: Float, val downloadStdDev: Float, val uploadAverage: Float, val uploadMedian: Float,
     val uploadMin: Float, val uploadMax: Float, val latencyAverage: Float?, val latencyP95: Float?,
     val latencyMin: Float?, val latencyMax: Float?, val lossAverage: Float, val lossMax: Float,
     val testsWithLoss: Int, val downloadEstimatedBytes: Long, val uploadEstimatedBytes: Long,
-    val estimatedBytes: Long, val quality: String
+    val estimatedBytes: Long, val quality: ExtremeStabilityGrade
 ) {
     companion object {
         fun from(session: ExtremeSession): ExtremeStats {
@@ -342,10 +317,10 @@ private data class ExtremeStats(
             val cv = if (downAvg > 0f) std / downAvg else 1f
             // Objective thresholds: throughput coefficient of variation, packet loss and failed/empty results.
             val quality = when {
-                down.any { it <= 0f } || loss.averageFloat() >= 2f || cv >= .35f -> "Instabilidade significativa"
-                loss.averageFloat() >= 1f || cv >= .20f -> "Conexão variável"
-                loss.averageFloat() < .2f && cv < .10f -> "Excelente estabilidade"
-                else -> "Boa estabilidade"
+                down.any { it <= 0f } || loss.averageFloat() >= 2f || cv >= .35f -> ExtremeStabilityGrade.UNSTABLE
+                loss.averageFloat() >= 1f || cv >= .20f -> ExtremeStabilityGrade.VARIABLE
+                loss.averageFloat() < .2f && cv < .10f -> ExtremeStabilityGrade.EXCELLENT
+                else -> ExtremeStabilityGrade.GOOD
             }
             val downloadBytes = session.runs.sumOf {
                 (it.downloadMbps.coerceAtLeast(0f) * 1_000_000.0 / 8.0 * it.durationMs / 1_000.0).toLong()
@@ -365,40 +340,92 @@ private data class ExtremeStats(
 }
 
 @Composable
-private fun ExtremeChart(title: String, values: List<Float>, unit: String, selected: Int, onSelect: (Int) -> Unit) {
+private fun ExtremeChart(title: String, values: List<Float>, unit: String, times: List<Long>, selected: Int, onSelect: (Int) -> Unit) {
     if (values.size < 2) return
-    var width by remember { mutableFloatStateOf(1f) }
-    val line = MaterialTheme.colorScheme.primary
-    val selectedColor = MaterialTheme.colorScheme.tertiary
-    val background = MaterialTheme.colorScheme.surfaceContainer
-    val max = values.max().coerceAtLeast(1f)
-    ExtremeSection(title) {
-        Canvas(Modifier.fillMaxWidth().height(150.dp).onSizeChanged { width = it.width.toFloat() }
-            .pointerInput(values) { detectTapGestures { point ->
-                onSelect(((point.x / width) * values.size).toInt().coerceIn(0, values.lastIndex))
-            } }) {
-            drawRoundRect(background, cornerRadius = androidx.compose.ui.geometry.CornerRadius(22.dp.toPx()))
-            val inset = 16.dp.toPx()
-            val path = Path()
-            values.forEachIndexed { index, value ->
-                val x = inset + (size.width - inset * 2) * index / values.lastIndex
-                val y = size.height - inset - (size.height - inset * 2) * value.coerceAtLeast(0f) / max
-                if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
-                drawCircle(if (index == selected) selectedColor else line,
-                    if (index == selected) 7.dp.toPx() else 4.dp.toPx(), Offset(x, y))
-            }
-            drawPath(path, line, style = Stroke(3.dp.toPx(), cap = StrokeCap.Round))
+    val palette = MaterialTheme.colorScheme
+    val peak = remember(values) { values.filter { it.isFinite() }.maxOrNull()?.coerceAtLeast(1f) ?: 1f }
+    val haptics = rememberDashHaptics()
+    val feedback = remember(title) { MetricInspectionFeedback() }
+    val valid = remember(values) { values.indices.filter { values[it].isFinite() } }
+    val shown = selected.takeIf { it in values.indices } ?: values.lastIndex
+    val sampleTime = selected.takeIf { it in values.indices && values[it].isFinite() }?.let { times[it] }
+    val pulse = rememberChartPulse(sampleTime)
+    val motion = LocalOrbitMotion.current
+    val gesture = remember { ChartDirectManipulation() }
+    val pixelDensity = androidx.compose.ui.platform.LocalDensity.current.density
+    var plotSize by remember { mutableStateOf(Size(1f, 1f)) }
+    val segments = remember(values) {
+        var first = 0
+        values.mapIndexed { i, value ->
+            if (i == 0 || !values[i - 1].isFinite()) first = i
+            first.toLong().takeIf { value.isFinite() }
         }
-        val index = selected.takeIf { it in values.indices } ?: values.lastIndex
-        Text("Teste ${index + 1} · ${one(values[index])} $unit", style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.primary)
+    }
+    val travelTarget = sampleTime?.let { time -> segments[selected]?.let { segment ->
+        ChartMotionTarget(time, Offset(selected.toFloat() / values.lastIndex, 1f - values[selected] / peak), segment)
+    } }
+    val travel = rememberChartTravel(travelTarget, gesture.active, Triple(title, values.size, peak), plotSize)
+    val gap = androidx.compose.ui.res.stringResource(R.string.metric_detail_gap)
+    val value = values[shown].takeIf { it.isFinite() }?.let { trafficValue(it.toDouble(), unit) } ?: gap
+    val description = androidx.compose.ui.res.stringResource(R.string.chart_round_reading, shown + 1, trafficTime(times[shown], seconds = true), value)
+    val inset = with(androidx.compose.ui.platform.LocalDensity.current) { 16.dp.toPx() }
+    fun select(index: Int) {
+        onSelect(index)
+        val time = times[index].takeIf { values[index].isFinite() }
+        if (feedback.sample(time, android.os.SystemClock.uptimeMillis())) haptics.perform(DashFeedback.DRAG_SNAP)
+    }
+    fun step(forward: Boolean): Boolean {
+        val index = if (forward) valid.firstOrNull { selected < 0 || it > selected }
+            else valid.lastOrNull { selected < 0 || it < selected }
+        index ?: return false
+        select(index); return true
+    }
+    val latestSelect by rememberUpdatedState<(Float) -> Unit>({ fraction -> select(chartOrdinalIndex(fraction, values.size)) })
+    ExtremeSection(title) {
+        Box {
+            val drawing = remember(values, peak, palette) {
+                Modifier.fillMaxWidth().height(150.dp).clipToBounds().drawWithCache {
+                    val margin = 16.dp.toPx()
+                    fun position(index: Int) = Offset(margin + (size.width - margin * 2) * index / values.lastIndex,
+                        size.height - margin - (size.height - margin * 2) * values[index] / peak)
+                    val path = Path()
+                    val dots = mutableListOf<Offset>()
+                    values.indices.forEach { index ->
+                        if (!values[index].isFinite()) return@forEach
+                        val point = position(index)
+                        if (index == 0 || !values[index - 1].isFinite()) path.moveTo(point.x, point.y) else path.lineTo(point.x, point.y)
+                        dots += point
+                    }
+                    onDrawBehind {
+                        drawRoundRect(palette.surfaceContainer, cornerRadius = androidx.compose.ui.geometry.CornerRadius(22.dp.toPx()))
+                        drawPath(path, palette.primary, style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
+                        dots.forEach { drawCircle(palette.primary, 2.5.dp.toPx(), it) }
+                    }
+                }
+            }
+            Box(drawing)
+            Canvas(Modifier.fillMaxWidth().height(150.dp).onSizeChanged { plotSize = Size((it.width / pixelDensity - 32f).coerceAtLeast(1f), (it.height / pixelDensity - 32f).coerceAtLeast(1f)) }.clipToBounds()
+                .chartInspectionAccess(title, description, { if (selected < 0) step(true) else true }, ::step,
+                    { onSelect(-1); feedback.sample(null, android.os.SystemClock.uptimeMillis()); true })
+                .chartScrubbing(title, inset, gesture) { latestSelect(it) }) {
+                if (selected in values.indices) {
+                    val x = inset + (size.width - inset * 2) * selected / values.lastIndex
+                    drawLine(palette.onSurface.copy(alpha = .7f), Offset(x, inset), Offset(x, size.height - inset), 1.dp.toPx())
+                    if (values[selected].isFinite()) drawChartMarker(Offset(x, size.height - inset - (size.height - inset * 2) * values[selected] / peak),
+                        palette.primary, palette.surfaceContainer, if (motion) pulse.value else 0f)
+                    travelTarget?.let { drawChartTravel(travel.value, it.position, palette.primary,
+                        inset, inset, size.width - 2 * inset, size.height - 2 * inset) }
+                }
+            }
+        }
+        MetricDetailValueText(description, MaterialTheme.typography.labelLarge, color = palette.primary)
     }
 }
 
 @Composable
 private fun ExtremePair(a: String, av: String, b: String, bv: String) {
     BoxWithConstraints(Modifier.fillMaxWidth()) {
-        if (maxWidth < 320.dp) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (maxWidth / androidx.compose.ui.platform.LocalDensity.current.fontScale < 320.dp) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             ExtremeCell(a, av, Modifier.fillMaxWidth()); ExtremeCell(b, bv, Modifier.fillMaxWidth())
         } else Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ExtremeCell(a, av, Modifier.weight(1f)); ExtremeCell(b, bv, Modifier.weight(1f))
@@ -407,10 +434,10 @@ private fun ExtremePair(a: String, av: String, b: String, bv: String) {
 }
 
 @Composable private fun ExtremeCell(label: String, value: String, modifier: Modifier) {
-    Surface(modifier, shape = DashDesign.pill, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+    Surface(modifier, shape = DashDesign.section, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
         Column(Modifier.padding(12.dp)) {
             Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(value, style = MaterialTheme.typography.titleMedium)
+            TestValueText(value, style = MaterialTheme.typography.titleMedium)
         }
     }
 }
@@ -426,7 +453,7 @@ private fun ExtremePair(a: String, av: String, b: String, bv: String) {
 
 @Composable private fun ExtremeHeader(title: String, onBack: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = hapticClick(action = onBack)) { Icon(Icons.Rounded.ArrowBack, "Voltar") }
+        IconButton(onClick = hapticClick(action = onBack)) { Icon(OrbitSymbols.ArrowBack, stringResource(R.string.antenna_back)) }
         Text(title, Modifier.weight(1f), style = MaterialTheme.typography.headlineLarge)
     }
 }
@@ -445,9 +472,9 @@ private fun hapticSliderValue(current: Int, update: (Int) -> Unit): (Float) -> U
     }
 }
 
-@Composable private fun qualityColors(quality: String): Pair<Color, Color> = when (quality) {
-    "Instabilidade significativa" -> MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
-    "Conexão variável" -> MaterialTheme.colorScheme.tertiaryContainer to MaterialTheme.colorScheme.onTertiaryContainer
+@Composable private fun qualityColors(quality: ExtremeStabilityGrade): Pair<Color, Color> = when (quality) {
+    ExtremeStabilityGrade.UNSTABLE -> MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
+    ExtremeStabilityGrade.VARIABLE -> MaterialTheme.colorScheme.tertiaryContainer to MaterialTheme.colorScheme.onTertiaryContainer
     else -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer
 }
 
@@ -463,9 +490,10 @@ private fun formatBytes(bytes: Long): String = when {
     bytes >= 1_000_000L -> String.format(Locale.getDefault(), "%.1f MB", bytes / 1_000_000.0)
     else -> String.format(Locale.getDefault(), "%.1f kB", bytes / 1_000.0)
 }
+@Composable
 private fun durationText(ms: Long): String = when {
-    ms < 60_000 -> "${ms / 1_000}s"
-    else -> "${ms / 60_000}min ${ms / 1_000 % 60}s"
+    ms < 60_000 -> stringResource(R.string.ui_duration_seconds_short, ms / 1_000)
+    else -> stringResource(R.string.ui_duration_minutes_seconds, ms / 60_000, ms / 1_000 % 60)
 }
 
 private fun ExtremeSession.toJson() = JSONObject().apply {
@@ -477,6 +505,8 @@ private fun ExtremeSession.toJson() = JSONObject().apply {
         put("state", run.dishState); put("alerts", JSONArray(run.alerts)); put("duration", run.durationMs)
         put("bytes", run.estimatedBytes); put("power", run.powerWatts?.toDouble() ?: JSONObject.NULL)
         put("failure", run.failure ?: JSONObject.NULL)
+        put("download_measured", run.downloadMeasured ?: JSONObject.NULL)
+        put("upload_measured", run.uploadMeasured ?: JSONObject.NULL)
     }) } })
 }
 
@@ -484,13 +514,15 @@ private fun sessionFromJson(json: JSONObject): ExtremeSession {
     val array = json.getJSONArray("runs")
     require(array.length() > 0) { "Sessão sem resultados" }
     val runs = (0 until array.length()).map { i -> array.getJSONObject(i) }.map { run ->
-        ExtremeRun(run.getInt("index"), run.getLong("time"), run.getDouble("down").toFloat(),
-            run.getDouble("up").toFloat(), run.optDouble("latency").takeUnless { it.isNaN() }?.toFloat(),
-            run.getDouble("loss").toFloat(), run.getDouble("obstruction").toFloat(), run.getString("state"),
+        ExtremeRun(run.getInt("index"), run.getLong("time"), run.optDouble("down").toFloat(),
+            run.optDouble("up").toFloat(), run.optDouble("latency").takeUnless { it.isNaN() }?.toFloat(),
+            run.optDouble("loss").toFloat(), run.optDouble("obstruction").toFloat(), run.getString("state"),
             (0 until run.getJSONArray("alerts").length()).map { run.getJSONArray("alerts").getString(it) },
             run.getLong("duration"), run.getLong("bytes"),
             run.optDouble("power").takeUnless { it.isNaN() }?.toFloat(),
-            run.optString("failure").takeIf { it.isNotBlank() && it != "null" })
+            run.optString("failure").takeIf { it.isNotBlank() && it != "null" },
+            if (run.has("download_measured") && !run.isNull("download_measured")) run.getBoolean("download_measured") else null,
+            if (run.has("upload_measured") && !run.isNull("upload_measured")) run.getBoolean("upload_measured") else null)
     }
     return ExtremeSession(json.getLong("id"), json.getInt("requested"), json.getLong("start"), json.getLong("end"), runs)
 }

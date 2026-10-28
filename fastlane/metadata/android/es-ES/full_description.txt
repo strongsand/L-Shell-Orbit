@@ -1,0 +1,17 @@
+L-Shell Orbit es una aplicación independiente y no oficial para monitorear y diagnosticar terminales y routers Starlink compatibles a través de la red local.
+
+Consulta conexión, tráfico, latencia, pérdida de paquetes, señal, potencia, obstrucciones y alertas según los datos que ofrece el equipo. Explora el historial y los informes diarios, semanales y mensuales, exporta información y realiza copias de seguridad y restauraciones manuales de los datos locales.
+
+En routers compatibles, consulta también la tensión de entrada PoE reportada por el equipo y asociada al terminal actual. No es una medición de corriente ni de la tensión de salida del cable.
+
+Organiza las tarjetas de inicio, explora gráficos y sigue las métricas mediante widgets y notificaciones. Ejecuta pruebas de velocidad normal y extrema o configura pruebas programadas e inteligentes. Android controla la ejecución en segundo plano y puede retrasar estas pruebas.
+
+L-Shell Beacon es un colector opcional que puede guardar el historial de Dishy mientras el teléfono está ausente y sincronizarlo en la misma red. Power Monitor muestra lecturas eléctricas recibidas de una fuente HTTP compatible; los datos simulados se identifican y no se convierten en mediciones reales. El monitoreo de Starlink funciona sin sensor eléctrico. Las funciones del Beacon dependen de firmware compatible.
+
+La vista opcional de realidad aumentada utiliza datos orbitales públicos de CelesTrak. Muestra posiciones previstas y no confirma qué satélite atiende la antena.
+
+El monitoreo principal no requiere cuenta Starlink ni Google Play Services. No hay publicidad, analytics ni servicio de nube del proyecto. La telemetría y el historial permanecen en el dispositivo. Las funciones dependen del hardware, firmware y topología de red. El catálogo orbital opcional se descarga por HTTPS; las pruebas de velocidad utilizan la conexión a Internet.
+
+Textos en portugués, inglés y español, widgets y modo AMOLED.
+
+L-Shell Orbit no está afiliado ni respaldado por Starlink o SpaceX.

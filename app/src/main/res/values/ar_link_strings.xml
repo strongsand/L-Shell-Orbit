@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ar_link_title">Estimativa de enlace</string>
+    <string name="ar_link_visible">No céu: %1$d · Exibidos: %2$d</string>
+    <string name="ar_link_candidate_name">%1$d. %2$s</string>
+    <string name="ar_link_filtered">oculto pelos filtros</string>
+    <string name="ar_link_confidence_high">Confiança geométrica alta</string>
+    <string name="ar_link_confidence_medium">Confiança geométrica média</string>
+    <string name="ar_link_confidence_low">Confiança geométrica baixa</string>
+    <string name="ar_link_no_live">Sem telemetria recente de uma antena conectada.</string>
+    <string name="ar_link_no_orientation">Orientação da antena indisponível.</string>
+    <string name="ar_link_no_location">Aguardando localização recente.</string>
+    <string name="ar_link_no_candidates">Sem candidatos com dados orbitais recentes na região estimada.</string>
+    <string name="ar_link_disclaimer">Estimativa pela geometria. Não confirma o satélite em uso.</string>
+    <string name="ar_link_names">Nomes</string>
+    <string name="ar_link_trails">Trajetórias previstas</string>
+    <string name="ar_link_reduce_effects">Reduzir efeitos</string>
+    <string name="ar_link_identity">NORAD: %1$s</string>
+    <string name="ar_link_unknown">não informado</string>
+    <string name="ar_link_angles">Azimute %1$d° · Elevação %2$d°</string>
+    <string name="ar_link_primary">Provável enlace</string>
+    <string name="ar_link_possible">Candidatos possíveis</string>
+    <string name="ar_link_exit">Saída estimada da região em cerca de %1$d s</string>
+    <string name="ar_link_exit_unknown">Tempo de saída da região não determinado.</string>
+    <string name="ar_link_geometry_note">A região é aproximada e usa a posição do celular. Use perto da antena. A saída prevista não é um horário de handover; bússola, localização e órbitas podem ter erros.</string>
+    <string name="ar_link_inspect">Ver detalhes de %1$s</string>
+</resources>

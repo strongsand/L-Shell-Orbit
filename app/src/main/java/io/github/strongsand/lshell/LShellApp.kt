@@ -1,19 +1,26 @@
 package io.github.strongsand.lshell
 
+
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.CompositionLocalProvider
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.unit.IntOffset
+import kotlin.math.roundToInt
 import androidx.navigation.compose.NavHost
+import androidx.navigation.createGraph
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import androidx.compose.material.icons.rounded.CameraAlt
-import androidx.compose.material.icons.rounded.SettingsInputAntenna
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -30,15 +37,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.material.icons.rounded.ChevronRight
-import android.Manifest
-import android.content.pm.PackageManager
-import android.os.Build
-import android.util.Log
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.content.ContextCompat
-import androidx.core.app.NotificationManagerCompat
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -46,6 +44,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
@@ -53,21 +52,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.background
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.rounded.Router
-import androidx.compose.material.icons.rounded.SatelliteAlt
-import androidx.compose.material.icons.rounded.Widgets
-import androidx.compose.material.icons.rounded.Troubleshoot
-import androidx.compose.material.icons.rounded.Speed
-import androidx.compose.material.icons.rounded.Download
-import androidx.compose.material.icons.rounded.Upload
-import androidx.compose.material.icons.rounded.SignalCellularAlt
-import androidx.compose.material.icons.rounded.History
-import androidx.compose.material.icons.rounded.Assessment
-import androidx.compose.material.icons.rounded.Schedule
-import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material3.Card
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -91,6 +75,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
@@ -106,45 +92,89 @@ import io.github.strongsand.lshell.ar.SkyARScreen
 import io.github.strongsand.lshell.ar.arColorScheme
 import io.github.strongsand.lshell.core.data.ConnectionEvent
 import io.github.strongsand.lshell.core.data.TelemetrySample
+import io.github.strongsand.lshell.core.data.LivePowerReading
 import io.github.strongsand.lshell.core.model.DishySnapshot
 import io.github.strongsand.lshell.core.network.grpc.DishyGrpcClient
 import io.github.strongsand.lshell.beacon.BeaconRepository
-import io.github.strongsand.lshell.beacon.BeaconState
 import io.github.strongsand.lshell.beacon.runtimeStatusOrNull
 import java.text.DateFormat
 import java.util.Date
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private enum class MainTab(val label: String, val icon: ImageVector) {
-    HOME("Início", Icons.Rounded.Home),
-    DISH("Antena", Icons.Rounded.SettingsInputAntenna),
-    NETWORK("Rede", Icons.Rounded.Router),
-    SPEED("Teste Único", Icons.Rounded.Speed),
-    DIAGNOSTICS("Diagnóstico", Icons.Rounded.Troubleshoot),
-    HEALTH("Saúde", Icons.Rounded.Troubleshoot),
-    ENERGY("Energia", Icons.Rounded.Assessment),
-    TIMELINE("Timeline", Icons.Rounded.Schedule),
-    OUTAGES("Quedas", Icons.Rounded.Troubleshoot),
-    EXTREME("Teste Extremo", Icons.Rounded.Speed),
-    EXTREME_HISTORY("Testes Extremos", Icons.Rounded.History),
-    HISTORY("Histórico", Icons.Rounded.History),
-    REPORTS("Relatórios", Icons.Rounded.Assessment),
-    TERMINAL("Terminal", Icons.Rounded.Tune),
-    ALIGNMENT("Alinhamento", Icons.Rounded.Tune),
-    SKY("AR", Icons.Rounded.CameraAlt),
-    SETTINGS("Funções", Icons.Rounded.Widgets),
-    DOWNLOAD("Download", Icons.Rounded.Download),
-    UPLOAD("Upload", Icons.Rounded.Upload),
-    LATENCY("Latência", Icons.Rounded.Speed),
-    SIGNAL("Sinal", Icons.Rounded.SignalCellularAlt),
-    BEACON("Beacon", Icons.Rounded.Memory)
+internal enum class MainTab(val icon: ImageVector) {
+    HOME(OrbitSymbols.Home),
+    DISH(OrbitSymbols.SettingsInputAntenna),
+    NETWORK(OrbitSymbols.Router),
+    SPEED(OrbitSymbols.Speed),
+    NORMAL_TEST(OrbitSymbols.Speed),
+    TEST_RESULTS(OrbitSymbols.History),
+    DIAGNOSTICS(OrbitSymbols.Troubleshoot),
+    HEALTH(OrbitSymbols.Troubleshoot),
+    ENERGY(OrbitSymbols.Assessment),
+    TIMELINE(OrbitSymbols.Schedule),
+    OUTAGES(OrbitSymbols.Troubleshoot),
+    EXTREME(OrbitSymbols.Speed),
+    EXTREME_HISTORY(OrbitSymbols.History),
+    HISTORY(OrbitSymbols.History),
+    REPORTS(OrbitSymbols.Assessment),
+    TERMINAL(OrbitSymbols.Tune),
+    ALIGNMENT(OrbitSymbols.Tune),
+    SKY(OrbitSymbols.CameraAlt),
+    SETTINGS(OrbitSymbols.Widgets),
+    PREFERENCES(OrbitSymbols.Tune),
+    DOWNLOAD(OrbitSymbols.Download),
+    UPLOAD(OrbitSymbols.Upload),
+    LATENCY(OrbitSymbols.Speed),
+    SIGNAL(OrbitSymbols.SignalCellularAlt),
+    POWER(OrbitSymbols.Bolt),
+    SCHEDULED_TESTS(OrbitSymbols.Schedule),
+    SMART_TESTS(OrbitSymbols.AutoAwesome),
+    BEACON(OrbitSymbols.Memory),
+    TECHNICAL(OrbitSymbols.Tune),
+    TRAFFIC(OrbitSymbols.Assessment)
 }
 
 @Composable
+private fun MainTab.localizedLabel(): String = androidx.compose.ui.res.stringResource(when (this) {
+    MainTab.HOME -> R.string.function_home
+    MainTab.DISH -> R.string.function_dish
+    MainTab.NETWORK -> R.string.editorial_router
+    MainTab.SPEED -> R.string.function_speed
+    MainTab.NORMAL_TEST -> R.string.product_normal_test
+    MainTab.TEST_RESULTS -> R.string.polish_test_history
+    MainTab.DIAGNOSTICS -> R.string.function_diagnostics
+    MainTab.HEALTH -> R.string.function_health
+    MainTab.ENERGY -> R.string.function_energy
+    MainTab.TIMELINE -> R.string.function_history
+    MainTab.OUTAGES -> R.string.function_outages
+    MainTab.EXTREME -> R.string.function_extreme
+    MainTab.EXTREME_HISTORY -> R.string.editorial_extreme_history
+    MainTab.HISTORY -> R.string.function_history
+    MainTab.REPORTS -> R.string.function_reports
+    MainTab.TERMINAL -> if (LocalExperience.current.technical) R.string.editorial_term else R.string.function_dish
+    MainTab.ALIGNMENT -> R.string.function_alignment
+    MainTab.SKY -> R.string.editorial_sky
+    MainTab.SETTINGS -> R.string.settings_functions
+    MainTab.PREFERENCES -> R.string.settings_title
+    MainTab.DOWNLOAD -> R.string.traffic_download
+    MainTab.UPLOAD -> R.string.traffic_upload
+    MainTab.LATENCY -> R.string.traffic_latency
+    MainTab.SIGNAL -> R.string.editorial_signal
+    MainTab.POWER -> R.string.editorial_dish_power
+    MainTab.SCHEDULED_TESTS -> R.string.auto_scheduled_title
+    MainTab.SMART_TESTS -> R.string.auto_smart_title
+    MainTab.BEACON -> R.string.beacon_title
+    MainTab.TECHNICAL -> R.string.settings_technical
+    MainTab.TRAFFIC -> R.string.traffic_title
+})
+
+@OptIn(androidx.compose.animation.ExperimentalSharedTransitionApi::class)
+@Composable
 fun LShellApp(snapshot: DishySnapshot, samples: List<TelemetrySample>, events: List<ConnectionEvent>,
-                      initialTab: String? = null, initialReportEnd: Long? = null,
-                      initialRequestId: Int = 0) {
+                      initialTab: String? = null, initialTestId: Long? = null, initialReportEnd: Long? = null,
+                      initialRequestId: Int = 0, initialSessionId: String? = null,
+                      livePower: LivePowerReading? = null) {
     val appContext = LocalContext.current.applicationContext
     val beaconRepository = remember(appContext) { BeaconRepository.create(appContext) }
     val beaconState = beaconRepository.state.collectAsState().value
@@ -153,18 +183,13 @@ fun LShellApp(snapshot: DishySnapshot, samples: List<TelemetrySample>, events: L
     } ?: listOf(beaconState::class.simpleName)
     LaunchedEffect(beaconWidgetRevision) { refreshBeaconWidget(appContext) }
     val lifecycleOwner = LocalLifecycleOwner.current
-    var nearbyDismissedForSession by rememberSaveable { mutableStateOf(false) }
-    var startupComplete by remember { mutableStateOf(false) }
-    val latestStartupComplete by rememberUpdatedState(startupComplete)
+    // BLE permissions and discovery belong exclusively to BeaconScreen's Configure action.
     LaunchedEffect(beaconRepository) {
-        // The optional accessory only requests Bluetooth permissions from its explicit setup flow.
         if (!beaconRepository.requiresBluetoothSetup()) beaconRepository.triggerAutoSync("app_open")
-        startupComplete = true
     }
     DisposableEffect(lifecycleOwner, beaconRepository) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_START && latestStartupComplete &&
-                !beaconRepository.requiresBluetoothSetup()) {
+            if (event == Lifecycle.Event.ON_START && !beaconRepository.requiresBluetoothSetup()) {
                 beaconRepository.triggerAutoSync("foreground")
             }
         }
@@ -174,52 +199,76 @@ fun LShellApp(snapshot: DishySnapshot, samples: List<TelemetrySample>, events: L
     DisposableEffect(beaconRepository) { onDispose { beaconRepository.close() } }
     // The existing destinations now use the Navigation Compose back stack.
     // NavHost owns predictive-back progress, cancellation and root back-to-home.
+    val cardEditorSession = remember { CardEditorSession() }
     val navigation = rememberNavController()
+    var handledLaunchRequest by rememberSaveable { mutableStateOf<Int?>(null) }
     fun navigate(tab: MainTab) {
-        if (navigation.currentDestination?.route == tab.name) return
+        cardEditorSession.finish()
+        if (tab == MainTab.REPORTS) navigation.currentBackStackEntry
+            ?.takeIf { it.destination.route == tab.name }?.savedStateHandle?.set<Long?>(AppLaunchNavigation.REPORT_END, null)
+        if (tab == MainTab.TRAFFIC) navigation.currentBackStackEntry
+            ?.takeIf { it.destination.route == tab.name }?.savedStateHandle?.set<String?>(AppLaunchNavigation.SESSION_ID, null)
+        if (tab == MainTab.EXTREME && navigation.currentDestination?.route == tab.name) {
+            navigation.currentBackStackEntry?.savedStateHandle?.set<Long?>(ExtremeTestNavigation.REQUESTED_ID, null)
+        }
+        if (navigation.currentDestination?.route == tab.name) {
+            if (tab == MainTab.SPEED) navigation.currentBackStackEntry?.savedStateHandle
+                ?.set<Long?>(SpeedTestNavigation.REQUESTED_ID, null)
+            return
+        }
         navigation.navigate(tab.name) {
             if (tab in listOf(MainTab.HOME, MainTab.DISH, MainTab.NETWORK, MainTab.SETTINGS)) {
                 popUpTo(MainTab.HOME.name) { inclusive = false }
             }
             launchSingleTop = true
         }
+        if (tab == MainTab.REPORTS) navigation.currentBackStackEntry?.savedStateHandle
+            ?.set<Long?>(AppLaunchNavigation.REPORT_END, null)
+        if (tab == MainTab.TRAFFIC) navigation.currentBackStackEntry?.savedStateHandle
+            ?.set<String?>(AppLaunchNavigation.SESSION_ID, null)
+        // Ordinary entry must discard a saved result request even when reusing a route.
+        if (tab == MainTab.SPEED) navigation.currentBackStackEntry?.savedStateHandle
+            ?.set<Long?>(SpeedTestNavigation.REQUESTED_ID, null)
     }
-    LaunchedEffect(initialTab, initialReportEnd, initialRequestId) {
-        MainTab.entries.firstOrNull { it.name == initialTab && it != MainTab.HOME }?.let { navigate(it) }
+    LaunchedEffect(initialTab, initialReportEnd, initialTestId, initialSessionId, initialRequestId) {
+        AppLaunchNavigation.destination(initialTab, initialRequestId, handledLaunchRequest)?.let { tab ->
+            navigate(tab)
+            val handle = navigation.currentBackStackEntry?.savedStateHandle
+            when (tab) {
+                MainTab.SPEED -> handle?.set(SpeedTestNavigation.REQUESTED_ID, initialTestId)
+                MainTab.EXTREME -> handle?.set(ExtremeTestNavigation.REQUESTED_ID, initialTestId)
+                MainTab.REPORTS -> handle?.set(AppLaunchNavigation.REPORT_END, initialReportEnd)
+                MainTab.TRAFFIC -> handle?.set(AppLaunchNavigation.SESSION_ID, initialSessionId)
+                else -> Unit
+            }
+            handle?.set(AppLaunchNavigation.REQUEST_ID, initialRequestId)
+            handledLaunchRequest = initialRequestId
+        }
     }
-    val nearbyDevice = (beaconState as? BeaconState.BleFound)?.device
-    val nearbySheetVisible = nearbyDevice != null && !nearbyDismissedForSession
-    val backgroundScale by animateFloatAsState(
-        if (nearbySheetVisible) 0.985f else 1f,
-        spring(dampingRatio = 0.88f, stiffness = 320f),
-        label = "Beacon modal background"
-    )
-    NavHost(navigation, startDestination = MainTab.HOME.name,
-        modifier = Modifier.fillMaxSize().graphicsLayer {
-            scaleX = backgroundScale
-            scaleY = backgroundScale
-        },
-        enterTransition = {
-            fadeIn(tween(DashDesign.motionMillis)) +
-                scaleIn(tween(DashDesign.motionMillis), initialScale = 0.985f)
-        },
-        exitTransition = { fadeOut(tween(130)) + scaleOut(tween(160), targetScale = 0.992f) },
-        popEnterTransition = {
-            fadeIn(tween(DashDesign.motionMillis)) +
-                scaleIn(tween(DashDesign.motionMillis), initialScale = 0.992f)
-        },
-        popExitTransition = { fadeOut(tween(130)) + scaleOut(tween(160), targetScale = 0.985f) }) {
+    val currentEntry by navigation.currentBackStackEntryAsState()
+    val selectedTab = MainTab.entries.firstOrNull { it.name == currentEntry?.destination?.route } ?: MainTab.HOME
+    var hudVisible by rememberSaveable { mutableStateOf(true) }
+    val motion = LocalOrbitMotion.current
+    // Route structure is constant. Read live values inside destination composition,
+    // so a new sample does not rebuild the entire graph or invalidate Router/Functions.
+    val currentSnapshot = rememberUpdatedState(snapshot)
+    val currentSamples = rememberUpdatedState(samples)
+    val currentEvents = rememberUpdatedState(events)
+    val currentLivePower = rememberUpdatedState(livePower)
+    val currentBeaconState = rememberUpdatedState(beaconState)
+    androidx.compose.animation.SharedTransitionLayout {
+    val sharedScope = this
+    Box(Modifier.fillMaxSize().observeCardEditorTouches(cardEditorSession)) {
+    val graph = remember(navigation, beaconRepository, sharedScope) {
+        navigation.createGraph(startDestination = MainTab.HOME.name) {
         MainTab.entries.forEach { tab ->
-            composable(tab.name) {
-                var hudVisible by rememberSaveable { mutableStateOf(true) }
+            composable(tab.name) { entry ->
+                CompositionLocalProvider(LocalOrbitShared provides sharedScope, LocalOrbitVisibility provides this,
+                    LocalCardEditorSession provides cardEditorSession) {
                 LaunchedEffect(tab) {
-                    when (tab) {
-                        MainTab.HOME -> if (!beaconRepository.requiresBluetoothSetup()) {
-                            beaconRepository.triggerAutoSync("home")
-                        }
-                        MainTab.BEACON -> if (!beaconRepository.requiresBluetoothSetup()) {
-                            beaconRepository.triggerAutoSync("beacon_screen")
-                        }
+                    if (!beaconRepository.requiresBluetoothSetup()) when (tab) {
+                        MainTab.HOME -> beaconRepository.triggerAutoSync("home")
+                        MainTab.BEACON -> beaconRepository.triggerAutoSync("beacon_screen")
                         else -> Unit
                     }
                 }
@@ -227,114 +276,156 @@ fun LShellApp(snapshot: DishySnapshot, samples: List<TelemetrySample>, events: L
                     topBar = {
                         if (tab != MainTab.ALIGNMENT && tab != MainTab.SKY) {
                             Row(Modifier.fillMaxWidth().statusBarsPadding()
-                                .expressiveReveal("app-header-${tab.name}", 20, 6.dp)
                                 .padding(horizontal = 20.dp, vertical = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 Box(Modifier.size(32.dp), contentAlignment = Alignment.Center) {
                                     Icon(painterResource(R.drawable.ic_dish_antenna), null,
                                         modifier = Modifier.size(31.dp), tint = MaterialTheme.colorScheme.primary)
                                 }
-                                Text("L-Shell Orbit", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
+                                Column(Modifier.weight(1f)) {
+                                    Text("L-Shell Orbit", style = MaterialTheme.typography.titleLarge)
+                                    orbitFunctions.firstOrNull { it.route == tab.name && tab !in listOf(MainTab.TRAFFIC, MainTab.PREFERENCES) }?.let {
+                                        Text(stringResource(it.title), Modifier.orbitSharedBounds("destination:" + tab.name),
+                                            style = MaterialTheme.typography.labelMedium)
+                                    }
+                                }
                             }
                         }
                     },
                     bottomBar = {
-                        AnimatedVisibility(tab != MainTab.ALIGNMENT && (tab != MainTab.SKY || hudVisible),
-                            enter = fadeIn(tween(DashDesign.motionMillis)) + slideInVertically(
-                                animationSpec = spring(dampingRatio = 0.82f, stiffness = 300f),
-                                initialOffsetY = { it / 3 }),
-                            exit = fadeOut(tween(140)) + slideOutVertically(
-                                animationSpec = tween(180), targetOffsetY = { it / 4 })) {
-                            DashNavigation(tab, ::navigate)
-                        }
+                        // Match the persistent bar's 64dp body + 8dp top/bottom padding.
+                        if (tab != MainTab.ALIGNMENT && (tab != MainTab.SKY || hudVisible))
+                            Spacer(Modifier.fillMaxWidth().navigationBarsPadding().height(80.dp))
                     }
                 ) { padding ->
                     when (tab) {
-                        MainTab.HOME -> Box(Modifier.padding(padding)) { DashboardScreen(snapshot, samples, beaconState,
-                            onOpenBeacon = { navigate(MainTab.BEACON) }) { metric ->
+                        MainTab.HOME -> Box(Modifier.padding(padding)) { DashboardScreen(currentSnapshot.value, currentSamples.value, currentBeaconState.value,
+                            onOpenBeacon = { navigate(MainTab.BEACON) }, onOpenTraffic = { navigate(MainTab.TRAFFIC) },
+                            onOpenSpeed = { navigate(MainTab.SPEED) }, onOpenExtreme = { navigate(MainTab.EXTREME) },
+                            onOpenExtremeHistory = { navigate(MainTab.EXTREME_HISTORY) }, onOpenReports = { navigate(MainTab.REPORTS) },
+                            livePower = currentLivePower.value) { metric ->
                             navigate(when (metric) {
                                 MetricDetailKind.DOWNLOAD -> MainTab.DOWNLOAD
                                 MetricDetailKind.UPLOAD -> MainTab.UPLOAD
                                 MetricDetailKind.LATENCY -> MainTab.LATENCY
                                 MetricDetailKind.SIGNAL -> MainTab.SIGNAL
+                                MetricDetailKind.POWER -> MainTab.POWER
                             })
                         } }
                         MainTab.DISH -> DishDiagnosticsScreen(
-                            snapshot,
-                            samples,
-                            events,
-                            beaconState.runtimeStatusOrNull()?.lastSyncAtMillis,
-                            Modifier.padding(padding)
+                            currentSnapshot.value,
+                            currentSamples.value,
+                            currentEvents.value,
+                            currentBeaconState.value.runtimeStatusOrNull()?.lastSyncAtMillis,
+                            Modifier.padding(padding), livePower = currentLivePower.value
                         )
                         MainTab.NETWORK -> RouterScreen(Modifier.padding(padding))
-                        MainTab.SPEED -> SpeedTestScreen(Modifier.padding(padding))
+                        MainTab.SPEED -> {
+                            val requestedId by entry.savedStateHandle
+                                .getStateFlow<Long?>(SpeedTestNavigation.REQUESTED_ID, null).collectAsState()
+                            if (requestedId != null) SpeedTestScreen(Modifier.padding(padding), requestedId)
+                            else SpeedTestHub(Modifier.padding(padding),
+                                onNormal = { navigate(MainTab.NORMAL_TEST) },
+                                onExtreme = { navigate(MainTab.EXTREME) },
+                                onHistory = { navigate(MainTab.TEST_RESULTS) })
+                        }
+                        MainTab.NORMAL_TEST -> SpeedTestScreen(Modifier.padding(padding))
+                        MainTab.TEST_RESULTS -> TestResultsScreen(Modifier.padding(padding),
+                            onBack = { navigation.popBackStack() }, onExtremeArchive = { navigate(MainTab.EXTREME_HISTORY) })
                         MainTab.DIAGNOSTICS -> DiagnosticsHomeScreen(Modifier.padding(padding)) { destination ->
                             navigate(when (destination) {
                                 DiagnosticDestination.HEALTH -> MainTab.HEALTH
                                 DiagnosticDestination.ENERGY -> MainTab.ENERGY
-                                DiagnosticDestination.TIMELINE -> MainTab.TIMELINE
+                                DiagnosticDestination.TIMELINE -> MainTab.HISTORY
                                 DiagnosticDestination.OUTAGES -> MainTab.OUTAGES
                                 DiagnosticDestination.SINGLE_TEST -> MainTab.SPEED
                                 DiagnosticDestination.EXTREME_TEST -> MainTab.EXTREME
                                 DiagnosticDestination.EXTREME_HISTORY -> MainTab.EXTREME_HISTORY
                             })
                         }
-                        MainTab.HEALTH -> InstallationHealthScreen(snapshot, Modifier.padding(padding)) { navigation.popBackStack() }
-                        MainTab.ENERGY -> EnergyScreen(samples, Modifier.padding(padding)) { navigation.popBackStack() }
+                        MainTab.HEALTH -> InstallationHealthScreen(currentSnapshot.value, Modifier.padding(padding)) { navigation.popBackStack() }
+                        MainTab.ENERGY -> EnergyScreen(currentSamples.value, Modifier.padding(padding), currentLivePower.value, currentSnapshot.value) { navigation.popBackStack() }
                         MainTab.TIMELINE -> SmartTimelineScreen(Modifier.padding(padding)) { navigation.popBackStack() }
                         MainTab.OUTAGES -> OutagesScreen(Modifier.padding(padding)) { navigation.popBackStack() }
-                        MainTab.EXTREME -> ExtremeSpeedTestScreen(snapshot, Modifier.padding(padding)) { navigation.popBackStack() }
+                        MainTab.EXTREME -> {
+                            val requestedId by entry.savedStateHandle
+                                .getStateFlow<Long?>(ExtremeTestNavigation.REQUESTED_ID, null).collectAsState()
+                            ExtremeSpeedTestScreen(currentSnapshot.value, Modifier.padding(padding), requestedId) { navigation.popBackStack() }
+                        }
                         MainTab.EXTREME_HISTORY -> ExtremeTestHistoryScreen(Modifier.padding(padding)) { navigation.popBackStack() }
                         MainTab.HISTORY -> HistoryScreen(Modifier.padding(padding))
-                        MainTab.REPORTS -> DailyReportsScreen(Modifier.padding(padding), initialReportEnd) {
-                            navigation.popBackStack()
+                        MainTab.REPORTS -> {
+                            val requestedEnd by entry.savedStateHandle
+                                .getStateFlow<Long?>(AppLaunchNavigation.REPORT_END, null).collectAsState()
+                            val requestId by entry.savedStateHandle
+                                .getStateFlow(AppLaunchNavigation.REQUEST_ID, 0).collectAsState()
+                            androidx.compose.runtime.key(requestId) {
+                                ConnectionHealthScreen(Modifier.padding(padding), requestedEnd) { navigation.popBackStack() }
+                            }
                         }
                         MainTab.TERMINAL -> Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
-                            Text("Terminal", style = MaterialTheme.typography.headlineLarge)
+                            Text(androidx.compose.ui.res.stringResource(if (LocalExperience.current.technical) R.string.editorial_term else R.string.function_dish), style = MaterialTheme.typography.headlineLarge)
                             Spacer(Modifier.height(16.dp))
-                            DataCard("Alinhamento da antena") {
-                                Text("Veja a rotação e a inclinação medidas pela Dishy e ajuste um eixo de cada vez.")
+                            DataCard(stringResource(R.string.terminal_alignment_title)) {
+                                Text(stringResource(R.string.terminal_alignment_description))
                                 Spacer(Modifier.height(12.dp))
-                                androidx.compose.material3.Button(onClick = hapticClick { navigate(MainTab.ALIGNMENT) }) { Text("Abrir alinhamento") }
+                                OrbitActionButton(onClick = hapticClick { navigate(MainTab.ALIGNMENT) }) { Text(stringResource(R.string.terminal_alignment_open)) }
                             }
                         }
                         MainTab.ALIGNMENT -> AlignmentScreen(Modifier.padding(padding)) { navigation.popBackStack() }
-                        MainTab.SKY -> SkyARScreen(snapshot = snapshot, hudVisible = hudVisible, onToggleHud = { hudVisible = !hudVisible },
+                        MainTab.SKY -> SkyARScreen(snapshot = currentSnapshot.value, hudVisible = hudVisible, onToggleHud = { hudVisible = !hudVisible },
                             bottomInset = padding.calculateBottomPadding(), onExit = { navigation.popBackStack() })
-                        MainTab.SETTINGS -> SettingsScreen(Modifier.padding(padding), onNavigate = ::navigate)
-                        MainTab.BEACON -> BeaconScreen(beaconState, beaconRepository, Modifier.padding(padding),
+                        MainTab.TECHNICAL -> TechnicalScreen(Modifier.padding(padding))
+                        MainTab.TRAFFIC -> {
+                            val requestedId by entry.savedStateHandle
+                                .getStateFlow<String?>(AppLaunchNavigation.SESSION_ID, null).collectAsState()
+                            val requestId by entry.savedStateHandle
+                                .getStateFlow(AppLaunchNavigation.REQUEST_ID, 0).collectAsState()
+                            TrafficMonitorScreen(currentSnapshot.value, currentSamples.value, currentEvents.value, modifier = Modifier.padding(padding).consumeWindowInsets(padding),
+                                requestedSessionId = requestedId, requestId = requestId, livePower = currentLivePower.value) { navigation.popBackStack() }
+                        }
+                        MainTab.SETTINGS -> FunctionsScreen(Modifier.padding(padding).consumeWindowInsets(padding)) { route -> navigate(MainTab.valueOf(route)) }
+                        MainTab.PREFERENCES -> OrbitSettingsScreen(Modifier.padding(padding).consumeWindowInsets(padding),
+                            onBack = { navigation.popBackStack() },onTechnical = { navigate(MainTab.TECHNICAL) })
+                        MainTab.BEACON -> BeaconScreen(currentBeaconState.value, beaconRepository, Modifier.padding(padding),
                             onBack = { navigation.popBackStack() },
                             onOpenHistory = { navigate(MainTab.HISTORY) })
-                        MainTab.DOWNLOAD, MainTab.UPLOAD, MainTab.LATENCY, MainTab.SIGNAL ->
+                        MainTab.SCHEDULED_TESTS, MainTab.SMART_TESTS -> AutomaticTestsScreen(
+                            smart = tab == MainTab.SMART_TESTS, modifier = Modifier.padding(padding).consumeWindowInsets(padding),
+                            onBack = { navigation.popBackStack() })
+                        MainTab.DOWNLOAD, MainTab.UPLOAD, MainTab.LATENCY, MainTab.SIGNAL, MainTab.POWER ->
                             MetricDetailScreen(when (tab) {
                                 MainTab.DOWNLOAD -> MetricDetailKind.DOWNLOAD
                                 MainTab.UPLOAD -> MetricDetailKind.UPLOAD
                                 MainTab.LATENCY -> MetricDetailKind.LATENCY
+                                MainTab.POWER -> MetricDetailKind.POWER
                                 else -> MetricDetailKind.SIGNAL
-                            }, snapshot, Modifier.padding(padding)) { navigation.popBackStack() }
+                            }, currentSnapshot.value, Modifier.padding(padding).let {
+                                if (tab == MainTab.DOWNLOAD || tab == MainTab.UPLOAD) it.consumeWindowInsets(padding) else it
+                            }, onBack = { navigation.popBackStack() }, liveSamples = currentSamples.value, liveEvents = currentEvents.value,
+                                livePower = currentLivePower.value)
                     }
                 }
             }
         }
+        }
+        }
     }
-    nearbyDevice?.takeIf { nearbySheetVisible }?.let { device ->
-        LaunchedEffect(device.id) { Log.i(BEACON_APP_TAG, "BEACON_PROMPT_SHOW") }
-        BeaconNearbySheet(
-            device = device,
-            onPair = {
-                navigate(MainTab.BEACON)
-                beaconRepository.beginBleProvisioning(device)
-            },
-            onDismiss = {
-                Log.i(BEACON_APP_TAG, "BEACON_PROMPT_DISMISS")
-                nearbyDismissedForSession = true
-                beaconRepository.dismissFound()
-            }
-        )
+    NavHost(navigation, graph = graph,
+        modifier = Modifier.fillMaxSize(),
+        enterTransition = { fadeIn(tween(if (motion) 180 else 0)) },
+        exitTransition = { fadeOut(tween(if (motion) 120 else 0)) },
+        popEnterTransition = { fadeIn(tween(if (motion) 180 else 0)) },
+        popExitTransition = { fadeOut(tween(if (motion) 120 else 0)) })
+    AnimatedVisibility(selectedTab != MainTab.ALIGNMENT && (selectedTab != MainTab.SKY || hudVisible),
+        modifier = Modifier.align(Alignment.BottomCenter),
+        enter = fadeIn(tween(if (motion) 180 else 0)) + slideInVertically(
+            animationSpec = if (motion) spring(dampingRatio = .9f, stiffness = 380f) else snap(), initialOffsetY = { it / 4 }),
+        exit = fadeOut(tween(if (motion) 120 else 0))) {
+        DashNavigation(selectedTab, ::navigate)
     }
+    } }
 }
-
-private const val BEACON_APP_TAG = "L-ShellBeacon"
 
 @Composable
 private fun DashNavigation(selected: MainTab, onSelect: (MainTab) -> Unit) {
@@ -345,43 +436,44 @@ private fun DashNavigation(selected: MainTab, onSelect: (MainTab) -> Unit) {
             Row(Modifier.widthIn(max = 640.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 val mainTabs = listOf(MainTab.HOME, MainTab.DISH, MainTab.NETWORK, MainTab.SETTINGS)
-                val activeTab = when {
-                    selected in listOf(MainTab.DOWNLOAD, MainTab.UPLOAD, MainTab.LATENCY, MainTab.SIGNAL) -> MainTab.HOME
-                    selected in listOf(MainTab.HISTORY, MainTab.REPORTS, MainTab.SPEED, MainTab.TERMINAL,
-                        MainTab.DIAGNOSTICS, MainTab.HEALTH, MainTab.ENERGY, MainTab.TIMELINE,
-                        MainTab.OUTAGES, MainTab.EXTREME, MainTab.EXTREME_HISTORY, MainTab.BEACON) -> MainTab.SETTINGS
-                    else -> selected
-                }
-                Surface(Modifier.weight(1f), color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = DashDesign.pill) {
-                    BoxWithConstraints(Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(6.dp)) {
+                val selectedIndex = BottomNavigationPresentation.index(selected)
+                var lastIndex by remember { mutableIntStateOf(selectedIndex.coerceAtLeast(0)) }
+                LaunchedEffect(selectedIndex) { if (selectedIndex >= 0) lastIndex = selectedIndex }
+                val motion = LocalOrbitMotion.current
+                val indicatorIndex = animateFloatAsState(if (selectedIndex >= 0) selectedIndex.toFloat() else lastIndex.toFloat(),
+                    OrbitMotion.spec(OrbitMotionRole.SPATIAL, motion), label = "moving nav indicator")
+                val indicatorAlpha = animateFloatAsState(if (selectedIndex >= 0) 1f else 0f,
+                    tween(if (motion) 140 else 0), label = "nav indicator visibility")
+                val amoled = LocalExperience.current.theme == OrbitTheme.AMOLED
+                Surface(Modifier.weight(1f), color = if (amoled) MaterialTheme.colorScheme.background else MaterialTheme.colorScheme.surfaceContainerHigh,
+                    tonalElevation = if (amoled) 0.dp else 2.dp, shadowElevation = if (amoled) 0.dp else 2.dp, shape = DashDesign.pill) {
+                    BoxWithConstraints(Modifier.fillMaxWidth().height(64.dp).padding(6.dp).clip(DashDesign.pill)) {
                         val cellWidth = maxWidth / mainTabs.size
-                        val selectedIndex = mainTabs.indexOf(activeTab)
-                        val indicatorX by animateDpAsState(cellWidth * selectedIndex.coerceAtLeast(0),
-                            spring(dampingRatio = .66f, stiffness = 260f), label = "moving nav indicator")
+                        val cellWidthPx = with(LocalDensity.current) { cellWidth.toPx() }
                         Surface(Modifier.width(cellWidth).height(52.dp)
-                            .offset(x = indicatorX).graphicsLayer { alpha = if (selectedIndex >= 0) 1f else 0f },
-                            color = MaterialTheme.colorScheme.primaryContainer,
-                            shape = DashDesign.pill) {}
+                            .offset { IntOffset((cellWidthPx * indicatorIndex.value.coerceIn(0f, mainTabs.lastIndex.toFloat())).roundToInt(), 0) }
+                            .graphicsLayer { alpha = indicatorAlpha.value },
+                            color = MaterialTheme.colorScheme.primaryContainer, shape = DashDesign.pill) {}
                         Row(Modifier.fillMaxWidth().selectableGroup(), verticalAlignment = Alignment.CenterVertically) {
-                        mainTabs.forEach { tab ->
-                            val active = activeTab == tab
-                            val interaction = remember { MutableInteractionSource() }
-                            val iconScale by animateFloatAsState(if (active) 1.08f else 1f,
-                                spring(dampingRatio = 0.72f, stiffness = 320f), label = "nav emphasis")
-                            Column(Modifier.weight(1f).heightIn(min = 52.dp)
-                                .pressMotion(interaction).clip(DashDesign.pill)
-                                .selectable(active, interactionSource = interaction, indication = androidx.compose.material3.ripple(),
-                                    role = Role.Tab, onClick = hapticClick { onSelect(tab) })
-                                .semantics { contentDescription = tab.label }
-                                .padding(horizontal = 4.dp, vertical = 8.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                                val iconModifier = Modifier.size(24.dp).graphicsLayer { scaleX = iconScale; scaleY = iconScale }
-                                val tint = if (active) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
-                                Icon(tab.icon, null, iconModifier, tint)
-                                if (active && showLabel) Text(tab.label,
-                                    style = MaterialTheme.typography.labelMedium, color = tint)
+                            mainTabs.forEachIndexed { index, tab ->
+                                val tabLabel = tab.localizedLabel()
+                                val active = selectedIndex == index
+                                val interaction = remember(tab) { MutableInteractionSource() }
+                                val iconScale = animateFloatAsState(if (active) 1.06f else 1f,
+                                    OrbitMotion.spec(OrbitMotionRole.SETTLE, motion), label = "nav emphasis")
+                                Column(Modifier.weight(1f).height(52.dp)
+                                    .pressMotion(interaction, .97f).clip(DashDesign.pill)
+                                    .selectable(active, interactionSource = interaction, indication = androidx.compose.material3.ripple(),
+                                        role = Role.Tab, onClick = hapticClick(DashFeedback.NAVIGATION) { onSelect(tab) })
+                                    .semantics { contentDescription = tabLabel }
+                                    .padding(horizontal = 4.dp, vertical = 4.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                                    val tint = if (active) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                                    Icon(tab.icon, null, Modifier.size(24.dp).graphicsLayer { scaleX = iconScale.value; scaleY = iconScale.value }, tint)
+                                    if (active && showLabel) Text(tabLabel, Modifier.clearAndSetSemantics {},
+                                        style = MaterialTheme.typography.labelMedium, color = tint, maxLines = 1)
+                                }
                             }
-                        }
                         }
                     }
                 }
@@ -391,7 +483,8 @@ private fun DashNavigation(selected: MainTab, onSelect: (MainTab) -> Unit) {
                     if (selected == MainTab.SKY) arRotationTarget += 360f
                 }
                 val arRotation by animateFloatAsState(arRotationTarget,
-                    spring(dampingRatio = 0.9f, stiffness = 220f), label = "AR activation")
+                    if (LocalOrbitMotion.current) spring(dampingRatio = 0.9f, stiffness = 220f) else snap(), label = "AR activation")
+                val arLabel = stringResource(R.string.polish_ar_open)
                 Surface(onClick = hapticClick(DashFeedback.SPECIAL) {
                     if (selected == MainTab.SKY) arRotationTarget += 360f
                     onSelect(MainTab.SKY)
@@ -400,32 +493,14 @@ private fun DashNavigation(selected: MainTab, onSelect: (MainTab) -> Unit) {
                     contentColor = if (selected == MainTab.SKY) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onTertiaryContainer,
                     modifier = Modifier.size(60.dp).pressMotion(arInteraction, 0.9f)
                         .graphicsLayer { rotationZ = arRotation }
-                        .semantics { contentDescription = "Abrir modo AR" }) {
+                        .semantics { contentDescription = arLabel; this.selected = selected == MainTab.SKY }) {
                     Column(Modifier.graphicsLayer { rotationZ = -arRotation },
                         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                        Icon(Icons.Rounded.CameraAlt, null, Modifier.size(24.dp))
-                        Text("AR", style = MaterialTheme.typography.labelSmall)
+                        Icon(OrbitSymbols.CameraAlt, null, Modifier.size(24.dp))
+                        Text("AR", Modifier.clearAndSetSemantics {}, style = MaterialTheme.typography.labelSmall)
                     }
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun FunctionDestination(title: String, supporting: String, icon: ImageVector, onClick: () -> Unit) {
-    val interaction = remember { MutableInteractionSource() }
-    Surface(onClick = hapticClick(action = onClick), interactionSource = interaction, shape = DashDesign.section, color = MaterialTheme.colorScheme.surfaceContainerLow,
-        modifier = Modifier.fillMaxWidth().expressiveReveal("function-$title", 45, 8.dp)
-            .pressMotion(interaction, 0.98f)) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            ExpressiveIcon(icon, MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer)
-            Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleMedium)
-                Text(supporting, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -436,360 +511,139 @@ private fun DishDiagnosticsScreen(
     samples: List<TelemetrySample>,
     events: List<ConnectionEvent>,
     beaconHistoryRevision: Long?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    livePower: LivePowerReading? = null
 ) {
-    val latestPower = samples.lastOrNull {
-        it.powerWatts?.let { watts -> watts.isFinite() && watts > 0f } == true &&
-            System.currentTimeMillis() - it.timestamp <= 15_000L
-    }?.powerWatts
-    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
-        Text("Antena", style = MaterialTheme.typography.headlineLarge)
-        Spacer(Modifier.height(16.dp))
-        DishStatusHeroCard(snapshot, latestPower)
-        Spacer(Modifier.height(16.dp))
-        DishControlCard(snapshot)
-        Spacer(Modifier.height(16.dp))
+    val latestPower = recentAntennaPower(livePower, System.currentTimeMillis())
+    // Keep the map request and client owned by the destination, not a recycled item.
+    val obstructionMap = rememberObstructionMapState()
+    val controls = rememberDishControlState()
+    val listScroll = androidx.compose.foundation.lazy.rememberLazyListState()
+    val editorScroll = rememberCardEditorScroll(listScroll)
+    LazyColumn(modifier.fillMaxSize().cardEditorViewport(editorScroll), state = listScroll,
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 24.dp)) {
+        item("title") {
+            Text(stringResource(R.string.function_dish), Modifier.padding(bottom = 12.dp),
+                style = MaterialTheme.typography.headlineMedium)
+        }
+        item("status") { Column { DishStatusHeroCard(snapshot, latestPower); Spacer(Modifier.height(12.dp)) } }
+        item("controls") { Column { DishControlCard(snapshot, controls); Spacer(Modifier.height(16.dp)) } }
         if (snapshot.alerts.getActiveAlertsList().isNotEmpty()) {
-            AlertsCard(snapshot.alerts.getActiveAlertsList())
-            Spacer(Modifier.height(16.dp))
+            item("alerts") { Column { AlertsCard(snapshot.alerts.getActiveAlertsList()); Spacer(Modifier.height(16.dp)) } }
         }
-        ObstructionCard(snapshot)
-        Spacer(Modifier.height(16.dp))
-        ObstructionMapCard(snapshot.deviceInfo.boresightAzimuthDeg)
-        Spacer(Modifier.height(16.dp))
-        HardwareInfoCard(snapshot)
-        Spacer(Modifier.height(16.dp))
-        DataCard("Sinal e orientação") {
-            InfoRow("Qualidade do sinal", snapshot.latency.formattedSignal)
-            InfoRow("Azimute", "${snapshot.deviceInfo.boresightAzimuthDeg}°")
-            InfoRow("Elevação", "${snapshot.deviceInfo.boresightElevationDeg}°")
-            InfoRow("Tempo válido", "${snapshot.obstruction.validSeconds.toInt()} s")
+        item("field-of-view") { Column { AntennaFieldOfViewCard(snapshot); Spacer(Modifier.height(16.dp)) } }
+        item("obstruction-map") {
+            Column { ObstructionMapCard(snapshot.deviceInfo.boresightAzimuthDeg, obstructionMap); Spacer(Modifier.height(16.dp)) }
         }
-        Spacer(Modifier.height(20.dp))
-        TelemetryCharts(samples, beaconHistoryRevision)
-        Spacer(Modifier.height(20.dp))
-        DataCard("Eventos observados pelo app") {
-            if (events.isEmpty()) Text("Nenhuma mudança registrada nesta sessão.")
-            events.forEach { event ->
-                InfoRow(DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(event.timestamp)), event.description)
+        item("hardware") { Column { HardwareInfoCard(snapshot); Spacer(Modifier.height(16.dp)) } }
+        item("orientation") {
+            Column {
+                DataCard(stringResource(R.string.ui_signal_and_orientation)) {
+                    InfoRow(stringResource(R.string.metric_detail_signal), signalLabel(snapshot.latency.isSnrAboveNoiseFloor))
+                    InfoRow(stringResource(R.string.ui_azimuth), "${snapshot.deviceInfo.boresightAzimuthDeg}°")
+                    InfoRow(stringResource(R.string.ui_elevation), "${snapshot.deviceInfo.boresightElevationDeg}°")
+                    InfoRow(stringResource(R.string.ui_valid_time),
+                        stringResource(R.string.ui_duration_seconds_short, snapshot.obstruction.validSeconds.toInt()))
+                }
+                Spacer(Modifier.height(20.dp))
+            }
+        }
+        item("telemetry-charts") { Column { TelemetryCharts(samples, beaconHistoryRevision, editorScroll, snapshot, latestPower); Spacer(Modifier.height(20.dp)) } }
+        item("events") {
+            DataCard(stringResource(R.string.ui_events_observed_by_the_app)) {
+                if (events.isEmpty()) Text(stringResource(R.string.ui_no_changes_recorded_in_this_session))
+                events.forEach { event ->
+                    InfoRow(DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(event.timestamp)), telemetryLabel(event.description))
+                }
             }
         }
     }
 }
 
+private class DishControlState(val client: DishyGrpcClient, val scope: kotlinx.coroutines.CoroutineScope) {
+    val pending = mutableStateOf<DishyGrpcClient.Control?>(null)
+    val busy = mutableStateOf(false)
+    val feedback = mutableStateOf<String?>(null)
+    val feedbackDetail = mutableStateOf<String?>(null)
+}
+
 @Composable
-private fun DishControlCard(snapshot: DishySnapshot) {
+private fun rememberDishControlState(): DishControlState {
     val client = remember { DishyGrpcClient() }
     DisposableEffect(client) { onDispose { client.close() } }
     val scope = rememberCoroutineScope()
-    var pending by remember { mutableStateOf<DishyGrpcClient.Control?>(null) }
-    var busy by remember { mutableStateOf(false) }
-    var feedback by remember { mutableStateOf<String?>(null) }
+    return remember(client, scope) { DishControlState(client, scope) }
+}
+
+@Composable
+private fun DishControlCard(snapshot: DishySnapshot, controls: DishControlState) {
+    val client = controls.client
+    val scope = controls.scope
+    var pending by controls.pending
+    var busy by controls.busy
+    var feedback by controls.feedback
+    val context = LocalContext.current
+    var feedbackDetail by controls.feedbackDetail
     val labels = mapOf(
-        DishyGrpcClient.Control.REBOOT to "Reiniciar",
-        DishyGrpcClient.Control.STOW to "Recolher",
-        DishyGrpcClient.Control.UNSTOW to "Desrecolher",
-        DishyGrpcClient.Control.INHIBIT_GPS to "Inibir GPS"
+        DishyGrpcClient.Control.REBOOT to androidx.compose.ui.res.stringResource(R.string.editorial_command_reboot),
+        DishyGrpcClient.Control.STOW to androidx.compose.ui.res.stringResource(R.string.editorial_command_stow),
+        DishyGrpcClient.Control.UNSTOW to androidx.compose.ui.res.stringResource(R.string.editorial_command_unstow),
+        DishyGrpcClient.Control.INHIBIT_GPS to androidx.compose.ui.res.stringResource(R.string.editorial_command_gps)
     )
-    DataCard("Comandos da antena") {
-        Text("Esses comandos alteram o funcionamento do terminal.",
+    DataCard(androidx.compose.ui.res.stringResource(R.string.editorial_command_title)) {
+        Text(androidx.compose.ui.res.stringResource(R.string.editorial_command_body),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf(DishyGrpcClient.Control.REBOOT, DishyGrpcClient.Control.STOW).forEach { action ->
-                androidx.compose.material3.OutlinedButton(onClick = hapticClick { pending = action },
-                    enabled = snapshot.isOnline && !busy, modifier = Modifier.weight(1f)) {
-                    Text(labels.getValue(action))
-                }
-            }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf(DishyGrpcClient.Control.UNSTOW, DishyGrpcClient.Control.INHIBIT_GPS).forEach { action ->
-                androidx.compose.material3.OutlinedButton(onClick = hapticClick { pending = action },
-                    enabled = snapshot.isOnline && !busy, modifier = Modifier.weight(1f)) {
-                    Text(labels.getValue(action))
-                }
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val columns = if (maxWidth / LocalDensity.current.fontScale >= 300.dp) 2 else 1
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(DishyGrpcClient.Control.REBOOT, DishyGrpcClient.Control.STOW,
+                    DishyGrpcClient.Control.UNSTOW, DishyGrpcClient.Control.INHIBIT_GPS)
+                    .chunked(columns).forEach { actions ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            actions.forEach { action ->
+                                OrbitActionButton(style = OrbitActionStyle.COMMAND,
+                                    onClick = hapticClick { pending = action },
+                                    enabled = snapshot.isOnline && !busy, modifier = Modifier.weight(1f)) {
+                                    Text(labels.getValue(action), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                }
+                            }
+                        }
+                    }
             }
         }
         feedback?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+        if (LocalExperience.current.technical) feedbackDetail?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
     }
     pending?.let { action ->
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { pending = null },
-            title = { Text(labels.getValue(action) + " antena?") },
+            title = { Text(labels.getValue(action)) },
             text = { Text(when (action) {
-                DishyGrpcClient.Control.REBOOT -> "A conexão cairá por alguns minutos."
-                DishyGrpcClient.Control.STOW -> "A antena será recolhida e perderá a conexão até ser desrecolhida."
-                DishyGrpcClient.Control.UNSTOW -> "A antena voltará à posição de operação."
-                DishyGrpcClient.Control.INHIBIT_GPS -> "O terminal deixará de usar o GPS para fornecer a localização."
+                DishyGrpcClient.Control.REBOOT -> androidx.compose.ui.res.stringResource(R.string.editorial_command_reboot_body)
+                DishyGrpcClient.Control.STOW -> androidx.compose.ui.res.stringResource(R.string.editorial_command_stow_body)
+                DishyGrpcClient.Control.UNSTOW -> androidx.compose.ui.res.stringResource(R.string.editorial_command_unstow_body)
+                DishyGrpcClient.Control.INHIBIT_GPS -> androidx.compose.ui.res.stringResource(R.string.editorial_command_gps_body)
             }) },
             confirmButton = {
-                androidx.compose.material3.TextButton(onClick = hapticClick(DashFeedback.CONFIRM) {
+                androidx.compose.material3.TextButton(onClick = hapticClick(DashFeedback.DESTRUCTIVE) {
                     pending = null
                     busy = true
                     scope.launch {
                         feedback = client.control(action).fold(
-                            onSuccess = { "Comando enviado à antena." },
-                            onFailure = { "Falha ao enviar: ${it.message ?: "sem resposta"}" }
+                            onSuccess = { feedbackDetail = null; context.getString(R.string.editorial_command_sent) },
+                            onFailure = { feedbackDetail = it.message; context.getString(R.string.editorial_command_error) }
                         )
                         busy = false
                     }
-                }) { Text("Confirmar") }
+                }) { Text(labels.getValue(action)) }
             },
             dismissButton = {
-                androidx.compose.material3.TextButton(onClick = hapticClick { pending = null }) { Text("Cancelar") }
+                androidx.compose.material3.TextButton(onClick = hapticClick { pending = null }) { Text(androidx.compose.ui.res.stringResource(R.string.editorial_cancel)) }
             }
         )
     }
-}
-
-@Composable
-private fun SettingsScreen(modifier: Modifier = Modifier, onNavigate: (MainTab) -> Unit) {
-    val context = LocalContext.current
-    var monitoring by remember { mutableStateOf(MonitorPreferences.enabled(context)) }
-    var silent by remember { mutableStateOf(MonitorPreferences.silent(context)) }
-    var interval by remember { mutableStateOf(MonitorPreferences.intervalSeconds(context)) }
-    var intervalMenu by remember { mutableStateOf(false) }
-    var permissionDenied by remember { mutableStateOf(false) }
-    var lastSuccess by remember { mutableStateOf(MonitorPreferences.lastSuccess(context)) }
-    var monitorError by remember { mutableStateOf(MonitorPreferences.lastError(context)) }
-    var reportEnabled by remember { mutableStateOf(DailyReportPreferences.enabled(context)) }
-    var reportHour by remember { mutableStateOf(DailyReportPreferences.hour(context)) }
-    var reportMinute by remember { mutableStateOf(DailyReportPreferences.minute(context)) }
-    var reportNotify by remember { mutableStateOf(DailyReportPreferences.notify(context)) }
-    var keepReports by remember { mutableStateOf(DailyReportPreferences.keepHistory(context)) }
-    var retention by remember { mutableStateOf(DailyReportPreferences.retention(context)) }
-    var retentionMenu by remember { mutableStateOf(false) }
-    var timeDialog by remember { mutableStateOf(false) }
-    var creditsOpen by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(monitoring) {
-        while (monitoring) {
-            lastSuccess = MonitorPreferences.lastSuccess(context)
-            monitorError = MonitorPreferences.lastError(context)
-            delay(5_000)
-        }
-    }
-    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) {
-            permissionDenied = false
-            monitoring = true
-            MonitorPreferences.setLastAlerts(context, emptySet())
-            MonitorPreferences.setEnabled(context, true)
-            DishyMonitorService.start(context)
-        } else permissionDenied = true
-    }
-    val reportPermissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        reportNotify = granted
-        DailyReportPreferences.setNotify(context, granted)
-    }
-    Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
-        Text("Funções", style = MaterialTheme.typography.headlineLarge)
-        Spacer(Modifier.height(16.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            FunctionDestination("Diagnóstico", "Saúde, estabilidade, quedas e testes", Icons.Rounded.Troubleshoot) { onNavigate(MainTab.DIAGNOSTICS) }
-            FunctionDestination("Relatórios", "Resumo diário da estabilidade da conexão", Icons.Rounded.Assessment) { onNavigate(MainTab.REPORTS) }
-            FunctionDestination("Terminal e alinhamento", "Encontre a melhor direção", Icons.Rounded.Tune) { onNavigate(MainTab.TERMINAL) }
-            FunctionDestination(stringResource(R.string.beacon_title), stringResource(R.string.beacon_subtitle),
-                Icons.Rounded.Memory) { onNavigate(MainTab.BEACON) }
-        }
-        Spacer(Modifier.height(16.dp))
-        DataCard("Alertas da antena") {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Monitorar em segundo plano", modifier = Modifier.weight(1f))
-                androidx.compose.material3.Switch(checked = monitoring, onCheckedChange = hapticToggle { enabled ->
-                    if (enabled) {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-                        ) permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                        else {
-                            monitoring = true
-                            MonitorPreferences.setLastAlerts(context, emptySet())
-                            MonitorPreferences.setEnabled(context, true)
-                            DishyMonitorService.start(context)
-                        }
-                    } else {
-                        monitoring = false
-                        MonitorPreferences.setEnabled(context, false)
-                        DishyMonitorService.stop(context)
-                    }
-                })
-            }
-            Text("Consulta a antena em segundo plano e avisa sobre obstrução, falhas de conexão e alertas do equipamento.", style = MaterialTheme.typography.bodySmall)
-            if (monitoring) Text(if (lastSuccess > 0) "Última leitura: " + DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.MEDIUM).format(Date(lastSuccess)) else "Aguardando primeira leitura…", style = MaterialTheme.typography.bodySmall)
-            if (monitoring && lastSuccess > 0 && System.currentTimeMillis() - lastSuccess > (interval + 10) * 2_000L)
-                Text("Sem leituras recentes. Confira a conexão com a antena.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-            if (monitoring && !NotificationManagerCompat.from(context).areNotificationsEnabled())
-                Text("Notificações desativadas no Android; os alertas não aparecerão.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-            monitorError?.let { Text("Última falha: $it", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
-            if (monitoring) androidx.compose.material3.OutlinedButton(onClick = hapticClick { DishyMonitorService.testNotification(context) }) {
-                Text("Testar notificação")
-            }
-            if (permissionDenied) Text("Ative a permissão de notificações para receber os alertas.", color = MaterialTheme.colorScheme.error)
-            Spacer(Modifier.height(12.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Alertas silenciosos", modifier = Modifier.weight(1f))
-                androidx.compose.material3.Switch(checked = silent, onCheckedChange = hapticToggle {
-                    silent = it
-                    MonitorPreferences.setSilent(context, it)
-                })
-            }
-            Spacer(Modifier.height(12.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Intervalo de consulta", modifier = Modifier.weight(1f))
-                androidx.compose.foundation.layout.Box {
-                    androidx.compose.material3.OutlinedButton(onClick = hapticClick { intervalMenu = true }) {
-                        Text(if (interval < 60) "${interval} s" else "${interval / 60} min")
-                    }
-                    DropdownMenu(expanded = intervalMenu, onDismissRequest = { intervalMenu = false }) {
-                        listOf(1, 5, 10, 30, 60, 120, 300).forEach { seconds ->
-                            DropdownMenuItem(
-                                text = { Text(if (seconds < 60) "${seconds} s" else "${seconds / 60} min") },
-                                onClick = hapticClick {
-                                    interval = seconds
-                                    intervalMenu = false
-                                    MonitorPreferences.setIntervalSeconds(context, seconds)
-                                    if (monitoring) DishyMonitorService.start(context)
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-            Text("Padrão: 1 min. 5 s aumenta o consumo de bateria. O Android ainda pode atrasar leituras em segundo plano.", style = MaterialTheme.typography.bodySmall)
-        }
-        Spacer(Modifier.height(16.dp))
-        DataCard("Relatórios diários") {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Relatório diário", style = MaterialTheme.typography.titleMedium)
-                    Text("Analisa somente dados coletados e permanece no aparelho.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                androidx.compose.material3.Switch(checked = reportEnabled,
-                    onCheckedChange = hapticToggle { enabled ->
-                        reportEnabled = enabled
-                        DailyReportPreferences.setEnabled(context, enabled)
-                        if (enabled) {
-                            DailyReportScheduler.schedule(context)
-                            if (reportNotify && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-                            ) reportPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                        } else DailyReportScheduler.cancel(context)
-                    })
-            }
-            if (reportEnabled && !monitoring) Text(
-                "Ative o monitoramento em segundo plano para que o relatório tenha dados ao longo do dia.",
-                color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-            if (reportEnabled) Text(
-                "O Android pode entregar o relatório alguns minutos depois do horário para economizar bateria.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(12.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Horário do relatório")
-                    Text("O período termina aproximadamente neste horário.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                androidx.compose.material3.FilledTonalButton(onClick = hapticClick { timeDialog = true }) {
-                    Text(String.format(java.util.Locale.getDefault(), "%02d:%02d", reportHour, reportMinute))
-                }
-            }
-            Spacer(Modifier.height(12.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Notificar quando estiver pronto", Modifier.weight(1f))
-                androidx.compose.material3.Switch(checked = reportNotify,
-                    onCheckedChange = hapticToggle { enabled ->
-                        if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-                        ) reportPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                        else {
-                            reportNotify = enabled
-                            DailyReportPreferences.setNotify(context, enabled)
-                        }
-                    })
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Manter histórico de relatórios", Modifier.weight(1f))
-                androidx.compose.material3.Switch(checked = keepReports,
-                    onCheckedChange = hapticToggle {
-                        keepReports = it
-                        DailyReportPreferences.setKeepHistory(context, it)
-                    })
-            }
-            if (keepReports) Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Retenção", Modifier.weight(1f))
-                Box {
-                    androidx.compose.material3.OutlinedButton(onClick = hapticClick { retentionMenu = true }) {
-                        Text(retention.label)
-                    }
-                    DropdownMenu(expanded = retentionMenu, onDismissRequest = { retentionMenu = false }) {
-                        ReportRetention.entries.forEach { choice ->
-                            DropdownMenuItem(text = { Text(choice.label) }, onClick = hapticClick {
-                                retention = choice
-                                retentionMenu = false
-                                DailyReportPreferences.setRetention(context, choice)
-                            })
-                        }
-                    }
-                }
-            }
-        }
-        Spacer(Modifier.height(16.dp))
-        DataCard("Créditos") {
-            Text("Bibliotecas, componentes e fontes de dados usados no L-Shell Orbit.",
-                style = MaterialTheme.typography.bodyMedium)
-            Spacer(Modifier.height(12.dp))
-            androidx.compose.material3.OutlinedButton(onClick = hapticClick { creditsOpen = true }) {
-                Text("Ver créditos")
-            }
-        }
-    }
-    if (creditsOpen) CreditsSheet(onDismiss = { creditsOpen = false })
-    if (timeDialog) ReportTimeDialog(reportHour, reportMinute, onDismiss = { timeDialog = false }) { hour, minute ->
-        reportHour = hour
-        reportMinute = minute
-        DailyReportPreferences.setTime(context, hour, minute)
-        if (reportEnabled) DailyReportScheduler.schedule(context)
-        timeDialog = false
-    }
-}
-
-@Composable
-private fun ReportTimeDialog(hour: Int, minute: Int, onDismiss: () -> Unit,
-                             onConfirm: (Int, Int) -> Unit) {
-    var selectedHour by remember(hour) { mutableStateOf(hour.toFloat()) }
-    var selectedMinuteStep by remember(minute) { mutableStateOf((minute / 5f).coerceIn(0f, 11f)) }
-    androidx.compose.material3.AlertDialog(
-        onDismissRequest = onDismiss,
-        icon = { Icon(Icons.Rounded.Schedule, null) },
-        title = { Text("Horário do relatório") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(String.format(java.util.Locale.getDefault(), "%02d:%02d",
-                    selectedHour.toInt(), selectedMinuteStep.toInt() * 5),
-                    style = MaterialTheme.typography.displaySmall,
-                    modifier = Modifier.align(Alignment.CenterHorizontally))
-                Text("Hora", style = MaterialTheme.typography.labelLarge)
-                androidx.compose.material3.Slider(value = selectedHour,
-                    onValueChange = { selectedHour = it }, valueRange = 0f..23f, steps = 22)
-                Text("Minutos", style = MaterialTheme.typography.labelLarge)
-                androidx.compose.material3.Slider(value = selectedMinuteStep,
-                    onValueChange = { selectedMinuteStep = it }, valueRange = 0f..11f, steps = 10)
-            }
-        },
-        confirmButton = {
-            androidx.compose.material3.TextButton(onClick = hapticClick(DashFeedback.CONFIRM) {
-                onConfirm(selectedHour.toInt(), selectedMinuteStep.toInt() * 5)
-            }) { Text("Salvar") }
-        },
-        dismissButton = {
-            androidx.compose.material3.TextButton(onClick = hapticClick(action = onDismiss)) { Text("Cancelar") }
-        }
-    )
 }
 
 @Composable

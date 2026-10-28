@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="traffic_how">How it works</string>
+    <string name="traffic_summary">Summary</string>
+    <string name="traffic_series">Displayed traffic</string>
+    <string name="traffic_ago">%1$d s ago</string>
+    <string name="traffic_short_sustained">Max. average over %1$s</string>
+    <string name="traffic_short_active">Time with active traffic</string>
+    <string name="traffic_seconds">%1$d s</string>
+    <string name="traffic_gap_short">%1$s without telemetry</string>
+    <string name="traffic_source_caption">Source: %1$s</string>
+    <string name="traffic_see_all">Show all</string>
+    <string name="traffic_show_less">Show less</string>
+    <string name="traffic_event_count">%1$d observed events</string>
+    <string name="traffic_no_events">No observed events</string>
+    <string name="traffic_help_estimates">Estimated data</string>
+    <string name="traffic_help_coverage">Time with data</string>
+    <string name="traffic_help_events">Events</string>
+    <string name="traffic_help_devices">Devices</string>
+    <string name="traffic_help_sessions">Recordings</string>
+    <string name="traffic_help_coverage_body">This is the portion of the period with valid readings. Each chart calculates coverage for its own metric; missing readings do not count as zero.</string>
+    <string name="traffic_help_sustained_body">The 30 s, 1 min, and 5 min values are the highest averages over complete windows. Active time counts traffic above 100 kbit/s without identifying which app generated it.</string>
+    <string name="traffic_close_inspection">Close inspection</string>
+    <string name="traffic_chart_scale">Scale from zero to %1$s %2$s</string>
+    <string name="traffic_chart_gap_note">Gaps interrupt the line</string>
+    <string name="traffic_session_actions">Recordings</string>
+    <string name="traffic_export_options">Export options</string>
+    <string name="traffic_help_sustained">Sustained maxima</string>
+    <string name="traffic_recording_preparing">Preparing recording</string>
+    <string name="traffic_recording_finishing">Stopping recording</string>
+    <string name="traffic_recording_interrupted">Recording interrupted</string>
+    <string name="traffic_recording_open">View current recording</string>
+    <string name="traffic_point_missing">No valid reading for this metric at the selected point.</string>
+</resources>

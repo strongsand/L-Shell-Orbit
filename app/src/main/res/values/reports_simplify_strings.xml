@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="reports_expanded">Expandido</string>
+    <string name="reports_collapsed">Recolhido</string>
+    <string name="reports_about">Sobre os relatórios</string>
+    <string name="reports_median">Mediana</string>
+    <string name="reports_mean">Média</string>
+    <string name="reports_few_tests">Poucos testes</string>
+    <string name="reports_scheduled_unit">Mbps agendados</string>
+    <string name="reports_other_tests">Outros testes disponíveis nos detalhes</string>
+    <string name="reports_completed_tests">Concluídos: %1$d</string>
+    <string name="reports_data_export">Dados e exportação</string>
+    <string name="reports_select_folder">Escolha a pasta em Configurações → Dados e exportação.</string>
+    <string name="reports_generated_late">Gerado com %1$s de atraso</string>
+    <string name="reports_access_interruptions">Interrupções de acesso</string>
+    <string name="reports_no_interruptions">Nenhuma interrupção observada</string>
+    <string name="reports_event_count">Eventos: %1$d</string>
+    <string name="reports_longest_at">Maior interrupção: %1$s às %2$s</string>
+    <string name="reports_start">Início</string>
+    <string name="reports_end">Fim</string>
+    <string name="reports_observed_until">Observado até</string>
+    <string name="reports_outage_spoken">%1$d horas e %2$d minutos, duração %3$s</string>
+    <string name="reports_spoken_seconds">%1$d segundos</string>
+    <string name="reports_spoken_minutes">%1$d minutos e %2$d segundos</string>
+    <string name="reports_spoken_hours">%1$d horas, %2$d minutos e %3$d segundos</string>
+    <string name="reports_unit_ms">milissegundos</string>
+    <string name="reports_unit_mbps">megabits por segundo</string>
+    <string name="reports_unit_percent">por cento</string>
+    <string name="reports_unit_pp">pontos percentuais</string>
+    <string name="reports_unit_watts">watts</string>
+    <string name="reports_change_spoken">%1$s. %2$s %3$s %4$s. %5$s.</string>
+    <string name="reports_extra_changes">Outras comparações estão disponíveis em Sobre os relatórios.</string>
+    <string name="reports_relevant_events">Eventos relevantes: %1$d</string>
+    <string name="reports_export_both">JSON + CSV</string>
+    <string name="reports_export_json">JSON</string>
+    <string name="reports_export_csv">CSV</string>
+</resources>

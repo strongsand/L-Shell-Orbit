@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="domain_router_ethernet">Ethernet</string>
+    <string name="domain_router_wifi_5">Wi-Fi 5 GHz</string>
+    <string name="domain_router_thermal">Temperatura alta</string>
+    <string name="domain_router_update">Atualização pendente</string>
+    <string name="domain_router_slow_ethernet">Ethernet lenta</string>
+    <string name="domain_router_dish_link">Conexão com a antena degradada</string>
+    <string name="domain_router_boot_forgotten">Reinício após longo período</string>
+    <string name="domain_router_boot_power">Energia desligada/ligada</string>
+    <string name="domain_router_boot_command">Comando</string>
+    <string name="domain_router_boot_software">Atualização de software</string>
+    <string name="domain_router_boot_config">Atualização de configuração</string>
+    <string name="domain_router_boot_other">Motivo %1$d</string>
+    <string name="domain_router_unnamed">Dispositivo sem nome</string>
+    <string name="domain_history_transition">%1$s → %2$s</string>
+    <string name="domain_history_resolved_after">Resolvido após %1$s</string>
+    <string name="domain_history_outage_duration">Falha durou %1$s</string>
+    <string name="domain_history_unresolved">Sem resolução registrada</string>
+    <string name="domain_history_insufficient">Não houve dados suficientes neste período</string>
+    <string name="domain_history_extreme_completed">Teste extremo concluído: %1$s</string>
+    <string name="domain_history_test_count">%1$s testes</string>
+    <string name="domain_history_no_result_count">%1$s sem resultado</string>
+    <string name="domain_history_peak_loss">perda máxima %1$s%%</string>
+</resources>

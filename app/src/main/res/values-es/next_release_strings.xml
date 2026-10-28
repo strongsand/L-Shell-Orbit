@@ -1,0 +1,16 @@
+<resources>
+    <string name="archive_title">Exportación de informes</string>
+    <string name="archive_explanation">Archivos JSON/CSV en la carpeta elegida. La base interna sigue siendo la fuente de la app. El proveedor elegido puede sincronizar la carpeta por su cuenta.</string>
+    <string name="archive_no_folder">Ninguna carpeta seleccionada</string>
+    <string name="archive_folder_ready">Carpeta seleccionada</string>
+    <string name="archive_choose_folder">Elegir o cambiar carpeta</string>
+    <string name="archive_automatic">Exportar automáticamente</string>
+    <string name="archive_format">Formato</string>
+    <string name="archive_test_access">Probar acceso a la carpeta</string>
+    <string name="archive_export_now">Exportar este informe</string>
+    <string name="archive_exported">Exportación completada</string>
+    <string name="archive_access_ok">La carpeta permite escritura</string>
+    <string name="archive_access_error">No se puede acceder o escribir en la carpeta. Selecciónala de nuevo e inténtalo otra vez.</string>
+    <string name="archive_last">Última exportación: %1$s</string>
+    <string name="archive_working">Preparando archivos…</string>
+</resources>

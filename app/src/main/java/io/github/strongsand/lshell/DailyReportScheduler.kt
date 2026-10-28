@@ -179,9 +179,9 @@ object DailyReportNotifier {
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) return
         val manager = context.getSystemService(NotificationManager::class.java)
-        manager.createNotificationChannel(NotificationChannel(CHANNEL, "Relatórios diários",
+        manager.createNotificationChannel(NotificationChannel(CHANNEL, context.getString(R.string.editorial_daily_channel),
             NotificationManager.IMPORTANCE_DEFAULT).apply {
-            description = "Avisa quando o relatório diário da conexão está pronto"
+            description = context.getString(R.string.editorial_daily_channel_note)
         })
         val open = Intent(context, MainActivity::class.java).apply {
             putExtra("open_tab", "REPORTS")
@@ -192,14 +192,14 @@ object DailyReportNotifier {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val detail = when {
             report.interruptions.isNotEmpty() ->
-                "${report.interruptions.size} interrupção(ões). Maior: ${duration(report.interruptions.maxOf { it.durationMs })}."
+                context.resources.getQuantityString(R.plurals.editorial_report_outages, report.interruptions.size, report.interruptions.size, duration(report.interruptions.maxOf { it.durationMs }))
             report.availabilityPercent != null ->
-                "${String.format(java.util.Locale.getDefault(), "%.2f", report.availabilityPercent)}% online · latência média ${report.latency?.average?.toInt()?.let { "$it ms" } ?: "indisponível"}"
-            else -> "O período não teve dados suficientes para calcular disponibilidade."
+                context.getString(R.string.editorial_daily_available, String.format(java.util.Locale.getDefault(), "%.2f", report.availabilityPercent), report.latency?.average?.toInt()?.let { "$it ms" } ?: context.getString(R.string.editorial_no_reading))
+            else -> context.getString(R.string.editorial_availability_none)
         }
         val notification = NotificationCompat.Builder(context, CHANNEL)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle("Seu relatório diário está pronto")
+            .setSmallIcon(R.drawable.ic_notification_report)
+            .setContentTitle(context.getString(R.string.editorial_daily_ready))
             .setContentText(detail)
             .setContentIntent(pending)
             .setAutoCancel(true)

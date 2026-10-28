@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="traffic_how">Como funciona</string>
+    <string name="traffic_summary">Resumo</string>
+    <string name="traffic_series">Tráfego exibido</string>
+    <string name="traffic_ago">Há %1$d s</string>
+    <string name="traffic_short_sustained">Máx. médio em %1$s</string>
+    <string name="traffic_short_active">Tempo com tráfego ativo</string>
+    <string name="traffic_seconds">%1$d s</string>
+    <string name="traffic_gap_short">%1$s sem telemetria</string>
+    <string name="traffic_source_caption">Origem: %1$s</string>
+    <string name="traffic_see_all">Ver todos</string>
+    <string name="traffic_show_less">Mostrar menos</string>
+    <string name="traffic_event_count">%1$d eventos observados</string>
+    <string name="traffic_no_events">Nenhum evento observado</string>
+    <string name="traffic_help_estimates">Dados estimados</string>
+    <string name="traffic_help_coverage">Tempo com dados</string>
+    <string name="traffic_help_events">Eventos</string>
+    <string name="traffic_help_devices">Dispositivos</string>
+    <string name="traffic_help_sessions">Gravações</string>
+    <string name="traffic_help_coverage_body">É a parte do período com leituras válidas. Cada gráfico calcula a cobertura da própria métrica; os intervalos sem leitura não contam como zero.</string>
+    <string name="traffic_help_sustained_body">Os valores de 30 s, 1 min e 5 min são as maiores médias em janelas completas. O tempo ativo conta tráfego acima de 100 kbit/s, sem identificar qual app o gerou.</string>
+    <string name="traffic_close_inspection">Fechar inspeção</string>
+    <string name="traffic_chart_scale">Escala de zero a %1$s %2$s</string>
+    <string name="traffic_chart_gap_note">Lacunas interrompem a linha</string>
+    <string name="traffic_session_actions">Gravações</string>
+    <string name="traffic_export_options">Opções de exportação</string>
+    <string name="traffic_help_sustained">Máximos sustentados</string>
+    <string name="traffic_recording_preparing">Preparando gravação</string>
+    <string name="traffic_recording_finishing">Encerrando gravação</string>
+    <string name="traffic_recording_interrupted">Gravação interrompida</string>
+    <string name="traffic_recording_open">Ver gravação atual</string>
+    <string name="traffic_point_missing">Sem leitura válida desta métrica no ponto selecionado.</string>
+</resources>

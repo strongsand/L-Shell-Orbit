@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Two lines within the smallest 48dp custom-content slot; larger fonts use native fallback. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:orientation="vertical" android:paddingTop="1dp" android:paddingBottom="1dp">
+    <TextView android:id="@+id/test_result_title" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:textAppearance="@style/TestResultTitle"
+        android:textSize="16sp" android:includeFontPadding="false" android:maxLines="1" android:ellipsize="end" />
+    <TextView android:id="@+id/test_result_summary" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:layout_marginTop="2dp"
+        android:textAppearance="@style/TestResultLabel" android:includeFontPadding="false"
+        android:maxLines="1" android:ellipsize="end" />
+</LinearLayout>

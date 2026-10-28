@@ -32,4 +32,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "L-Shell Orbit"
 include(":app")
+include(":dishyCore", ":beaconProtocol")
 

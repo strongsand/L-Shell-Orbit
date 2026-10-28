@@ -1,5 +1,7 @@
 package io.github.strongsand.lshell
 
+import androidx.compose.ui.res.stringResource
+
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -29,9 +31,6 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Icon
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.NearMe
-import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -79,13 +78,13 @@ private fun deg(value: Float) = String.format(Locale.getDefault(), "%.1f°", val
 fun AlignmentScreen(modifier: Modifier = Modifier, onBack: () -> Unit) {
     val client = remember { DishyGrpcClient() }
     var reading by remember { mutableStateOf<DishyGrpcClient.AlignmentReading?>(null) }
-    var error by remember { mutableStateOf<String?>(null) }
+    var error by remember { mutableStateOf<Throwable?>(null) }
     DisposableEffect(client) { onDispose { client.close() } }
     LaunchedEffect(client) {
         while (true) {
             client.fetchAlignment().fold(
                 onSuccess = { reading = it; error = null },
-                onFailure = { error = it.message ?: "Sem leitura da antena" }
+                onFailure = { error = it }
             )
             delay(2_000)
         }
@@ -148,83 +147,83 @@ fun AlignmentScreen(modifier: Modifier = Modifier, onBack: () -> Unit) {
             .verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        FilledTonalButton(onClick = hapticClick(action = onBack), modifier = Modifier.align(Alignment.Start)) { Text("Voltar") }
+        FilledTonalButton(onClick = hapticClick(action = onBack), modifier = Modifier.align(Alignment.Start)) { Text(stringResource(R.string.antenna_back)) }
         Spacer(Modifier.height(16.dp))
-        Text("Alinhar antena", style = MaterialTheme.typography.headlineMedium)
-        Text("Mova devagar e acompanhe o ponteiro.", style = MaterialTheme.typography.bodyLarge,
+        Text(stringResource(R.string.ui_align_dish), style = MaterialTheme.typography.headlineMedium)
+        Text(stringResource(R.string.ui_move_slowly_and_follow_the_pointer), style = MaterialTheme.typography.bodyLarge,
             textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(22.dp))
         if (error != null) {
             Card(Modifier.fillMaxWidth()) {
-                Text("Sem leitura em tempo real: $error", Modifier.padding(16.dp),
+                Text(stringResource(R.string.ui_alignment_error, error?.message ?: stringResource(R.string.editorial_no_reading)), Modifier.padding(16.dp),
                     color = MaterialTheme.colorScheme.error)
             }
             Spacer(Modifier.height(12.dp))
         }
-        if (data == null) Text("Aguardando a antena…") else {
+        if (data == null) Text(stringResource(R.string.ui_waiting_for_the_dish)) else {
             AnimatedContent(visibleAxis, label = "Etapa de alinhamento") { step ->
                 Column(horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(when (step) {
-                        Axis.ROTATION -> "Rotação"
-                        Axis.TILT -> "Inclinação"
-                        Axis.NEAR -> "Próximo do alvo"
-                        Axis.DONE -> "Alinhado"
-                        Axis.SKIPPED -> "Inclinação pulada"
-                        null -> "Lendo antena"
+                        Axis.ROTATION -> stringResource(R.string.ui_rotation)
+                        Axis.TILT -> stringResource(R.string.ui_tilt)
+                        Axis.NEAR -> stringResource(R.string.ui_near_the_target)
+                        Axis.DONE -> stringResource(R.string.ui_aligned)
+                        Axis.SKIPPED -> stringResource(R.string.ui_tilt_skipped)
+                        null -> stringResource(R.string.ui_reading_dish)
                     }, style = MaterialTheme.typography.titleLarge)
                     when (step) {
                         Axis.ROTATION -> CompassDiagram(data.azimuth, data.desiredAzimuth)
                         Axis.TILT -> TiltDiagram(data.elevation, data.desiredElevation)
                         Axis.NEAR -> {
                             NearTargetIndicator()
-                            Text("Rotação e inclinação estão próximas dos valores desejados.",
+                            Text(stringResource(R.string.ui_rotation_and_tilt_are_close_to_the_target_values),
                                 textAlign = TextAlign.Center)
                         }
                         Axis.DONE -> {
                             CompletedAlignmentIndicator()
-                            Text("A antena está dentro da faixa de alinhamento.",
+                            Text(stringResource(R.string.ui_the_dish_is_within_the_alignment_range),
                                 textAlign = TextAlign.Center)
                         }
                         Axis.SKIPPED -> {
-                            Text("A inclinação foi pulada. A antena pode precisar de ajuste para melhorar o sinal.",
+                            Text(stringResource(R.string.ui_tilt_was_skipped_the_dish_may_need_adjustment_to_improve_the_sign),
                                 textAlign = TextAlign.Center)
-                            TextButton(onClick = hapticClick { tiltSkipped = false }) { Text("Retomar inclinação") }
+                            TextButton(onClick = hapticClick { tiltSkipped = false }) { Text(stringResource(R.string.ui_resume_tilt_adjustment)) }
                         }
                         null -> Unit
                     }
                     Text(when (step) {
-                        Axis.ROTATION -> if (rotationError > 0) "Gire devagar no sentido horário" else "Gire devagar no sentido anti-horário"
-                        Axis.TILT -> if (tiltError > 0) "Eleve a antena um pouco" else "Abaixe a antena um pouco"
-                        Axis.NEAR -> "Faça movimentos pequenos para entrar na faixa ideal."
-                        Axis.DONE -> "Confira a qualidade do sinal antes de terminar."
-                        Axis.SKIPPED -> "Confira a qualidade do sinal antes de terminar."
+                        Axis.ROTATION -> if (rotationError > 0) stringResource(R.string.ui_turn_slowly_clockwise) else stringResource(R.string.ui_turn_slowly_counterclockwise)
+                        Axis.TILT -> if (tiltError > 0) stringResource(R.string.ui_raise_the_dish_slightly) else stringResource(R.string.ui_lower_the_dish_slightly)
+                        Axis.NEAR -> stringResource(R.string.ui_make_small_movements_to_reach_the_ideal_range)
+                        Axis.DONE -> stringResource(R.string.ui_check_signal_quality_before_finishing)
+                        Axis.SKIPPED -> stringResource(R.string.ui_check_signal_quality_before_finishing)
                         null -> ""
                     }, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
                     if (step == Axis.ROTATION || step == Axis.TILT) {
                         val remaining = abs(if (step == Axis.ROTATION) rotationError else tiltError)
-                        Text("Faltam " + deg(remaining), style = MaterialTheme.typography.bodyLarge,
+                        Text(stringResource(R.string.ui_alignment_remaining, deg(remaining)), style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
             Spacer(Modifier.height(18.dp))
             FilledTonalButton(onClick = hapticClick(if (showDetails) DashFeedback.TOGGLE_OFF else DashFeedback.TOGGLE_ON) { showDetails = !showDetails }) {
-                Text(if (showDetails) "Ocultar leituras" else "Ver leituras")
+                Text(if (showDetails) stringResource(R.string.ui_hide_readings) else stringResource(R.string.ui_view_readings))
             }
             if (visibleAxis == Axis.TILT) {
                 Spacer(Modifier.height(12.dp))
                 val skipInteraction = remember { MutableInteractionSource() }
                 TextButton(onClick = hapticClick { tiltSkipped = true }, interactionSource = skipInteraction,
-                    modifier = Modifier.pressMotion(skipInteraction, 0.95f)) { Text("Pular") }
+                    modifier = Modifier.pressMotion(skipInteraction, 0.95f)) { Text(androidx.compose.ui.res.stringResource(R.string.editorial_skip_tilt)) }
             }
             if (showDetails) {
                 Spacer(Modifier.height(8.dp))
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("Rotação: " + deg(data.azimuth) + " → " + deg(data.desiredAzimuth))
-                        Text("Inclinação: " + deg(data.elevation) + " → " + deg(data.desiredElevation))
-                        Text("Faixa aceita: ±5° na rotação e ±3° na inclinação, com folga contra oscilações. A antena decide o alinhamento real.",
+                        Text(stringResource(R.string.ui_alignment_rotation_values, deg(data.azimuth), deg(data.desiredAzimuth)))
+                        Text(stringResource(R.string.ui_alignment_tilt_values, deg(data.elevation), deg(data.desiredElevation)))
+                        Text(stringResource(R.string.ui_accepted_range_5_rotation_and_3_tilt_with_tolerance_for_fluctuati),
                             style = MaterialTheme.typography.bodySmall)
                     }
                 }
@@ -246,7 +245,7 @@ private fun NearTargetIndicator() {
         color = MaterialTheme.colorScheme.secondaryContainer,
         contentColor = MaterialTheme.colorScheme.onSecondaryContainer) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Icon(Icons.Rounded.NearMe, contentDescription = "Perto do alvo", modifier = Modifier.size(48.dp))
+            Icon(OrbitSymbols.NearMe, contentDescription = stringResource(R.string.ui_near_the_target_2), modifier = Modifier.size(48.dp))
         }
     }
 }
@@ -261,7 +260,7 @@ private fun CompletedAlignmentIndicator() {
         shape = DashDesign.cookie, color = MaterialTheme.colorScheme.primaryContainer,
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Icon(Icons.Rounded.CheckCircle, contentDescription = "Alinhamento concluído",
+            Icon(OrbitSymbols.CheckCircle, contentDescription = stringResource(R.string.ui_alignment_completed),
                 modifier = Modifier.size(54.dp))
         }
     }
@@ -269,7 +268,7 @@ private fun CompletedAlignmentIndicator() {
 
 @Composable
 private fun CompassDiagram(current: Float, target: Float) {
-    val background = MaterialTheme.colorScheme.primaryContainer
+    val background = amoledCardColor(MaterialTheme.colorScheme.primaryContainer)
     val targetColor = MaterialTheme.colorScheme.onPrimaryContainer
     val dishBorder = MaterialTheme.colorScheme.primary.copy(alpha = 0.28f)
     val phase = movingWavePhase()
@@ -324,16 +323,16 @@ private fun CompassDiagram(current: Float, target: Float) {
                     strokeWidth = 3.dp.toPx(), cap = StrokeCap.Round)
             }
         }
-        Text("N", Modifier.align(Alignment.TopCenter), style = MaterialTheme.typography.labelLarge)
-        Text("NE", Modifier.align(Alignment.TopEnd).padding(top = 35.dp, end = 24.dp), style = MaterialTheme.typography.labelMedium)
-        Text("L", Modifier.align(Alignment.CenterEnd), style = MaterialTheme.typography.labelLarge)
-        Text("SE", Modifier.align(Alignment.BottomEnd).padding(bottom = 35.dp, end = 24.dp), style = MaterialTheme.typography.labelMedium)
-        Text("S", Modifier.align(Alignment.BottomCenter), style = MaterialTheme.typography.labelLarge)
-        Text("SO", Modifier.align(Alignment.BottomStart).padding(bottom = 35.dp, start = 24.dp), style = MaterialTheme.typography.labelMedium)
-        Text("O", Modifier.align(Alignment.CenterStart), style = MaterialTheme.typography.labelLarge)
-        Text("NO", Modifier.align(Alignment.TopStart).padding(top = 35.dp, start = 24.dp), style = MaterialTheme.typography.labelMedium)
+        Text(androidx.compose.ui.res.stringResource(R.string.editorial_compass_0), Modifier.align(Alignment.TopCenter), style = MaterialTheme.typography.labelLarge)
+        Text(androidx.compose.ui.res.stringResource(R.string.editorial_compass_1), Modifier.align(Alignment.TopEnd).padding(top = 35.dp, end = 24.dp), style = MaterialTheme.typography.labelMedium)
+        Text(androidx.compose.ui.res.stringResource(R.string.editorial_compass_2), Modifier.align(Alignment.CenterEnd), style = MaterialTheme.typography.labelLarge)
+        Text(androidx.compose.ui.res.stringResource(R.string.editorial_compass_3), Modifier.align(Alignment.BottomEnd).padding(bottom = 35.dp, end = 24.dp), style = MaterialTheme.typography.labelMedium)
+        Text(androidx.compose.ui.res.stringResource(R.string.editorial_compass_4), Modifier.align(Alignment.BottomCenter), style = MaterialTheme.typography.labelLarge)
+        Text(androidx.compose.ui.res.stringResource(R.string.editorial_compass_5), Modifier.align(Alignment.BottomStart).padding(bottom = 35.dp, start = 24.dp), style = MaterialTheme.typography.labelMedium)
+        Text(androidx.compose.ui.res.stringResource(R.string.editorial_compass_6), Modifier.align(Alignment.CenterStart), style = MaterialTheme.typography.labelLarge)
+        Text(androidx.compose.ui.res.stringResource(R.string.editorial_compass_7), Modifier.align(Alignment.TopStart).padding(top = 35.dp, start = 24.dp), style = MaterialTheme.typography.labelMedium)
     }
-    Text("Retângulo: antena  ·  Traço em movimento: alvo",
+    Text(stringResource(R.string.ui_rectangle_dish_moving_line_target),
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         textAlign = TextAlign.Center)
@@ -341,7 +340,7 @@ private fun CompassDiagram(current: Float, target: Float) {
 
 @Composable
 private fun TiltDiagram(current: Float, target: Float) {
-    val background = MaterialTheme.colorScheme.primaryContainer
+    val background = amoledCardColor(MaterialTheme.colorScheme.primaryContainer)
     val targetColor = MaterialTheme.colorScheme.onPrimaryContainer
     val phase = movingWavePhase()
     val tilt by animateFloatAsState(current, spring(stiffness = Spring.StiffnessLow), label = "Antena inclinando")
@@ -409,7 +408,7 @@ private fun TiltDiagram(current: Float, target: Float) {
         drawPath(check, targetColor.copy(alpha = settled),
             style = Stroke(width = 6.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
     }
-    Text("Barra branca: antena  ·  Traço em movimento: alvo",
+    Text(stringResource(R.string.ui_white_bar_dish_moving_line_target),
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         textAlign = TextAlign.Center)

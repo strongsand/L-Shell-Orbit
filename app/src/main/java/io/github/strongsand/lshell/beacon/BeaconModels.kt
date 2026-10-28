@@ -8,7 +8,9 @@ data class BeaconDevice(
     val firmwareVersion: String? = null,
     val status: String? = null,
     val bleAddress: String? = null,
-    val protocolVersion: Int? = null
+    val protocolVersion: Int? = null,
+    val capabilities: Set<String> = emptySet(),
+    val implementation: String? = null
 )
 
 data class PairedBeacon(
@@ -35,7 +37,13 @@ data class BeaconRuntimeStatus(
     val storageHealthy: Boolean = true,
     val oldestSequence: Long? = null,
     val newestSequence: Long? = null,
-    val recordCount: Long? = null
+    val recordCount: Long? = null,
+    val lastContactAtMillis: Long? = null,
+    val bootId: Long? = null,
+    val wifiRssi: Int? = null,
+    val acknowledgedSequence: Long? = null,
+    val lastImportedRecords: Int? = null,
+    val electrical: BeaconPowerPayload? = null
 )
 
 enum class BeaconSampleSource { LOCAL_PHONE, BEACON }
@@ -48,7 +56,8 @@ enum class BeaconErrorCode {
     PAIRING_FAILED,
     BLUETOOTH_BOND_INCONSISTENT,
     CREDENTIAL_FAILED,
-    SYNC_FAILED
+    SYNC_FAILED,
+    HISTORY_TIME_UNAVAILABLE
 }
 
 enum class BeaconProvisioningEvent {
@@ -94,7 +103,8 @@ sealed interface BeaconState {
         val status: BeaconRuntimeStatus,
         val progress: Float? = null,
         val processedRecords: Long = 0L,
-        val totalRecords: Long = 0L
+        val totalRecords: Long = 0L,
+        val acknowledgedPages: Int = 0
     ) : BeaconState
     data class DishyUnavailable(val status: BeaconRuntimeStatus) : BeaconState
     data class BeaconOffline(val device: BeaconDevice) : BeaconState
@@ -107,6 +117,8 @@ sealed interface BeaconState {
 }
 
 data class BeaconSettings(
+    val backgroundSync: Boolean = false,
+    val syncIntervalMinutes: Long = 30,
     val automaticSync: Boolean = true,
     val wifiOnly: Boolean = true,
     val retentionDays: Int = 30,

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="beacon_android_pair">Parear Beacon Android</string>
+    <string name="beacon_android_scan">Escaneie o QR exibido no Beacon Android</string>
+    <string name="beacon_android_type">Tipo · Android</string>
+    <string name="beacon_android_clock_help">Há registros com horário não verificável no Beacon Android. Eles continuam guardados; confira a data e hora do coletor. Esta fase não descarta nem reconstrói esses horários.</string>
+    <string name="beacon_android_scan_action">Escanear QR</string>
+</resources>

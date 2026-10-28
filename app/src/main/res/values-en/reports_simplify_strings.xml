@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="reports_expanded">Expanded</string>
+    <string name="reports_collapsed">Collapsed</string>
+    <string name="reports_about">About reports</string>
+    <string name="reports_median">Median</string>
+    <string name="reports_mean">Mean</string>
+    <string name="reports_few_tests">Few tests</string>
+    <string name="reports_scheduled_unit">Scheduled Mbps</string>
+    <string name="reports_other_tests">Other tests available in details</string>
+    <string name="reports_completed_tests">Completed: %1$d</string>
+    <string name="reports_data_export">Data and export</string>
+    <string name="reports_select_folder">Choose a folder in Settings → Data and export.</string>
+    <string name="reports_generated_late">Generated %1$s late</string>
+    <string name="reports_access_interruptions">Access interruptions</string>
+    <string name="reports_no_interruptions">No observed interruptions</string>
+    <string name="reports_event_count">Events: %1$d</string>
+    <string name="reports_longest_at">Longest interruption: %1$s at %2$s</string>
+    <string name="reports_start">Start</string>
+    <string name="reports_end">End</string>
+    <string name="reports_observed_until">Observed until</string>
+    <string name="reports_outage_spoken">%1$d hours and %2$d minutes, duration %3$s</string>
+    <string name="reports_spoken_seconds">%1$d seconds</string>
+    <string name="reports_spoken_minutes">%1$d minutes and %2$d seconds</string>
+    <string name="reports_spoken_hours">%1$d hours, %2$d minutes and %3$d seconds</string>
+    <string name="reports_unit_ms">milliseconds</string>
+    <string name="reports_unit_mbps">megabits per second</string>
+    <string name="reports_unit_percent">percent</string>
+    <string name="reports_unit_pp">percentage points</string>
+    <string name="reports_unit_watts">watts</string>
+    <string name="reports_change_spoken">%1$s. %2$s %3$s %4$s. %5$s.</string>
+    <string name="reports_extra_changes">Other comparisons are available in About reports.</string>
+    <string name="reports_relevant_events">Relevant events: %1$d</string>
+    <string name="reports_export_both">JSON + CSV</string>
+    <string name="reports_export_json">JSON</string>
+    <string name="reports_export_csv">CSV</string>
+</resources>

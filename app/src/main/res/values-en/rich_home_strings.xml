@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="rich_connection_now">Your connection, now</string>
+    <string name="rich_connection_hint">Traffic and link quality</string>
+    <string name="rich_cached_metrics">Last saved readings</string>
+    <string name="rich_terminal_overview">Terminal overview</string>
+    <string name="rich_operating">Systems operating</string>
+    <string name="rich_cached_status">Last connection data</string>
+    <string name="rich_no_live_reading">No current reading</string>
+    <string name="rich_check_terminal">Check the dish status</string>
+    <string name="rich_temperature">Temperature</string>
+    <string name="rich_normal">Normal</string>
+    <string name="rich_attention">Attention</string>
+    <string name="rich_software">Software · %1$s</string>
+    <string name="rich_loss">Loss %1$s</string>
+    <string name="rich_latency">POP latency</string>
+    <string name="rich_signal_above">Above noise floor</string>
+    <string name="rich_signal_low">Not above noise floor</string>
+    <string name="rich_power_reading">Current reading</string>
+    <string name="rich_sample">Last sample · %1$s</string>
+    <string name="rich_beacon_recording">On the local network · collecting data</string>
+    <string name="rich_speed_spoken">Download %1$s megabits per second. Upload %2$s megabits per second.</string>
+    <string name="rich_coverage">Coverage %1$s%%</string>
+    <string name="rich_coverage_spoken">Coverage of %1$s percent</string>
+    <string name="rich_availability_spoken">Availability of %1$s percent</string>
+    <string name="rich_field">Field of view</string>
+    <string name="rich_obstruction">Dish obstruction</string>
+    <string name="rich_view_active">Active obstruction</string>
+    <string name="rich_view_critical">Critical</string>
+    <string name="rich_view_blocked">View impaired</string>
+    <string name="rich_view_caution">Check the view</string>
+    <string name="rich_view_clear">Excellent view</string>
+    <string name="rich_view_wait">Waiting for a reading</string>
+    <string name="rich_view_no_data">Connect to the dish to assess its view.</string>
+    <string name="rich_view_cache">Last saved reading. Conditions may have changed.</string>
+    <string name="rich_view_block">A blockage is in the direction of the satellites.</string>
+    <string name="rich_view_move">Find a position with more open sky.</string>
+    <string name="rich_view_small">Small blockages can interrupt the connection.</string>
+    <string name="rich_view_good">Open sky, good viewing conditions.</string>
+    <string name="rich_equipment">Your equipment</string>
+    <string name="rich_uptime">Uptime</string>
+    <string name="rich_mesh_node">Mesh node</string>
+    <string name="rich_mesh_info">About mesh topology</string>
+    <string name="rich_mesh_raw_role">Reported role (raw value)</string>
+    <string name="rich_interface_unknown">Interface not provided</string>
+    <string name="rich_wifi_24">Wi-Fi 2.4 GHz</string>
+    <string name="rich_wifi_5_high">Wi-Fi 5 GHz · upper band</string>
+    <string name="rich_other_devices">Other devices</string>
+    <string name="rich_signal_spoken">Signal %1$s decibels relative to one milliwatt</string>
+    <string name="rich_unit_mbps">megabits per second</string>
+    <string name="rich_unit_ms">milliseconds</string>
+    <string name="rich_unit_watts">watts</string>
+    <string name="rich_done">Got it</string>
+    <plurals name="rich_terminal_warnings">
+        <item quantity="one">%1$d dish warning</item>
+        <item quantity="other">%1$d dish warnings</item>
+    </plurals>
+    <plurals name="rich_mesh_nodes">
+        <item quantity="one">Mesh node</item>
+        <item quantity="other">Mesh nodes</item>
+    </plurals>
+    <string name="rich_obstruction_spoken">%1$s. Obstruction %2$s</string>
+</resources>

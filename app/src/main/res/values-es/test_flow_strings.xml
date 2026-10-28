@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="test_flow_download">Descarga</string>
+    <string name="test_flow_upload">Subida</string>
+    <string name="test_flow_download_description">Descarga: del satélite al usuario.</string>
+    <string name="test_flow_upload_description">Subida: del usuario al satélite.</string>
+    <string name="test_flow_wait_description">Prueba en curso, esperando nuevas lecturas.</string>
+</resources>

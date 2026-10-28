@@ -1,12 +1,54 @@
-<?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="widget_obstruction_name">L-Shell Orbit · Obstruction</string>
+    <string name="widget_report_name">L-Shell Orbit · Report</string>
+    <string name="widget_beacon_name">L-Shell Orbit · Beacon</string>
+    <string name="widget_obstruction_description">Dish status, obstruction and surveyed sky coverage.</string>
+    <string name="widget_report_description">Availability and coverage of the latest saved report.</string>
+    <string name="widget_beacon_description">Beacon status, pending records and last synchronization.</string>
+    <string name="widget_surveyed">Surveyed %1$s</string>
+    <string name="widget_updated_time">Updated %1$s</string>
+    <string name="widget_cached_reading">Last reading · %1$s</string>
+    <string name="widget_last_reading">Last reading</string>
+    <string name="widget_light_obstruction">Light obstruction</string>
+    <string name="widget_relevant_obstruction">Significant obstruction</string>
+    <string name="widget_partial_map">Partial map</string>
+    <string name="widget_no_data">No data</string>
+    <string name="widget_dish_offline">Dish unavailable</string>
+    <string name="widget_map_unavailable">Map not available yet</string>
+    <string name="widget_unsurveyed">Unsurveyed</string>
+    <string name="widget_loading">Loading…</string>
+    <string name="widget_open_reports">Open to view reports.</string>
+    <string name="widget_observed">Observed %1$s of period</string>
+    <string name="widget_coverage_unknown">Coverage unavailable</string>
+    <string name="widget_latency">Latency</string>
+    <string name="widget_beacon_title">Beacon</string>
+    <string name="widget_storage_attention">Storage needs attention</string>
+    <string name="widget_dish_wait">Waiting for dish</string>
+    <string name="widget_recording">Recording</string>
+    <string name="widget_online">Online</string>
+    <string name="widget_pending">Pending</string>
+    <string name="widget_last_sync">Synced · %1$s</string>
+    <string name="widget_unknown">Unknown</string>
+    <string name="widget_preview_date">Oct 10</string>
+    <string name="widget_preview_time">9:21</string>
+    <string name="widget_preview_report_summary">Stable connection</string>
+    <string name="widget_preview_report_coverage" formatted="false">Observed 98.5% of period</string>
+    <string name="widget_preview_sync">Synced · 9:21</string>
+    <string name="widget_preview_obstruction_value">0.1%</string>
+    <string name="widget_preview_availability_value">100.0%</string>
+    <string name="widget_beacon_full_title">L-Shell Beacon</string>
+    <string name="widget_surveyed_compact">%1$s surveyed</string>
+    <string name="widget_observed_short">observed</string>
+    <string name="widget_collection_active">COLLECTING</string>
+    <string name="widget_operational_state">STATUS</string>
+    <string name="widget_synced_short">Synced</string>
+    <string name="widget_sync_time_label">Last sync</string>
+    <string name="widget_preview_surveyed" formatted="false">37% surveyed</string>
+    <string name="widget_preview_coverage_value">98%</string>
     <string name="widget_summary_name">L-Shell Orbit · Summary</string>
     <string name="widget_speed_name">L-Shell Orbit · Speed</string>
     <string name="widget_connection_name">L-Shell Orbit · Connection</string>
     <string name="widget_test_name">L-Shell Orbit · Test</string>
     <string name="widget_alerts_name">L-Shell Orbit · Alerts</string>
     <string name="widget_trends_name">L-Shell Orbit · Trends</string>
-    <string name="widget_obstruction_name">L-Shell Orbit · Obstruction</string>
-    <string name="widget_report_name">L-Shell Orbit · Report</string>
-    <string name="widget_beacon_name">L-Shell Orbit · Beacon</string>
 </resources>

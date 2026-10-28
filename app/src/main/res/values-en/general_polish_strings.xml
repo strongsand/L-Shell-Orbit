@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="general_history_error">Could not load events.</string>
+    <string name="general_history_filter_empty">No events match this filter</string>
+    <string name="general_history_filter_help">This day has records. Choose another filter or view all events.</string>
+    <string name="general_clear_filter">Clear filter</string>
+    <string name="general_beacon_android">Beacon Android</string>
+    <string name="general_beacon_esp32">Beacon ESP32</string>
+</resources>

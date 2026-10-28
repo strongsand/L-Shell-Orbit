@@ -121,6 +121,25 @@ class DailyReportChartTest {
         assertEquals(3, bucket.tone)
     }
 
+    @Test fun exportCsvPreservesZeroMissingAndOrigin() {
+        val exported = report(0, 200).copy(lossChart = listOf(
+            ReportChartBucket(0, 100, null, 0, 0, 0),
+            ReportChartBucket(100, 200, 0f, 2, 1, 1)
+        ))
+        val csv = reportCsv(exported)
+        assertTrue(csv.contains("loss_percent,0,100,,0,0,0,UNKNOWN"))
+        assertTrue(csv.contains("loss_percent,100,200,0.0,2,1,1,MIXED"))
+        assertFalse(csv.contains("NaN"))
+    }
+
+    @Test fun exportCsvEscapesQuotesCommasAndNewlines() {
+        assertEquals("\"quoted \"\"value\"\",\nnext\"", csvCell("quoted \"value\",\nnext"))
+        val csv = reportCsv(report(0, 200).copy(timeline = listOf(
+            ReportMoment(123, "Synthetic, event", "two\nlines")
+        )))
+        assertTrue(csv.contains("\"Synthetic, event\",\"two\nlines\""))
+    }
+
     private fun report(start: Long, end: Long, sampleCount: Int = 0) = DailyReport(
         start = start, end = end, createdAt = end, summary = "synthetic",
         monitoredMs = 0L, onlineMs = 0L, offlineMs = 0L, availabilityPercent = null,

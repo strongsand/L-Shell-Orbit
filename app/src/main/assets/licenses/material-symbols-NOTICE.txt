@@ -1,0 +1,7 @@
+Material Symbols by Google — Apache License 2.0.
+Source: https://github.com/google/material-design-icons/tree/10ecc14790612ca8fd164e3f4ffe9c16fc50d5b7
+Catalog: https://fonts.google.com/icons
+Subset: Rounded, 24dp, weight 400, grade 0, fill 0.
+Local adaptations: Compose ImageVector conversion; Android tint/scale; RTL mirroring.
+No separate upstream NOTICE file exists at this revision.
+See material-symbols-LICENSE.txt for the unmodified upstream license.

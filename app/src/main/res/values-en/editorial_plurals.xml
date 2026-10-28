@@ -1,0 +1,18 @@
+<resources>
+    <plurals name="editorial_samples">
+        <item quantity="one">%1$d sample</item>
+        <item quantity="other">%1$d samples</item>
+    </plurals>
+    <plurals name="editorial_devices_found">
+        <item quantity="one">%1$d device found</item>
+        <item quantity="other">%1$d devices found</item>
+    </plurals>
+    <plurals name="editorial_report_outages">
+        <item quantity="one">%1$d outage. Longest duration: %2$s.</item>
+        <item quantity="other">%1$d outages. Longest duration: %2$s.</item>
+    </plurals>
+    <plurals name="editorial_retention_days">
+        <item quantity="one">%1$d day (depends on firmware)</item>
+        <item quantity="other">%1$d days (depends on firmware)</item>
+    </plurals>
+</resources>

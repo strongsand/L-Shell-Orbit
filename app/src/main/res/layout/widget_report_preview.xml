@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:padding="12dp" android:background="@drawable/widget_background">
+<LinearLayout android:layout_width="match_parent" android:layout_height="48dp" android:orientation="horizontal" android:gravity="center_vertical">
+<TextView android:layout_width="0dp" android:layout_height="wrap_content" android:text="@string/editorial_widget_report" android:textSize="14sp" android:textColor="@color/widget_text" android:maxLines="2" android:ellipsize="end" android:textStyle="bold" android:layout_weight="1" />
+<ImageView android:layout_width="48dp" android:layout_height="48dp" android:padding="14dp" android:src="@drawable/ic_widget_refresh" android:tint="@color/widget_muted" android:contentDescription="@string/editorial_refresh" />
+</LinearLayout>
+<TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/widget_preview_availability_value" android:textSize="48sp" android:textColor="@color/widget_text" android:maxLines="2" android:ellipsize="end" android:textStyle="bold"  />
+<TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/editorial_widget_availability" android:textSize="12sp" android:textColor="@color/widget_text" android:maxLines="2" android:ellipsize="end" android:textStyle="bold"  />
+<FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" />
+<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
+<TextView android:layout_width="0dp" android:layout_height="wrap_content" android:text="@string/widget_preview_date" android:textSize="11sp" android:textColor="@color/widget_muted" android:maxLines="2" android:ellipsize="end" android:layout_weight="1" />
+<LinearLayout android:layout_width="84dp" android:layout_height="wrap_content" android:orientation="vertical" android:gravity="center_horizontal" android:padding="8dp" android:background="@drawable/widget_coverage_surface">
+<TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/widget_preview_coverage_value" android:textSize="22sp" android:textColor="@color/widget_text" android:maxLines="2" android:ellipsize="end" android:textStyle="bold"  />
+<TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/widget_observed_short" android:textSize="11sp" android:textColor="@color/widget_muted" android:maxLines="2" android:ellipsize="end"  />
+</LinearLayout></LinearLayout>
+</LinearLayout>

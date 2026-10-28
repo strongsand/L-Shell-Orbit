@@ -1,0 +1,16 @@
+<resources>
+    <string name="archive_title">Exportação de relatórios</string>
+    <string name="archive_explanation">Arquivos locais JSON/CSV na pasta escolhida. O banco interno continua sendo a fonte do app. Um provedor escolhido pode sincronizar a pasta por conta própria.</string>
+    <string name="archive_no_folder">Nenhuma pasta selecionada</string>
+    <string name="archive_folder_ready">Pasta selecionada</string>
+    <string name="archive_choose_folder">Escolher ou alterar pasta</string>
+    <string name="archive_automatic">Exportar automaticamente</string>
+    <string name="archive_format">Formato</string>
+    <string name="archive_test_access">Testar acesso à pasta</string>
+    <string name="archive_export_now">Exportar este relatório</string>
+    <string name="archive_exported">Exportação concluída</string>
+    <string name="archive_access_ok">A pasta permite escrita</string>
+    <string name="archive_access_error">Não foi possível acessar ou gravar na pasta. Selecione-a novamente e tente outra vez.</string>
+    <string name="archive_last">Última exportação: %1$s</string>
+    <string name="archive_working">Preparando arquivos…</string>
+</resources>
