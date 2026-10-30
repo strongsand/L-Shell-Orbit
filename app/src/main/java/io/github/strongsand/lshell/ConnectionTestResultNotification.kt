@@ -108,7 +108,8 @@ internal object ConnectionTestResultNotification {
         val labels = listOf(
             if (model.averages) R.string.test_average_download else R.string.traffic_download,
             if (model.averages) R.string.test_average_upload else R.string.traffic_upload,
-            if (model.averages) R.string.test_average_latency else R.string.test_latency,
+            if (model.averages) R.string.test_average_latency
+                else if (state.kind == ConnectionTestKind.NORMAL) normalTestLatencyLabel(state.result) else R.string.test_latency,
             R.string.test_total_duration
         ).map(context::getString)
         val values = listOf(down, up, latency, duration)

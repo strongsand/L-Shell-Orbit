@@ -17,26 +17,42 @@ enum class OrbitTheme { SYSTEM, LIGHT, DARK, AMOLED;
         DARK, AMOLED -> true
     }
 }
-enum class HapticLevel { OFF, SUBTLE, STANDARD, EXPRESSIVE }
+enum class AmoledColors { ORIGINAL, MONOCHROME }
 data class ExperienceSettings(
     val theme: OrbitTheme = OrbitTheme.SYSTEM,
-    val haptics: HapticLevel = HapticLevel.STANDARD,
-    val technical: Boolean = false
-)
+    val technical: Boolean = false,
+    val amoledColors: AmoledColors = AmoledColors.ORIGINAL
+) {
+    val monochrome get() = theme == OrbitTheme.AMOLED && amoledColors == AmoledColors.MONOCHROME
+}
+
+/** Shared by persistence and restore tests. Retired haptic keys never affect behavior. */
+internal object ExperienceSettingsCodec {
+    fun decode(values: Map<String, *>) = ExperienceSettings(
+        theme = OrbitTheme.entries.firstOrNull { it.name == values["theme"] } ?: OrbitTheme.SYSTEM,
+        technical = values["technical"] as? Boolean ?: false,
+        amoledColors = AmoledColors.entries.firstOrNull { it.name == values["amoled_colors"] } ?: AmoledColors.ORIGINAL
+    )
+    fun encode(settings: ExperienceSettings): Map<String, Any> = mapOf(
+        "theme" to settings.theme.name, "technical" to settings.technical,
+        "amoled_colors" to settings.amoledColors.name
+    )
+}
 
 object ExperiencePreferences {
     private fun prefs(context: Context) = context.applicationContext.getSharedPreferences("orbit_experience", Context.MODE_PRIVATE)
     fun read(context: Context): ExperienceSettings {
-        val prefs = prefs(context)
-        return ExperienceSettings(
-            OrbitTheme.entries.firstOrNull { it.name == prefs.getString("theme", null) } ?: OrbitTheme.SYSTEM,
-            HapticLevel.entries.firstOrNull { it.name == prefs.getString("haptics", null) } ?: HapticLevel.STANDARD,
-            prefs.getBoolean("technical", false)
-        )
+        return ExperienceSettingsCodec.decode(prefs(context).all)
     }
     fun write(context: Context, settings: ExperienceSettings) {
-        prefs(context).edit().putString("theme", settings.theme.name)
-            .putString("haptics", settings.haptics.name).putBoolean("technical", settings.technical).apply()
+        val editor = prefs(context).edit().remove("haptics")
+        ExperienceSettingsCodec.encode(settings).forEach { (key, value) ->
+            when (value) {
+                is String -> editor.putString(key, value)
+                is Boolean -> editor.putBoolean(key, value)
+            }
+        }
+        editor.apply()
     }
     fun observe(context: Context, listener: SharedPreferences.OnSharedPreferenceChangeListener) =
         prefs(context).registerOnSharedPreferenceChangeListener(listener)

@@ -1,0 +1,1 @@
+AMOLED now offers Original and Black and white, with a saved selection. Normal tests show PoP latency from live Starlink telemetry, identified separately from the speed measurement. Removed the custom haptic feedback setting. Adjusted Android SDK 37.0 selection for clean build environments.

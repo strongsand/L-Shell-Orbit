@@ -94,7 +94,22 @@ internal class ConnectionTestController private constructor(context: Context) {
             update(initial.copy(phase = ConnectionTestPhase.RUNNING))
             onStarted() // Automatic quota is spent only once execution actually reaches RUNNING.
             if (initial.kind == ConnectionTestKind.NORMAL) {
-                val result = SpeedTestClient.router { publishActivity(id, it) }
+                val telemetryOwner = "normal-test-latency:$id"
+                val startedAt = System.currentTimeMillis()
+                val result = try {
+                    // Reuse the single shared loop, including when UI is backgrounded.
+                    // The lease exists only for this execution and changes no default cadence.
+                    runtime.acquire(telemetryOwner, 2000L)
+                    normalTestWithLatency(runtime.repository.telemetryFlow, startedAt,
+                        onReading = { reading ->
+                            val current = _state.value
+                            if (current.id == id && current.phase == ConnectionTestPhase.RUNNING &&
+                                (current.liveLatencyMs != reading?.milliseconds || current.liveLatencySampledAt != reading?.sampledAt))
+                                _state.value = current.copy(liveLatencyMs = reading?.milliseconds, liveLatencySampledAt = reading?.sampledAt)
+                        }) { SpeedTestClient.router { publishActivity(id, it) } }
+                } finally {
+                    runtime.release(telemetryOwner)
+                }
                 update(state.value.copy(result = result, completed = 1, phase = ConnectionTestPhase.COMPLETED,
                     endedAt = System.currentTimeMillis()))
             } else {
@@ -163,7 +178,8 @@ internal class ConnectionTestController private constructor(context: Context) {
         try { update(next) } catch (_: Exception) { _state.value = next }
     }
     private suspend fun update(next: ConnectionTestState) {
-        val value = if (next.phase == ConnectionTestPhase.RUNNING) next else next.copy(liveActivity = SpeedTestActivity.UNKNOWN)
+        val value = if (next.phase == ConnectionTestPhase.RUNNING) next
+            else next.copy(liveActivity = SpeedTestActivity.UNKNOWN, liveLatencyMs = null, liveLatencySampledAt = null)
         withContext(Dispatchers.IO) { save(value) }
         _state.value = value
     }
@@ -183,6 +199,8 @@ internal class ConnectionTestController private constructor(context: Context) {
                 put("down", result.downloadMbps.toDouble()); put("up", result.uploadMbps.toDouble())
                 put("down_measured", result.downloadMeasured); put("up_measured", result.uploadMeasured)
                 result.latencyMs?.let { put("latency", it.toDouble()) }
+                result.latencySource?.let { put("latency_source", it.name) }
+                result.latencySampledAt?.let { put("latency_sample_time", it) }
             }) }
             if (state.runs.isNotEmpty()) put("extreme", ExtremeSession(state.id, state.total, state.startedAt, state.endedAt, state.runs).executionJson())
         }
@@ -213,7 +231,8 @@ internal class ConnectionTestController private constructor(context: Context) {
         }
         val result = json.optJSONObject("result")?.let { SpeedTestResult(it.optDouble("down").toFloat(),
             it.optDouble("up").toFloat(), it.optDouble("latency").takeIf { n -> n.isFinite() }?.toFloat(),
-            it.optBoolean("down_measured", true), it.optBoolean("up_measured", true)) }
+            it.optBoolean("down_measured", true), it.optBoolean("up_measured", true),
+            testLatencySourceFromJson(it), it.optLong("latency_sample_time").takeIf { n -> n > 0 }) }
         val extreme = json.optJSONObject("extreme")?.let(::executionSessionFromJson)
         val stored = ConnectionTestState(json.getLong("id"), ConnectionTestKind.valueOf(json.getString("kind")),
             ConnectionTestPhase.valueOf(json.getString("phase")), json.getLong("start"), json.getLong("end"),

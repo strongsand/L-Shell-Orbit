@@ -137,12 +137,5 @@ class CardLayoutTest {
         assertEquals(listOf("upload", "download", "latency", "signal", "power"), saved)
     }
 
-    @Test fun dragFeedbackRespectsDisabledAndSubtlePreferences() {
-        for (event in listOf(DashFeedback.DRAG_STARTED, DashFeedback.DRAG_SNAP, DashFeedback.DRAG_COMPLETED)) {
-            assertNull(hapticGesture(event, HapticLevel.OFF))
-            assertEquals(HapticGesture.SOFT_TICK, hapticGesture(event, HapticLevel.SUBTLE))
-        }
-        assertEquals(HapticGesture.START, hapticGesture(DashFeedback.DRAG_STARTED, HapticLevel.STANDARD))
-        assertEquals(HapticGesture.END, hapticGesture(DashFeedback.DRAG_COMPLETED, HapticLevel.STANDARD))
-    }
+
 }

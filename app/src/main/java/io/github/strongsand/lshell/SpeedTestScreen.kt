@@ -120,7 +120,11 @@ private fun NormalTestResult(state: ConnectionTestState, canStart: Boolean, onRu
         TestResultBanner(androidx.compose.ui.res.stringResource(R.string.product_normal_test),
             androidx.compose.ui.res.stringResource(model.title), null, success)
         TestResultRates(model.metrics)
-        TestResultFacts(model.metrics, model.durationSeconds?.let { testNotificationDuration(context, it) })
+        TestResultFacts(model.metrics, model.durationSeconds?.let { testNotificationDuration(context, it) },
+            latencyLabel = normalTestLatencyLabel(state.result))
+        if (state.result?.latencySource == TestLatencySource.POP_TELEMETRY)
+            Text(androidx.compose.ui.res.stringResource(R.string.test_pop_latency_summary),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         val interaction = remember { MutableInteractionSource() }
         Button(onClick = hapticClick(DashFeedback.SPECIAL, onRun), enabled = canStart,
             interactionSource = interaction, modifier = Modifier.fillMaxWidth().pressMotion(interaction, .96f)) {

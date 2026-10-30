@@ -75,12 +75,13 @@ private fun TestResultRate(label: String, value: Float?, icon: ImageVector, cont
 }
 
 @Composable
-internal fun TestResultFacts(metrics: TestMetrics, duration: String?, averages: Boolean = false) {
+internal fun TestResultFacts(metrics: TestMetrics, duration: String?, averages: Boolean = false,
+    latencyLabel: Int = R.string.test_latency) {
     val latency = ConnectionTestPresentation.valid(metrics.latency)?.let {
         stringResource(R.string.test_latency_value, String.format(Locale.getDefault(), "%.1f", it))
     } ?: stringResource(R.string.test_metric_unavailable)
     TestResultPair(
-        first = { modifier -> TestResultFact(stringResource(if (averages) R.string.test_average_latency else R.string.test_latency),
+        first = { modifier -> TestResultFact(stringResource(if (averages) R.string.test_average_latency else latencyLabel),
             latency, OrbitSymbols.Speed, modifier) },
         second = { modifier -> TestResultFact(stringResource(R.string.test_total_duration),
             duration ?: stringResource(R.string.test_metric_unavailable), OrbitSymbols.Schedule, modifier) }

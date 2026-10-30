@@ -1,6 +1,15 @@
 # Changelog
 
-## 0.2.0-beta.2 — prepared, not published
+## 0.2.0-beta.3 — prepared, not published
+
+- Added Original and Black and white choices under AMOLED, with a persistent selection and neutral app/widget colors.
+- Removed the custom haptic feedback setting while retaining Android-controlled feedback and existing actions.
+- Added an identified PoP latency reading from live Dishy gRPC telemetry during normal router speed tests, with freshness checks and unavailable states.
+- Explicitly selected Android SDK 37.0 to match the platform package name on clean build environments. F-Droid build and binary reproducibility remain to be verified by a new pipeline.
+
+The maintainer reports that the debug build works on a physical device. The final signed release still needs smoke testing. Known review findings remain: the compass has a white-on-white detail; Android 15 widget-picker previews may retain the previous variant; compact test history does not label PoP latency; outage-state and terminal/router identity checks need strengthening. These are not claimed as fixed in this version.
+
+## 0.2.0-beta.2
 
 - Added PoE input voltage from compatible routers, with terminal association and freshness checks. This is not cable-output voltage or a current measurement.
 - Added an optional Power Monitor for voltage, signed current/power and net energy received over Beacon HTTP, with explicit simulated-data labels, freshness and session charts.

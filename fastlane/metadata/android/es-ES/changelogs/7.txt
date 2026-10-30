@@ -1,0 +1,1 @@
+AMOLED con opciones Original y Blanco y negro, conservando la selección. Latencia PoP de la telemetría Starlink durante la prueba normal, identificada por separado de la medición de velocidad. Retirado el ajuste de respuesta háptica personalizada. Ajustada la selección del SDK Android 37.0 para entornos de compilación nuevos.

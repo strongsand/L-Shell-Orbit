@@ -226,18 +226,7 @@ fun LShellTheme(
             onSurface = Color(0xFF242218), onSurfaceVariant = Color(0xFF625D4E))
     }
 
-    val resolvedColors = if (amoled)
-        colorScheme.copy(
-            background = Color.Black, onBackground = Color(0xFFF2F2F2),
-            surface = Color.Black, onSurface = Color(0xFFF2F2F2),
-            surfaceDim = Color.Black, surfaceBright = Color(0xFF181818),
-            surfaceContainerLowest = Color.Black, surfaceContainerLow = Color(0xFF080808),
-            surfaceContainer = Color(0xFF0A0A0A), surfaceContainerHigh = Color(0xFF101010),
-            surfaceContainerHighest = Color(0xFF181818),
-            surfaceVariant = Color(0xFF101010), onSurfaceVariant = Color(0xFFBDBDBD),
-            outline = Color(0xFF666666), outlineVariant = Color(0xFF242424),
-            surfaceTint = Color.Black
-        ) else colorScheme
+    val resolvedColors = if (amoled) amoledPalette(colorScheme, LocalExperience.current.amoledColors) else colorScheme
     MaterialTheme(
         colorScheme = resolvedColors,
         typography = DashDesign.typography,

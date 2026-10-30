@@ -49,8 +49,8 @@ class ConnectionTestService : Service() {
             if (Build.VERSION.SDK_INT >= 29) startForeground(ID, initial, ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
             else startForeground(ID, initial)
         } catch (_: RuntimeException) { controller.failedToStart(id); stopSelf(); return START_NOT_STICKY }
-        // Extreme rounds need the same snapshots as the visible Activity. A normal
-        // router test needs no additional Dishy polling after the UI leaves.
+        // Extreme rounds keep their existing lease. Normal-test PoP telemetry is
+        // leased by the shared controller, also for executions owned by a worker.
         try {
             if (state.kind == ConnectionTestKind.EXTREME) { runtime.acquire(OWNER, 2000L); ownsTelemetry = true }
         }

@@ -43,6 +43,7 @@ internal fun MetricDetailChart(series: MetricHistorySeries, title: String, unit:
     zone: String? = null, eventMarkers: List<Long> = emptyList(), initialSelectedTime: Long? = null,
     selectionContent: (@Composable (MetricHistoryPoint?, Long, () -> Unit) -> Unit)? = null) {
     val palette = MaterialTheme.colorScheme
+    val monochrome = LocalExperience.current.monochrome
     val density = LocalDensity.current
     val rawValues = remember(series) { series.values }
     val truePeak = remember(rawValues) { rawValues.maxOrNull() }
@@ -185,7 +186,7 @@ internal fun MetricDetailChart(series: MetricHistorySeries, title: String, unit:
                 Box(Modifier.fillMaxWidth().height(height).onSizeChanged { measuredWidth = it.width }) {
                     // Cached paths never read selection. Moving the crosshair redraws only its overlay.
                     val labelRoom = with(density) { timeRail.toPx() }
-                    val staticPlot = remember(plotted, visible, scale, gutter, labels, palette, labelRoom, eventMarkers) {
+                    val staticPlot = remember(plotted, visible, scale, gutter, labels, palette, monochrome, labelRoom, eventMarkers) {
                         Modifier.fillMaxSize().clipToBounds().drawWithCache {
                         val left = gutter.toPx(); val right = maxOf(left + 1, size.width - 8.dp.toPx())
                         val top = maxOf(labelRoom, labels.maxOf { it.size.height } / 2f + 4.dp.toPx())
@@ -213,7 +214,14 @@ internal fun MetricDetailChart(series: MetricHistorySeries, title: String, unit:
                                 drawText(labels[index], topLeft = Offset(0f, yy - labels[index].size.height / 2))
                             }
                             clipRect(left = left, top = top, right = right, bottom = bottom) {
-                                paths.forEach { (color, path) -> drawPath(path, color, style = Stroke(2.dp.toPx(), cap = StrokeCap.Round)) }
+                                paths.forEach { (color, path) ->
+                                    val pattern = if (!monochrome) null else when (color) {
+                                        palette.secondary -> androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 3.dp.toPx()))
+                                        palette.tertiary -> androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(2.dp.toPx(), 3.dp.toPx()))
+                                        else -> null
+                                    }
+                                    drawPath(path, color, style = Stroke(2.dp.toPx(), cap = StrokeCap.Round, pathEffect = pattern))
+                                }
                                 // Bounded grouped events: ticks retain timing without covering the series.
                                 eventMarkers.filter { it in visible.start until visible.end }.forEach { time ->
                                     drawLine(palette.onSurfaceVariant, Offset(x(time), bottom - 5.dp.toPx()),

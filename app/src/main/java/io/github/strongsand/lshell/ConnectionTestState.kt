@@ -18,7 +18,9 @@ internal data class ConnectionTestState(
     val error: String? = null,
     val origin: TestOrigin = TestOrigin.UNKNOWN,
     // Ephemeral presentation only; not persisted, replayed or used in result calculations.
-    val liveActivity: SpeedTestActivity = SpeedTestActivity.UNKNOWN
+    val liveActivity: SpeedTestActivity = SpeedTestActivity.UNKNOWN,
+    val liveLatencyMs: Float? = null,
+    val liveLatencySampledAt: Long? = null
 ) {
     val active get() = phase in setOf(ConnectionTestPhase.STARTING, ConnectionTestPhase.RUNNING, ConnectionTestPhase.BETWEEN_ROUNDS)
     val currentRound get() = (completed + 1).coerceAtMost(total)

@@ -1,10 +1,6 @@
 package io.github.strongsand.lshell
 
 import android.animation.ValueAnimator
-import android.os.Build
-import android.os.SystemClock
-import android.view.HapticFeedbackConstants
-import android.view.View
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -15,57 +11,26 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 
+/** Compatibility bridge for existing gesture callbacks. Custom vibration is retired.
+ * Platform text controls and accessibility feedback retain Android's normal behavior. */
 @Stable
-class DashHaptics(private val view: View, private val level: () -> HapticLevel) {
-    private var lastFeedback = -100L
-
-    fun perform(feedback: DashFeedback = DashFeedback.TAP) {
-        val now = SystemClock.uptimeMillis()
-        if (!view.isAttachedToWindow || !view.hasWindowFocus() || !view.isHapticFeedbackEnabled || now - lastFeedback < 70L) return
-        lastFeedback = now
-        val gesture = hapticGesture(feedback, level()) ?: return
-        val effect = when (gesture) {
-            HapticGesture.TICK -> if (Build.VERSION.SDK_INT >= 34) HapticFeedbackConstants.SEGMENT_TICK else HapticFeedbackConstants.CLOCK_TICK
-            HapticGesture.SOFT_TICK -> if (Build.VERSION.SDK_INT >= 34) HapticFeedbackConstants.SEGMENT_FREQUENT_TICK else HapticFeedbackConstants.CLOCK_TICK
-            HapticGesture.CONTEXT -> HapticFeedbackConstants.CONTEXT_CLICK
-            HapticGesture.CONFIRM -> if (Build.VERSION.SDK_INT >= 30) HapticFeedbackConstants.CONFIRM else HapticFeedbackConstants.CONTEXT_CLICK
-            HapticGesture.REJECT -> if (Build.VERSION.SDK_INT >= 30) HapticFeedbackConstants.REJECT else HapticFeedbackConstants.CONTEXT_CLICK
-            HapticGesture.START -> if (Build.VERSION.SDK_INT >= 30) HapticFeedbackConstants.GESTURE_START else HapticFeedbackConstants.CONTEXT_CLICK
-            HapticGesture.END -> if (Build.VERSION.SDK_INT >= 30) HapticFeedbackConstants.GESTURE_END else HapticFeedbackConstants.CONTEXT_CLICK
-            HapticGesture.ON -> if (Build.VERSION.SDK_INT >= 34) HapticFeedbackConstants.TOGGLE_ON else HapticFeedbackConstants.CLOCK_TICK
-            HapticGesture.OFF -> if (Build.VERSION.SDK_INT >= 34) HapticFeedbackConstants.TOGGLE_OFF else HapticFeedbackConstants.CLOCK_TICK
-        }
-        // No forced vibrator fallback: View respects system settings and hardware support.
-        runCatching { view.performHapticFeedback(effect) }
-    }
+class DashHaptics {
+    fun perform(@Suppress("UNUSED_PARAMETER") feedback: DashFeedback = DashFeedback.TAP) = Unit
 }
 
 @Composable
-fun rememberDashHaptics(): DashHaptics {
-    val view = LocalView.current
-    val level = rememberUpdatedState(LocalExperience.current.haptics)
-    return remember(view) { DashHaptics(view) { level.value } }
-}
+fun rememberDashHaptics(): DashHaptics = remember { DashHaptics() }
 
 @Composable
-fun hapticClick(feedback: DashFeedback = DashFeedback.TAP, action: () -> Unit): () -> Unit {
-    val haptics = rememberDashHaptics()
-    return { haptics.perform(feedback); action() }
-}
+fun hapticClick(@Suppress("UNUSED_PARAMETER") feedback: DashFeedback = DashFeedback.TAP,
+    action: () -> Unit): () -> Unit = action
 
 @Composable
-fun hapticToggle(action: (Boolean) -> Unit): (Boolean) -> Unit {
-    val haptics = rememberDashHaptics()
-    return { enabled ->
-        haptics.perform(if (enabled) DashFeedback.TOGGLE_ON else DashFeedback.TOGGLE_OFF)
-        action(enabled)
-    }
-}
+fun hapticToggle(action: (Boolean) -> Unit): (Boolean) -> Unit = action
 
 /** Transform only the drawing; hit targets and gesture semantics stay unchanged. */
 @Composable

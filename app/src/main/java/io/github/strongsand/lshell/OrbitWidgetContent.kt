@@ -54,6 +54,7 @@ import java.util.Locale
 @Composable
 private fun WidgetConfiguration(context: Context, content: @Composable () -> Unit) {
     val state = remember(context) { mutableStateOf(Configuration(context.resources.configuration)) }
+    val appearance = remember(context) { mutableStateOf(ExperiencePreferences.read(context)) }
     DisposableEffect(context) {
         val owner = context.applicationContext ?: context
         val callbacks = object : ComponentCallbacks {
@@ -61,28 +62,43 @@ private fun WidgetConfiguration(context: Context, content: @Composable () -> Uni
             override fun onLowMemory() = Unit
         }
         owner.registerComponentCallbacks(callbacks)
-        onDispose { owner.unregisterComponentCallbacks(callbacks) }
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
+            appearance.value = ExperiencePreferences.read(owner)
+        }
+        ExperiencePreferences.observe(owner, listener)
+        onDispose {
+            owner.unregisterComponentCallbacks(callbacks)
+            ExperiencePreferences.stopObserving(owner, listener)
+        }
     }
     val configuration = state.value
     val resourceContext = remember(context, configuration) { context.createConfigurationContext(configuration) }
-    CompositionLocalProvider(LocalConfiguration provides configuration, LocalContext provides resourceContext) { content() }
+    CompositionLocalProvider(LocalConfiguration provides configuration, LocalContext provides resourceContext,
+        LocalExperience provides appearance.value) { content() }
 }
 
 @Composable
 private fun widgetColor(resource: Int): ColorProvider {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
-    return remember(context, configuration, resource) {
+    val appearance = LocalExperience.current
+    return remember(context, configuration, resource, appearance.monochrome) {
         fun color(mode: Int): ComposeColor {
             val themed = Configuration(configuration).apply {
                 uiMode = (uiMode and Configuration.UI_MODE_NIGHT_MASK.inv()) or mode
             }
-            return ComposeColor(context.createConfigurationContext(themed).getColor(resource))
+            return ComposeColor(widgetAppearanceColor(resource, appearance,
+                context.createConfigurationContext(themed).getColor(resource)))
         }
         // Keep both variants in RemoteViews, including after the composition session ends.
         dayNightColorProvider(day = color(Configuration.UI_MODE_NIGHT_NO), night = color(Configuration.UI_MODE_NIGHT_YES))
     }
 }
+
+@Composable
+private fun GlanceModifier.widgetSurface(drawable: Int, color: Int, radius: Int = 28): GlanceModifier =
+    if (LocalExperience.current.monochrome) background(widgetColor(color)).cornerRadius(radius.dp)
+    else background(ImageProvider(drawable))
 
 private enum class WidgetTone(val resource: Int) {
     TEXT(R.color.widget_text), MUTED(R.color.widget_muted), ACCENT(R.color.widget_accent),
@@ -160,7 +176,7 @@ private fun SkyMap(data: ObstructionWidgetData, side: Int) {
         contentDescription = data.presentation.coverage?.let { widgetString(R.string.editorial_map_description, percent(it)) }
             ?: widgetString(R.string.editorial_obstruction),
         modifier = GlanceModifier.size(side.dp), contentScale = ContentScale.Fit)
-    else Box(GlanceModifier.size(side.dp).background(R.color.widget_inner).cornerRadius((side / 2).dp),
+    else Box(GlanceModifier.size(side.dp).background(widgetColor(R.color.widget_inner)).cornerRadius((side / 2).dp),
         contentAlignment = Alignment.Center) {
         Image(ImageProvider(R.drawable.ic_dish_antenna), contentDescription = widgetString(R.string.widget_map_unavailable),
             modifier = GlanceModifier.size((side / 2).coerceAtMost(40).dp),
@@ -217,7 +233,7 @@ private fun ReportWidgetBody(context: Context, report: ReportWidgetData?) {
             else {
                 val compact = layout == OrbitWidgetLayout.COMPACT
                 Spacer(GlanceModifier.height(if (compact) 2.dp else 10.dp))
-                Column(GlanceModifier.fillMaxWidth().background(ImageProvider(R.drawable.widget_hero_surface)).padding(if (compact) 10.dp else 16.dp)) {
+                Column(GlanceModifier.fillMaxWidth().widgetSurface(R.drawable.widget_hero_surface, R.color.widget_primary).padding(if (compact) 10.dp else 16.dp)) {
                     WidgetText(value, if (compact) 30 else 42, WidgetTone.ON_TONAL, true)
                     WidgetText(label, 12, WidgetTone.ON_TONAL)
                     WidgetText(reportDay(report.end), 12, WidgetTone.ON_TONAL)
@@ -288,7 +304,7 @@ private fun BeaconWidgetBody(context: Context, data: BeaconWidgetData) {
                 WidgetText(label, if (compact) 16 else 22, tone, true, maxLines = 2)
                 Spacer(GlanceModifier.height(8.dp))
                 if (status != null) {
-                    Column(GlanceModifier.fillMaxWidth().background(ImageProvider(R.drawable.widget_hero_surface)).padding(if (compact) 10.dp else 16.dp)) {
+                    Column(GlanceModifier.fillMaxWidth().widgetSurface(R.drawable.widget_hero_surface, R.color.widget_primary).padding(if (compact) 10.dp else 16.dp)) {
                         WidgetText(value, if (compact) 28 else 42, WidgetTone.ON_TONAL, true)
                         WidgetText(widgetString(R.string.widget_pending), 12, WidgetTone.ON_TONAL)
                     }
@@ -345,7 +361,7 @@ private fun ColumnScope.PrimaryReport(report: ReportWidgetData?, title: String, 
                 modifier = GlanceModifier.defaultWeight())
             Spacer(GlanceModifier.width(8.dp))
             if (report.coverage != null) Column(GlanceModifier.width(84.dp)
-                .background(ImageProvider(R.drawable.widget_coverage_surface)).padding(8.dp),
+                .widgetSurface(R.drawable.widget_coverage_surface, R.color.widget_inner, 24).padding(8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally) {
                 WidgetText(percent(report.coverage), 22, WidgetTone.TEXT, true)
                 WidgetText(widgetString(R.string.widget_observed_short), 11, WidgetTone.MUTED)
@@ -362,7 +378,7 @@ private fun ColumnScope.PrimaryBeacon(data: BeaconWidgetData, title: String, val
     if (!data.configured) EmptyWidgetState(label, widgetString(R.string.editorial_widget_setup))
     else {
         Row(GlanceModifier.fillMaxWidth().defaultWeight(), verticalAlignment = Alignment.CenterVertically) {
-            Column(GlanceModifier.defaultWeight().background(ImageProvider(R.drawable.widget_state_surface)).padding(12.dp)) {
+            Column(GlanceModifier.defaultWeight().widgetSurface(R.drawable.widget_state_surface, R.color.widget_primary).padding(12.dp)) {
                 WidgetText(widgetString(if (state == BeaconWidgetState.RECORDING)
                     R.string.widget_collection_active else R.string.widget_operational_state), 10, WidgetTone.ON_TONAL, true)
                 Spacer(GlanceModifier.height(4.dp))
@@ -398,7 +414,7 @@ internal fun widgetOpen(context: Context, destination: OrbitWidgetDestination): 
 
 @Composable
 private fun WidgetContainer(open: Intent, content: @Composable ColumnScope.() -> Unit) {
-    Column(GlanceModifier.fillMaxSize().background(ImageProvider(R.drawable.widget_background)).appWidgetBackground()
+    Column(GlanceModifier.fillMaxSize().widgetSurface(R.drawable.widget_background, R.color.widget_background).appWidgetBackground()
         .cornerRadius(R.dimen.widget_outer_radius).clickable(actionStartActivity(open)).padding(12.dp)) { content() }
 }
 

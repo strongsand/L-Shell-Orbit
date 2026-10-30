@@ -26,15 +26,18 @@ Feature availability depends on the terminal, router model, firmware, network to
 
 - Android 8.0 (API 26) or newer
 - A supported Starlink terminal reachable on the local network, normally at `192.168.100.1:9200`
-- Android SDK Platform 37 and JDK 17 to build Orbit
+- Android SDK Platform 37.0 (`platforms;android-37.0`) and JDK 17 to build Orbit
 - Camera, location, and device sensors for the corresponding AR functions
 
 The app does not require a Starlink account. Router features also require the supported local router endpoint to be reachable.
 
 The maintainer has reported on-device testing with a Nothing Phone (1) and real Starlink equipment in earlier development builds. The terminal/router model and firmware have not been recorded as a verified compatibility matrix. Physical smoke testing of this exact beta remains pending. Router monitoring and router speed tests depend on a compatible router at `192.168.1.1:9000`; third-party routers and bypass mode may not expose these functions.
 
-Version `0.2.0-beta.2` (code `6`) includes router PoE input voltage on compatible
-equipment. See the [changelog](CHANGELOG.md) for this version's changes.
+The candidate `0.2.0-beta.3` (code `7`) adds a black-and-white AMOLED option and
+identified live PoP latency during normal tests. Router PoE input voltage on
+compatible equipment remains available. See the [changelog](CHANGELOG.md) for
+changes and known limitations, and [Android build notes](docs/ANDROID-BUILD.md)
+for the SDK 37.0 configuration. This candidate is not yet published.
 The separate Android Beacon Host and experimental firmware/relay are not included.
 AR satellite positions are predictions, not identification of the active link.
 

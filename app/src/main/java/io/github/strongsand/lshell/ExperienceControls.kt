@@ -25,21 +25,35 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 
 @Composable
 fun ExperienceControls() {
     val settings = LocalExperience.current
     val context = LocalContext.current
     var themeOpen by rememberSaveable { mutableStateOf(false) }
-    var hapticsOpen by rememberSaveable { mutableStateOf(false) }
-    val selectTheme: (OrbitTheme) -> Unit = { ExperiencePreferences.write(context,settings.copy(theme = it)) }
-    val selectHaptics: (HapticLevel) -> Unit = { ExperiencePreferences.write(context,settings.copy(haptics = it)) }
+    var amoledColorsOpen by rememberSaveable { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    fun saveAppearance(updated: ExperienceSettings) {
+        if (updated == settings) return
+        ExperiencePreferences.write(context, updated)
+        // One existing widget refresh per explicit appearance change; no periodic work.
+        scope.launch {
+            try { refreshLShellWidgets(context) }
+            catch (cancelled: CancellationException) { throw cancelled }
+            catch (_: Exception) { /* Widget availability must not block an appearance choice. */ }
+        }
+    }
+    val selectTheme: (OrbitTheme) -> Unit = { saveAppearance(settings.copy(theme = it)) }
+    val selectAmoledColors: (AmoledColors) -> Unit = { saveAppearance(settings.copy(amoledColors = it)) }
     if (LocalGroupedSettings.current) {
         SettingsThemeSelector(settings.theme, selectTheme)
-        SettingsHapticSelector(settings.haptics, selectHaptics)
+        if (settings.theme == OrbitTheme.AMOLED) SettingsAmoledColorsSelector(settings.amoledColors, selectAmoledColors)
     } else {
         SettingsActionRow(stringResource(R.string.experience_theme),themeLabel(settings.theme)) { themeOpen = true }
-        SettingsActionRow(stringResource(R.string.experience_haptics),hapticLabel(settings.haptics)) { hapticsOpen = true }
+        if (settings.theme == OrbitTheme.AMOLED)
+            SettingsActionRow(stringResource(R.string.amoled_colors), amoledColorsLabel(settings.amoledColors)) { amoledColorsOpen = true }
     }
     SettingsSwitchRow(stringResource(R.string.settings_technical),settings.technical,
         stringResource(R.string.settings_technical_summary), emphasized = true, icon = OrbitSymbols.Tune) {
@@ -49,9 +63,9 @@ fun ExperienceControls() {
         OrbitTheme.entries.map { themeLabel(it) },settings.theme.ordinal,dismiss = { themeOpen = false }) {
         selectTheme(OrbitTheme.entries[it])
     }
-    if (hapticsOpen) SettingsChoiceDialog(stringResource(R.string.experience_haptics),
-        HapticLevel.entries.map { hapticLabel(it) },settings.haptics.ordinal,dismiss = { hapticsOpen = false }) {
-        selectHaptics(HapticLevel.entries[it])
+    if (amoledColorsOpen && settings.theme == OrbitTheme.AMOLED) SettingsChoiceDialog(stringResource(R.string.amoled_colors),
+        AmoledColors.entries.map { amoledColorsLabel(it) },settings.amoledColors.ordinal,dismiss = { amoledColorsOpen = false }) {
+        selectAmoledColors(AmoledColors.entries[it])
     }
 }
 
@@ -113,23 +127,23 @@ private fun SettingsThemeChoice(theme: OrbitTheme, selected: Boolean, modifier: 
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun SettingsHapticSelector(selected: HapticLevel, onSelect: (HapticLevel) -> Unit) {
+private fun SettingsAmoledColorsSelector(selected: AmoledColors, onSelect: (AmoledColors) -> Unit) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp).selectableGroup(),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text(stringResource(R.string.experience_haptics), Modifier.semantics { heading() },
+        Text(stringResource(R.string.amoled_colors), Modifier.semantics { heading() },
             style = MaterialTheme.typography.titleMedium)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            HapticLevel.entries.forEach { level ->
+            AmoledColors.entries.forEach { level ->
                 val checked = level == selected
                 val interaction = remember(level) { androidx.compose.foundation.interaction.MutableInteractionSource() }
                 val corner by animateDpAsState(if (checked) 16.dp else 28.dp,
                     OrbitMotion.spec(OrbitMotionRole.STATE, LocalOrbitMotion.current),
-                    label = "haptic choice shape")
+                    label = "amoled color choice shape")
                 val container by animateColorAsState(
                     if (checked) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
                     OrbitMotion.spec(OrbitMotionRole.STATE, LocalOrbitMotion.current),
-                    label = "haptic choice surface")
+                    label = "amoled color choice surface")
                 val foreground = if (checked) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface
                 Row(Modifier.pressMotion(interaction).clip(RoundedCornerShape(corner)).background(container)
                     .selectable(checked, interactionSource = interaction, indication = androidx.compose.material3.ripple(), role = Role.RadioButton, onClick = hapticClick { onSelect(level) })
@@ -137,7 +151,7 @@ private fun SettingsHapticSelector(selected: HapticLevel, onSelect: (HapticLevel
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     if (checked) Icon(OrbitSymbols.Check, null, Modifier.size(18.dp), tint = foreground)
                     else Spacer(Modifier.size(18.dp))
-                    Text(hapticLabel(level), Modifier.weight(1f, fill = false),
+                    Text(amoledColorsLabel(level), Modifier.weight(1f, fill = false),
                         style = MaterialTheme.typography.labelLarge, color = foreground)
                 }
             }
@@ -153,9 +167,7 @@ private fun themeLabel(theme: OrbitTheme) = stringResource(when (theme) {
     OrbitTheme.AMOLED -> R.string.theme_amoled
 })
 @Composable
-private fun hapticLabel(level: HapticLevel) = stringResource(when (level) {
-    HapticLevel.OFF -> R.string.haptics_off
-    HapticLevel.SUBTLE -> R.string.haptics_subtle
-    HapticLevel.STANDARD -> R.string.haptics_standard
-    HapticLevel.EXPRESSIVE -> R.string.haptics_expressive
+private fun amoledColorsLabel(level: AmoledColors) = stringResource(when (level) {
+    AmoledColors.ORIGINAL -> R.string.amoled_colors_original
+    AmoledColors.MONOCHROME -> R.string.amoled_colors_monochrome
 })

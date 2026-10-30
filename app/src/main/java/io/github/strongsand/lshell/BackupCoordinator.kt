@@ -271,7 +271,7 @@ private class AndroidBackupBackend(private val app: Context) : BackupRestoreBack
 }
 
 private fun backupPreferences(app: Context): List<BackupPreference> {
-    val defaults: Map<String, Any> = mapOf("theme" to "SYSTEM", "haptics" to "STANDARD", "technical" to false,
+    val defaults: Map<String, Any> = mapOf("theme" to "SYSTEM", "amoled_colors" to "ORIGINAL", "technical" to false,
         "silent_alerts" to false, "interval_seconds" to 60, "ar_max_distance_km" to 1000,
         "hour" to 21, "minute" to 0, "notify" to true, "history" to true, "retention" to "THIRTY", "format" to "BOTH",
         "scheduled" to false, "smart" to false, "interval" to 6, "cooldown" to 12, "smart_limit" to 1,

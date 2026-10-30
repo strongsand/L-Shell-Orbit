@@ -13,14 +13,7 @@ class ExperienceTest {
         assertFalse(OrbitTheme.LIGHT.isDark(true))
         assertTrue(OrbitTheme.SYSTEM.isDark(true))
         assertFalse(OrbitTheme.SYSTEM.isDark(false))
-        assertEquals(ExperienceSettings(), ExperienceSettings(OrbitTheme.SYSTEM, HapticLevel.STANDARD, false))
-    }
-    @Test fun hapticOffAndSubtleRespectPreference() {
-        DashFeedback.entries.forEach { assertNull(hapticGesture(it, HapticLevel.OFF)) }
-        assertEquals(HapticGesture.SOFT_TICK, hapticGesture(DashFeedback.ERROR, HapticLevel.SUBTLE))
-        assertEquals(HapticGesture.CONFIRM, hapticGesture(DashFeedback.SYNC_COMPLETED, HapticLevel.STANDARD))
-        assertEquals(HapticGesture.REJECT, hapticGesture(DashFeedback.DESTRUCTIVE, HapticLevel.EXPRESSIVE))
-        assertEquals(HapticGesture.END, hapticGesture(DashFeedback.SATELLITE_SELECTED, HapticLevel.EXPRESSIVE))
+        assertEquals(ExperienceSettings(), ExperienceSettings(OrbitTheme.SYSTEM, false))
     }
     @Test fun searchHandlesAccentsCaseAndMultipleTerms() {
         assertTrue(matchesFunctionSearch("obstrucao", "Antena e obstruções", "Starlink"))

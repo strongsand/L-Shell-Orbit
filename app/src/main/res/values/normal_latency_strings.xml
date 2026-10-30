@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="test_pop_latency">Latência PoP</string>
+    <string name="test_pop_latency_live">Latência PoP: %1$s</string>
+    <string name="test_pop_latency_summary">Ping PoP da telemetria gRPC, observado durante este teste. Não é uma medição separada de latência do teste de velocidade.</string>
+</resources>

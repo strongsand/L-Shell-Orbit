@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="test_pop_latency">PoP latency</string>
+    <string name="test_pop_latency_live">PoP latency: %1$s</string>
+    <string name="test_pop_latency_summary">PoP ping from gRPC telemetry, observed during this test. This is not a separate speed-test latency measurement.</string>
+</resources>

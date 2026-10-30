@@ -30,10 +30,15 @@ internal fun historicalTestDetail(state: ConnectionTestState) = JSONObject().app
     state.error?.let { put("error", it) }
     state.result?.let { r -> put("result", JSONObject().apply {
         putFinite("down", r.downloadMbps); putFinite("up", r.uploadMbps); putFinite("latency", r.latencyMs)
+        r.latencySource?.let { put("latency_source", it.name) }
+        r.latencySampledAt?.let { put("latency_sample_time", it) }
         put("down_measured", r.downloadMeasured); put("up_measured", r.uploadMeasured)
     }) }
     if (state.runs.isNotEmpty()) put("extreme", ExtremeSession(state.id, state.total, state.startedAt, state.endedAt, state.runs).executionJson())
 }
+
+internal fun testLatencySourceFromJson(json: JSONObject): TestLatencySource? =
+    TestLatencySource.entries.firstOrNull { it.name == json.optString("latency_source") }
 
 internal fun executionSessionFromJson(json: JSONObject): ExtremeSession {
     val array = json.getJSONArray("runs")

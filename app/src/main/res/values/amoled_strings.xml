@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="amoled_colors">Cores do AMOLED</string>
+    <string name="amoled_colors_original">Original</string>
+    <string name="amoled_colors_monochrome">Preto e branco</string>
+</resources>

@@ -21,13 +21,15 @@ android {
     namespace = "io.github.strongsand.lshell"
     // Public framework Live Update (36) and MetricStyle (37) APIs; target remains unchanged.
     compileSdk = 37
+    // Match the published platforms;android-37.0 package on clean SDK installations.
+    compileSdkMinor = 0
 
     defaultConfig {
         applicationId = "io.github.strongsand.lshell"
         minSdk = 26
         targetSdk = 35
-        versionCode = 6
-        versionName = "0.2.0-beta.2"
+        versionCode = 7
+        versionName = "0.2.0-beta.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

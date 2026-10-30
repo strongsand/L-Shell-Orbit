@@ -11,9 +11,13 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
 
+enum class TestLatencySource { SPEED_TEST, POP_TELEMETRY }
+
 data class SpeedTestResult(val downloadMbps: Float, val uploadMbps: Float, val latencyMs: Float? = null,
     // Availability metadata for notification presentation; existing calculations are unchanged.
-    val downloadMeasured: Boolean = true, val uploadMeasured: Boolean = true)
+    val downloadMeasured: Boolean = true, val uploadMeasured: Boolean = true,
+    val latencySource: TestLatencySource? = if (latencyMs == null) null else TestLatencySource.SPEED_TEST,
+    val latencySampledAt: Long? = null)
 
 /** Runs after an explicit tap or opt-in automation admission. Firmware may not support either local RPC. */
 object SpeedTestClient {

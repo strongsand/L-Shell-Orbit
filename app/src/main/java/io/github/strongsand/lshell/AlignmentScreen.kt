@@ -270,6 +270,7 @@ private fun CompletedAlignmentIndicator() {
 private fun CompassDiagram(current: Float, target: Float) {
     val background = amoledCardColor(MaterialTheme.colorScheme.primaryContainer)
     val targetColor = MaterialTheme.colorScheme.onPrimaryContainer
+    val dishInk = if (LocalExperience.current.monochrome) Color.White else Color(0xFFF9F8FD)
     val dishBorder = MaterialTheme.colorScheme.primary.copy(alpha = 0.28f)
     val phase = movingWavePhase()
     val settled by animateFloatAsState(
@@ -310,7 +311,7 @@ private fun CompassDiagram(current: Float, target: Float) {
                 val dishWidth = 64.dp.toPx()
                 val dishHeight = 104.dp.toPx()
                 val topLeft = center - Offset(dishWidth / 2f, dishHeight / 2f)
-                drawRoundRect(Color(0xFFF9F8FD), topLeft = topLeft,
+                drawRoundRect(dishInk, topLeft = topLeft,
                     size = Size(dishWidth, dishHeight),
                     cornerRadius = androidx.compose.ui.geometry.CornerRadius(11.dp.toPx()))
                 drawRoundRect(dishBorder, topLeft = topLeft,
@@ -342,6 +343,7 @@ private fun CompassDiagram(current: Float, target: Float) {
 private fun TiltDiagram(current: Float, target: Float) {
     val background = amoledCardColor(MaterialTheme.colorScheme.primaryContainer)
     val targetColor = MaterialTheme.colorScheme.onPrimaryContainer
+    val dishInk = if (LocalExperience.current.monochrome) Color.White else Color(0xFFF9F8FD)
     val phase = movingWavePhase()
     val tilt by animateFloatAsState(current, spring(stiffness = Spring.StiffnessLow), label = "Antena inclinando")
     val settled by animateFloatAsState(
@@ -394,7 +396,7 @@ private fun TiltDiagram(current: Float, target: Float) {
             (sin(angle) * radius).toFloat())
         drawLine(targetColor.copy(alpha = 0.20f * (1f - settled)), start, tip,
             strokeWidth = 21.dp.toPx(), cap = StrokeCap.Round)
-        drawLine(Color(0xFFF9F8FD).copy(alpha = 1f - settled), start, tip,
+        drawLine(dishInk.copy(alpha = 1f - settled), start, tip,
             strokeWidth = 16.dp.toPx(), cap = StrokeCap.Round)
         drawCircle(targetColor.copy(alpha = 0.75f * (1f - settled)), 4.dp.toPx(), origin)
 

@@ -163,6 +163,12 @@ internal fun TestActivityCard(state: ConnectionTestState, onStop: (() -> Unit)? 
                 }
             }
             TestTransferLine(state)
+            if (state.kind == ConnectionTestKind.NORMAL) {
+                val ping = normalLiveLatency(state, now)?.let { stringResource(R.string.test_latency_value,
+                    String.format(java.util.Locale.getDefault(), "%.1f", it)) }
+                    ?: stringResource(R.string.test_metric_unavailable)
+                Text(stringResource(R.string.test_pop_latency_live, ping), style = MaterialTheme.typography.bodyMedium)
+            }
             if (state.startedAt > 0) Text(testNotificationDuration(context,
                 ((now - state.startedAt).coerceAtLeast(0L)) / 1000), style = MaterialTheme.typography.labelLarge)
             if (progress != null) LinearProgressIndicator(progress = { animatedProgress.coerceIn(0f, 1f) },

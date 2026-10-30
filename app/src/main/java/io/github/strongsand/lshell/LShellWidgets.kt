@@ -185,26 +185,30 @@ internal fun obstructionBitmap(context: Context, map: DishyGrpcClient.Obstructio
     val bitmap = Bitmap.createBitmap(side, side, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
     val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    val appearance = ExperiencePreferences.read(context)
+    fun color(resource: Int) = widgetAppearanceColor(resource, appearance, context.getColor(resource))
     val center = side / 2f
     val radiusPx = side * 0.46f
     val columnCenter = (map.columns - 1) / 2f
     val rowCenter = (map.rows - 1) / 2f
     val gridRadius = min(columnCenter, rowCenter)
     val pointRadius = (radiusPx / gridRadius * 0.58f).coerceAtLeast(0.6f)
-    paint.color = context.getColor(R.color.widget_inner)
+    paint.color = color(R.color.widget_inner)
     canvas.drawCircle(center, center, radiusPx, paint)
     map.usableFractions.forEachIndexed { index, usable ->
         val x = (index % map.columns - columnCenter) / gridRadius
         val y = (rowCenter - index / map.columns) / gridRadius
         if (x * x + y * y > 1f) return@forEachIndexed
         val cell = skyCell(usable)
-        paint.color = context.getColor(when (cell) {
+        paint.color = color(when (cell) {
             SkyCell.UNKNOWN -> R.color.widget_muted
             SkyCell.FREE -> R.color.widget_online
             SkyCell.PARTIAL -> R.color.widget_accent
             SkyCell.BLOCKED -> R.color.widget_warning
         })
         paint.alpha = if (cell == SkyCell.UNKNOWN) 65 else 255
+        paint.style = if (appearance.monochrome && cell == SkyCell.PARTIAL) Paint.Style.STROKE else Paint.Style.FILL
+        paint.strokeWidth = pointRadius.coerceAtLeast(1f)
         val px = center + x * radiusPx
         val py = center - y * radiusPx
         // Shape supplements color: blocked squares, usable circles, muted unsurveyed dots.
@@ -215,7 +219,7 @@ internal fun obstructionBitmap(context: Context, map: DishyGrpcClient.Obstructio
     paint.alpha = 255
     paint.style = Paint.Style.STROKE
     paint.strokeWidth = side * 0.006f
-    paint.color = context.getColor(R.color.widget_muted)
+    paint.color = color(R.color.widget_muted)
     canvas.drawCircle(center, center, radiusPx, paint)
     return bitmap
 }

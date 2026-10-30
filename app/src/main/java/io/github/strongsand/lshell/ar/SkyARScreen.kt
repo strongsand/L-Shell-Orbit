@@ -149,6 +149,7 @@ private fun SkyARContent(snapshot: DishySnapshot, hudVisible: Boolean, onToggleH
     val lifecycleState by lifecycleOwner.lifecycle.currentStateFlow.collectAsState()
     val arActive = lifecycleState.isAtLeast(Lifecycle.State.STARTED)
     val colorScheme = MaterialTheme.colorScheme
+    val moonInk = if (io.github.strongsand.lshell.LocalExperience.current.monochrome) Color.White else Color(0xFFD6DFE8)
     val darkTheme = io.github.strongsand.lshell.LocalOrbitDark.current
     val satellitePainter = rememberVectorPainter(OrbitSymbols.SatelliteAlt)
     val generationColors = remember(colorScheme) { SatelliteGeneration.entries.associateWith { it.visualColor(colorScheme) } }
@@ -743,7 +744,7 @@ private fun SkyARContent(snapshot: DishySnapshot, hudVisible: Boolean, onToggleH
                             )
                         } else {
                             drawCircle(color = Color(0x22FFFFFF), radius = 22.dp.toPx(), center = Offset(posX, posY))
-                            drawCircle(color = Color(0xFFD6DFE8), radius = 10.dp.toPx(), center = Offset(posX, posY))
+                            drawCircle(color = moonInk, radius = 10.dp.toPx(), center = Offset(posX, posY))
                             drawCircle(color = Color.White, radius = 3.dp.toPx(), center = Offset(posX, posY))
 
                             if (posX + 14.dp.toPx() < w && posY >= 0f && posY < h) drawText(

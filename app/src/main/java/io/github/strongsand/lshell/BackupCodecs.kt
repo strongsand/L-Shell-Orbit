@@ -174,7 +174,7 @@ internal object BackupSettingsCodec {
     private fun choices(g: String, n: String, vararg values: Any) = Rule(g, n) { v -> values.any { it.toString() == v.toString() && (it is Number) == (v is Number) } }
     val rules = listOf(
         choices("orbit_experience", "theme", "SYSTEM", "LIGHT", "DARK", "AMOLED"),
-        choices("orbit_experience", "haptics", "OFF", "SUBTLE", "STANDARD", "EXPRESSIVE"), bool("orbit_experience", "technical"),
+        choices("orbit_experience", "amoled_colors", "ORIGINAL", "MONOCHROME"), bool("orbit_experience", "technical"),
         bool("monitor_preferences", "silent_alerts"), integer("monitor_preferences", "interval_seconds", 1..300),
         choices("monitor_preferences", "ar_max_distance_km", 0, 500, 750, 1000, 1500, 2000),
         bool("daily_report_preferences", "enabled"), integer("daily_report_preferences", "hour", 0..23),

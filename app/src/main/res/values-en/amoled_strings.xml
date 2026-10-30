@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="amoled_colors">AMOLED colors</string>
+    <string name="amoled_colors_original">Original</string>
+    <string name="amoled_colors_monochrome">Black and white</string>
+</resources>

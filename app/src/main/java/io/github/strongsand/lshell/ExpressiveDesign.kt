@@ -95,6 +95,11 @@ fun energyMetricColors() = EnergyMetricColors(
 @Composable
 fun healthColors(tone: HealthTone): HealthColors {
     val dark = LocalOrbitDark.current
+    if (LocalExperience.current.monochrome) {
+        val palette = MaterialTheme.colorScheme
+        return HealthColors(if (tone == HealthTone.UNKNOWN) palette.surfaceContainerLow else palette.surfaceContainerHighest,
+            if (tone == HealthTone.UNKNOWN) palette.onSurfaceVariant else palette.onSurface)
+    }
     return when (tone) {
         HealthTone.GOOD -> if (dark) HealthColors(Color(0xFF153B2B), Color(0xFFA4EBBC))
             else HealthColors(Color(0xFFD8F3E0), Color(0xFF175333))
